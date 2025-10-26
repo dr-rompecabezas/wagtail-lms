@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% load wagtailcore_tags %}
+
+{% block content %}
+<div class="container">
+    <h1>{{ page.title }}</h1>
+
+    {% if page.body %}
+        <div class="intro">
+            {{ page.body|richtext }}
+        </div>
+    {% else %}
+        <div class="intro">
+            <h2>About the Wagtail LMS Example</h2>
+            <p>This is a demonstration project for the wagtail-lms package.</p>
+
+            <h3>Getting Started</h3>
+            <ol>
+                <li>Create a superuser: <code>python example_project/manage.py createsuperuser</code></li>
+                <li>Login to <a href="/admin/">Wagtail Admin</a></li>
+                <li>Upload a SCORM package via <a href="/django-admin/wagtail_lms/scormpackage/add/">Django Admin</a></li>
+                <li>Create a Course Page and assign the SCORM package</li>
+                <li>Test the course as a student!</li>
+            </ol>
+
+            <h3>Quick Links</h3>
+            <ul>
+                <li><a href="/admin/">Wagtail Admin</a> - Manage pages and content</li>
+                <li><a href="/django-admin/">Django Admin</a> - Upload SCORM packages</li>
+                <li><a href="/lms/scorm-packages/">SCORM Packages</a> - View uploaded packages</li>
+            </ul>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
