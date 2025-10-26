@@ -94,4 +94,6 @@ Visit:
 
 ## Next Steps
 
-See [Quick Start Guide](quickstart.md) for creating your first course.
+- **Try the Example Project**: See [example_project/README.md](../example_project/README.md) for a complete setup guide
+- **Create Your First Course**: Upload a SCORM package via Django Admin, then create a Course Page in Wagtail Admin
+- **Learn More**: Check out the [Testing Guide](testing.md) and [Roadmap](roadmap.md)

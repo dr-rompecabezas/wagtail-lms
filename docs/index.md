@@ -5,7 +5,7 @@ Welcome to the Wagtail LMS documentation! Here you'll find all the information y
 ## Getting Started
 
 - [Installation Guide](installation.md)
-- TODO: [Quick Start Guide](quickstart.md)
+- [Example Project Setup](../example_project/README.md)
 
 ## API Reference
 
@@ -19,8 +19,7 @@ Welcome to the Wagtail LMS documentation! Here you'll find all the information y
 ## Development
 
 - [Contributing](contributing.md)
-- TODO: [Code Style Guide](code_style.md)
-- TODO: [Testing](testing.md)
+- [Testing Guide](testing.md)
 - [Release Process](release_process.md)
 - [Changelog](../CHANGELOG.md)
 - [Roadmap](roadmap.md)

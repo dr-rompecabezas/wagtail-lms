@@ -12,19 +12,29 @@ A Learning Management System extension for Wagtail CMS with SCORM 1.2/2004 suppo
 - Django 5.2.3
 - Wagtail 7.0.1
 
-Other versions may work but are untested. See the [Roadmap](https://github.com/dr-rompecabezas/wagtail-lms/docs/roadmap.md) for planned improvements including broader version support, comprehensive testing, and enhanced features.
+Other versions may work but are untested. See the [Roadmap](https://github.com/dr-rompecabezas/wagtail-lms/docs/roadmap.md) for planned improvements including broader version support and CI/CD integration.
 
 ## Features
 
-- 📚 Course management using Wagtail's page system
-- 📦 SCORM 1.2 and 2004 package support
-- 👥 Student enrollment and progress tracking
-- 📊 SCORM API implementation
-- 🔒 Secure content delivery
+- 📚 **Course Management** - Integrate courses into Wagtail's page system
+- 📦 **SCORM Support** - Full SCORM 1.2 and 2004 package compatibility
+- 👥 **Enrollment Tracking** - Automatic student enrollment and progress monitoring
+- 📊 **SCORM API** - Complete runtime API implementation for content interactivity
+- 🔒 **Secure Delivery** - Path-validated content serving with iframe support
+- 💾 **Progress Persistence** - CMI data model storage with suspend/resume capability
+- 🔄 **Concurrency Handling** - Retry logic for SQLite database lock scenarios
 
 ## Development Status
 
-An example project is included in `example_project/` for testing and development purposes. **Note:** The example project is currently work-in-progress and requires debugging before it's fully functional. See `example_project/README.md` for setup instructions.
+✅ **Core functionality tested and working**
+
+- Comprehensive test suite with **86% code coverage**
+- 65+ tests covering models, views, API, and integration workflows
+- Example project fully functional for development and testing
+- Database lock handling for concurrent SCORM operations
+- Wagtail preview mode fully supported
+
+See `example_project/README.md` for setup instructions.
 
 ## Installation
 
@@ -97,6 +107,55 @@ WAGTAIL_LMS_AUTO_ENROLL = False
 - Must be a valid SCORM 1.2 or 2004 ZIP file
 - Must contain `imsmanifest.xml` at the root
 - Launch file must be specified in the manifest
+
+## Development
+
+### Running Tests
+
+The project includes a comprehensive test suite with 86% code coverage.
+
+```bash
+# Install testing dependencies (pytest, pytest-django, pytest-cov)
+uv sync --extra testing
+
+# Run all tests
+PYTHONPATH=. uv run pytest
+
+# Run with coverage report
+PYTHONPATH=. uv run pytest --cov=src/wagtail_lms --cov-report=term-missing
+
+# Run specific test file
+PYTHONPATH=. uv run pytest tests/test_models.py -v
+```
+
+### Database Considerations
+
+**SQLite**: The package includes retry logic with exponential backoff to handle database lock errors during concurrent SCORM API operations. For development with the example project:
+
+```python
+# example_project/settings.py
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": "db.sqlite3",
+        "OPTIONS": {
+            "timeout": 20,  # Increased timeout for SCORM operations
+        },
+    }
+}
+```
+
+**Production**: For production deployments, PostgreSQL is recommended for better concurrency handling:
+
+```python
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": "wagtail_lms",
+        # ... other PostgreSQL settings
+    }
+}
+```
 
 ## Acknowledgments
 

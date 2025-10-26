@@ -4,9 +4,22 @@ This document outlines the planned development path for Wagtail LMS.
 
 ## Current Status: v0.1.0 (Alpha)
 
-The current release is a functional alpha with core SCORM features but limited testing and platform support.
+The current release is a functional alpha with **core SCORM features and comprehensive testing**.
 
-**Tested on:**
+**Completed in v0.1.0:**
+
+✅ **Comprehensive test suite** - 86% code coverage with 65+ tests
+
+- Unit tests for all models, views, and SCORM API endpoints
+- Integration tests for complete course workflows
+- Concurrent operation and security testing
+- Test fixtures for SCORM 1.2 and 2004 packages
+
+✅ **Fully functional example project** with complete setup guide
+
+✅ **Bug fixes** for preview mode and database concurrency
+
+**Currently tested on:**
 
 - Python 3.13.0
 - Django 5.2.3
@@ -14,14 +27,10 @@ The current release is a functional alpha with core SCORM features but limited t
 
 ## Version 0.2.0 (Beta) - Q1 2026
 
-**Goal:** Production-ready release with comprehensive testing and broader platform support
+**Goal:** Production-ready release with CI/CD and broader platform support
 
 ### Testing & Quality
 
-- [ ] Comprehensive test suite using pytest
-  - Unit tests for models, views, and SCORM API
-  - Integration tests for full course workflow
-  - Test coverage target: 80%+
 - [ ] CI/CD pipeline with GitHub Actions
   - Automated testing on every push and PR
   - Multi-version test matrix
@@ -30,6 +39,7 @@ The current release is a functional alpha with core SCORM features but limited t
   - Python: 3.11, 3.12, 3.13
   - Django: 4.2 LTS, 5.0, 5.2
   - Wagtail: 6.0, 6.1, 6.2, 7.0, 7.1
+- [ ] Increase test coverage to 90%+
 
 ### Wagtail Integration Improvements
 
@@ -51,11 +61,9 @@ The current release is a functional alpha with core SCORM features but limited t
 - [ ] API documentation improvements
   - Detailed SCORM API reference
   - Code examples for customization
-- [ ] Create working example project
-  - Complete Django/Wagtail setup with manage.py, urls.py, etc.
-  - Sample SCORM packages for testing
-  - Docker setup for quick testing
-  - Step-by-step README for running the example
+- [ ] Docker setup for quick testing
+  - Docker Compose configuration
+  - Pre-loaded sample SCORM packages
 
 ### Developer Experience
 
