@@ -1,0 +1,48 @@
+{% extends "wagtailadmin/base.html" %}
+{% load i18n wagtailadmin_tags %}
+
+{% block titletag %}SCORM Packages{% endblock %}
+
+{% block content %}
+    <header class="header-title">
+        <h1>SCORM Packages</h1>
+    </header>
+
+    <div class="nice-padding">
+        {% if packages %}
+            <table class="listing">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Version</th>
+                        <th>Created</th>
+                        <th>Launch URL</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for package in packages %}
+                        <tr>
+                            <td>{{ package.title }}</td>
+                            <td>SCORM {{ package.version }}</td>
+                            <td>{{ package.created_at|date:"M d, Y" }}</td>
+                            <td>
+                                {% if package.launch_url %}
+                                    <span class="status-tag primary">Ready</span>
+                                {% else %}
+                                    <span class="status-tag">No launch URL</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="/django-admin/wagtail_lms/scormpackage/{{ package.id }}/change/" class="button button-small">Edit</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p>No SCORM packages have been uploaded yet.</p>
+            <a href="/django-admin/wagtail_lms/scormpackage/add/" class="button bicolor">Add SCORM Package</a>
+        {% endif %}
+    </div>
+{% endblock %}
