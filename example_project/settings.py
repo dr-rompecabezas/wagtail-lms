@@ -90,6 +90,11 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": os.path.join(BASE_DIR, "example_project", "db.sqlite3"),
+        # Increase timeout for concurrent SCORM API writes
+        # SQLite locks the entire DB for writes, so we need to wait longer
+        "OPTIONS": {
+            "timeout": 20,  # Wait up to 20 seconds for locks to release
+        },
     }
 }
 

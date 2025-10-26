@@ -141,7 +141,8 @@ class CoursePage(Page):
         context = super().get_context(request)
 
         # Add enrollment and progress data if user is authenticated
-        if request.user.is_authenticated:
+        # Only query if page is saved (has a pk) to avoid preview errors
+        if request.user.is_authenticated and self.pk:
             try:
                 enrollment = CourseEnrollment.objects.get(
                     user=request.user, course=self
@@ -151,6 +152,10 @@ class CoursePage(Page):
             except CourseEnrollment.DoesNotExist:
                 context["enrollment"] = None
                 context["progress"] = None
+        else:
+            # In preview mode or not authenticated
+            context["enrollment"] = None
+            context["progress"] = None
 
         return context
 

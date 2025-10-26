@@ -1,17 +1,63 @@
 import json
 import mimetypes
 import os
+import time
 from datetime import datetime
+from functools import wraps
 
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db import OperationalError, transaction
 from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import ListView
 
 from .models import CourseEnrollment, CoursePage, SCORMAttempt, SCORMData, SCORMPackage
+
+
+def retry_on_db_lock(max_attempts=3, delay=0.1, backoff=2):
+    """
+    Decorator to retry database operations on OperationalError (database locked).
+
+    This is especially useful for SQLite which has limited concurrency support.
+    SCORM packages often make rapid concurrent API calls, causing lock conflicts.
+
+    Args:
+        max_attempts: Maximum number of retry attempts (default: 3)
+        delay: Initial delay between retries in seconds (default: 0.1)
+        backoff: Multiplier for delay after each attempt (default: 2)
+    """
+
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            attempt = 0
+            current_delay = delay
+
+            while attempt < max_attempts:
+                try:
+                    return func(*args, **kwargs)
+                except OperationalError as e:
+                    attempt += 1
+                    if attempt >= max_attempts:
+                        # Max retries exceeded, re-raise the exception
+                        raise
+
+                    # Only retry on "database is locked" errors
+                    if "database is locked" not in str(e).lower():
+                        raise
+
+                    # Wait before retrying with exponential backoff
+                    time.sleep(current_delay)
+                    current_delay *= backoff
+
+            return func(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
 
 
 class SCORMPackageListView(ListView):
@@ -180,41 +226,55 @@ def get_scorm_value(attempt, key):
         return scorm_data.value
 
 
-def set_scorm_value(attempt, key, value):
-    """Set SCORM data value"""
-    # Update attempt fields for core elements
-    if key == "cmi.core.lesson_status":
-        attempt.completion_status = value
-        attempt.save()
-    elif key == "cmi.core.lesson_location":
-        attempt.location = value
-        attempt.save()
-    elif key == "cmi.suspend_data":
-        attempt.suspend_data = value
-        attempt.save()
-    elif key == "cmi.core.score.raw":
-        try:
-            attempt.score_raw = float(value)
-            attempt.save()
-        except ValueError:
-            pass
-    elif key == "cmi.core.score.max":
-        try:
-            attempt.score_max = float(value)
-            attempt.save()
-        except ValueError:
-            pass
-    elif key == "cmi.core.score.min":
-        try:
-            attempt.score_min = float(value)
-            attempt.save()
-        except ValueError:
-            pass
+@retry_on_db_lock(max_attempts=5, delay=0.05, backoff=1.5)
+def set_scorm_value(attempt, key, value):  # noqa: C901
+    """
+    Set SCORM data value with retry logic for database lock errors.
 
-    # Store all data in SCORMData model
-    SCORMData.objects.update_or_create(
-        attempt=attempt, key=key, defaults={"value": value}
-    )
+    Uses transaction.atomic() to ensure consistency and @retry_on_db_lock
+    to handle SQLite concurrency limitations when SCORM content makes
+    rapid concurrent API calls.
+    """
+    with transaction.atomic():
+        # Update attempt fields for core elements
+        attempt_modified = False
+
+        if key == "cmi.core.lesson_status":
+            attempt.completion_status = value
+            attempt_modified = True
+        elif key == "cmi.core.lesson_location":
+            attempt.location = value
+            attempt_modified = True
+        elif key == "cmi.suspend_data":
+            attempt.suspend_data = value
+            attempt_modified = True
+        elif key == "cmi.core.score.raw":
+            try:
+                attempt.score_raw = float(value)
+                attempt_modified = True
+            except ValueError:
+                pass
+        elif key == "cmi.core.score.max":
+            try:
+                attempt.score_max = float(value)
+                attempt_modified = True
+            except ValueError:
+                pass
+        elif key == "cmi.core.score.min":
+            try:
+                attempt.score_min = float(value)
+                attempt_modified = True
+            except ValueError:
+                pass
+
+        # Save attempt if modified
+        if attempt_modified:
+            attempt.save()
+
+        # Store all data in SCORMData model
+        SCORMData.objects.update_or_create(
+            attempt=attempt, key=key, defaults={"value": value}
+        )
 
 
 def get_error_string(error_code):
