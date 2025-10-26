@@ -1,0 +1,38 @@
+.scorm-package-info {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+}
+
+.scorm-status {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 3px;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.scorm-status.ready {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.scorm-status.error {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+.scorm-metadata {
+    margin-top: 10px;
+}
+
+.scorm-metadata dt {
+    font-weight: bold;
+    margin-top: 5px;
+}
+
+.scorm-metadata dd {
+    margin-left: 20px;
+    color: #666;
+}

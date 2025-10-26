@@ -1,0 +1,74 @@
+[build-system]
+requires = ["uv_build >= 0.9.5, <0.10.0"]
+build-backend = "uv_build"
+
+[project]
+name = "wagtail_lms"
+version = "0.1.0"
+description = "A Learning Management System extension for Wagtail with SCORM and xAPI support"
+readme = "README.md"
+authors = [
+    {name = "Felipe Villegas", email = "felavid@gmail.com"}
+]
+license = {text = "MIT"}
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Web Environment",
+    "Framework :: Django",
+    "Framework :: Django :: 5.2",
+    "Framework :: Wagtail",
+    "Framework :: Wagtail :: 7",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Education",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+]
+keywords = ["wagtail", "django", "lms", "scorm", "xAPI", "e-learning", "education"]
+requires-python = ">=3.13"
+dependencies = [
+    "Django>=5.2.3",
+    "wagtail>=7.0.1",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14.2",
+    "pre-commit>=3.6.0",
+]
+
+[project.optional-dependencies]
+testing = [
+    "pytest>=7.4.2",
+    "pytest-django>=4.5.2",
+    "pytest-cov>=4.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/dr-rompecabezas/wagtail-lms"
+Documentation = "https://wagtail-lms.readthedocs.io"
+Repository = "https://github.com/dr-rompecabezas/wagtail-lms"
+"Bug Tracker" = "https://github.com/dr-rompecabezas/wagtail-lms/issues"
+Changelog = "https://github.com/dr-rompecabezas/wagtail-lms/blob/main/CHANGELOG.md"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "DJ",  # flake8-django
+    "C90", # mccabe
+    "RUF", # ruff-specific rules
+    "TRY", # tryceratops
+]
+ignore = ["TRY003", "E501", "RUF012"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "tests.settings"
+python_files = ["test_*.py"]

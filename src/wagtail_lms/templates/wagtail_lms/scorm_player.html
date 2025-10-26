@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+
+{% block title %}{{ course.title }} - SCORM Player{% endblock %}
+
+{% block content %}
+<div class="scorm-player-container">
+    <div class="scorm-header">
+        <h2>{{ course.title }}</h2>
+        <div class="scorm-controls">
+            <a href="{{ course.url }}" class="btn btn-secondary">Back to Course</a>
+            <span class="scorm-status">Status: <span id="scorm-status">Loading...</span></span>
+        </div>
+    </div>
+
+    <div class="scorm-content">
+        <iframe
+            id="scorm-frame"
+            src="{{ launch_url }}"
+            width="100%"
+            height="600"
+            frameborder="0"
+            allowfullscreen>
+        </iframe>
+    </div>
+</div>
+
+<script>
+// SCORM API Implementation
+var API = {
+    initialized: false,
+    terminated: false,
+
+    LMSInitialize: function(parameter) {
+        if (this.initialized) {
+            return "false";
+        }
+
+        this.initialized = true;
+        this.callAPI('Initialize', [parameter]);
+        document.getElementById('scorm-status').textContent = 'Initialized';
+        return "true";
+    },
+
+    LMSTerminate: function(parameter) {
+        if (!this.initialized || this.terminated) {
+            return "false";
+        }
+
+        this.terminated = true;
+        this.callAPI('Terminate', [parameter]);
+        document.getElementById('scorm-status').textContent = 'Terminated';
+        return "true";
+    },
+
+    LMSGetValue: function(element) {
+        if (!this.initialized || this.terminated) {
+            return "";
+        }
+
+        return this.callAPI('GetValue', [element], false);
+    },
+
+    LMSSetValue: function(element, value) {
+        if (!this.initialized || this.terminated) {
+            return "false";
+        }
+
+        this.callAPI('SetValue', [element, value]);
+
+        // Update status display for lesson status changes
+        if (element === 'cmi.core.lesson_status') {
+            document.getElementById('scorm-status').textContent = 'Status: ' + value;
+        }
+
+        return "true";
+    },
+
+    LMSCommit: function(parameter) {
+        if (!this.initialized || this.terminated) {
+            return "false";
+        }
+
+        this.callAPI('Commit', [parameter]);
+        return "true";
+    },
+
+    LMSGetLastError: function() {
+        return this.callAPI('GetLastError', [], false) || "0";
+    },
+
+    LMSGetErrorString: function(errorCode) {
+        return this.callAPI('GetErrorString', [errorCode], false) || "";
+    },
+
+    LMSGetDiagnostic: function(errorCode) {
+        return this.callAPI('GetDiagnostic', [errorCode], false) || "";
+    },
+
+    callAPI: function(method, parameters, async = true) {
+        const data = {
+            method: method,
+            parameters: parameters || []
+        };
+
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '{% url "wagtail_lms:scorm_api" attempt.id %}', async);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.setRequestHeader('X-CSRFToken', '{{ csrf_token }}');
+
+        if (!async) {
+            xhr.send(JSON.stringify(data));
+            if (xhr.status === 200) {
+                const response = JSON.parse(xhr.responseText);
+                return response.result;
+            }
+            return "";
+        } else {
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    const response = JSON.parse(xhr.responseText);
+                    console.log('SCORM API Response:', response);
+                }
+            };
+            xhr.send(JSON.stringify(data));
+        }
+    }
+};
+
+// Make API available to SCORM content
+window.API = API;
+window.API_1484_11 = API; // SCORM 2004 API
+
+// Auto-save periodically
+setInterval(function() {
+    if (API.initialized && !API.terminated) {
+        API.LMSCommit("");
+    }
+}, 30000); // Save every 30 seconds
+
+// Handle page unload
+window.addEventListener('beforeunload', function() {
+    if (API.initialized && !API.terminated) {
+        API.LMSCommit("");
+        API.LMSTerminate("");
+    }
+});
+
+console.log('SCORM API loaded and ready');
+</script>
+
+<style>
+.scorm-player-container {
+    margin: 0;
+    padding: 0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.scorm-header {
+    background-color: #f8f9fa;
+    padding: 15px 20px;
+    border-bottom: 1px solid #dee2e6;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.scorm-header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+}
+
+.scorm-controls {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.scorm-status {
+    font-weight: bold;
+    color: #6c757d;
+}
+
+.scorm-content {
+    flex: 1;
+    position: relative;
+}
+
+#scorm-frame {
+    border: none;
+    width: 100%;
+    height: 100%;
+}
+
+.btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    text-decoration: none;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.btn-secondary {
+    background-color: #6c757d;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background-color: #5a6268;
+    color: white;
+}
+</style>
+{% endblock %}
