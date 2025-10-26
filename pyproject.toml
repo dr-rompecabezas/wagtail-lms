@@ -37,6 +37,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "ruff>=0.14.2",
+    "pre-commit>=3.6.0",
 ]
 
 [project.optional-dependencies]
@@ -44,11 +45,6 @@ testing = [
     "pytest>=7.4.2",
     "pytest-django>=4.5.2",
     "pytest-cov>=4.0",
-    "pre-commit>=3.6.0",
-]
-docs = [
-    "mkdocs>=1.5.3",
-    "mkdocs-material>=9.4.5",
 ]
 
 [project.urls]
