@@ -12,7 +12,7 @@ A Learning Management System extension for Wagtail CMS with SCORM 1.2/2004 suppo
 - Django 5.2.3
 - Wagtail 7.0.1
 
-Other versions may work but are untested. See the [Roadmap](https://github.com/dr-rompecabezas/wagtail-lms/docs/roadmap.md) for planned improvements including broader version support and CI/CD integration.
+Other versions may work but are untested. Refer to the [Roadmap](https://github.com/dr-rompecabezas/wagtail-lms/blob/main/docs/roadmap.md) for planned enhancements, including broader version support and CI/CD integration.
 
 ## Features
 
@@ -165,4 +165,4 @@ DATABASES = {
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](https://github.com/dr-rompecabezas/LICENSE) file for details.
+This project is licensed under the MIT License. See the [LICENSE](https://github.com/dr-rompecabezas/wagtail-lms/blob/main/LICENSE) file for details.
