@@ -16,9 +16,27 @@ You have three options, depending on your needs:
 
 ### Option 1: Use the Default Styles (Quickest)
 
-Just install and go! The default styles provide a clean, functional interface.
+Include the LMS CSS in your base template's `<head>` section:
 
-No additional setup required.
+```django
+{# templates/base.html #}
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <!-- Your site CSS -->
+    <link rel="stylesheet" href="{% static 'css/your-site.css' %}">
+
+    <!-- LMS default styles -->
+    <link rel="stylesheet" href="{% static 'lms/css/course.css' %}">
+</head>
+<body>
+    {% block content %}{% endblock %}
+</body>
+</html>
+```
+
+That's it! The default styles provide a clean, functional interface.
 
 ### Option 2: Override with Your Own CSS (Recommended)
 
@@ -47,7 +65,7 @@ Keep the HTML structure but apply your own styles. Create a custom stylesheet th
 }
 ```
 
-Include your custom CSS after the LMS CSS in your base template:
+Include the LMS CSS and your custom overrides in your base template's `<head>`:
 
 ```django
 {# templates/base.html #}
@@ -56,7 +74,7 @@ Include your custom CSS after the LMS CSS in your base template:
 <html>
 <head>
     <!-- LMS default styles (optional) -->
-    {% block extra_css %}{% endblock %}
+    <link rel="stylesheet" href="{% static 'lms/css/course.css' %}">
 
     <!-- Your custom overrides -->
     <link rel="stylesheet" href="{% static 'css/custom-lms.css' %}">
@@ -349,6 +367,17 @@ Simply don't visit the course page URLs in your application, or override them to
 
 ## Need Help?
 
-- See the default templates in: `site-packages/wagtail_lms/templates/wagtail_lms/`
+**Finding the default templates:**
+
+To locate the installed templates directory (useful for reference when creating overrides):
+
+```bash
+python -c "import wagtail_lms; from pathlib import Path; print(Path(wagtail_lms.__file__).parent / 'templates')"
+```
+
+This will output the path where the default templates are installed, regardless of your environment setup.
+
+**Additional resources:**
+
 - Check Django's template override docs: https://docs.djangoproject.com/en/stable/howto/overriding-templates/
 - Open an issue: https://github.com/dr-rompecabezas/wagtail-lms/issues
