@@ -1,6 +1,5 @@
 """Tests for CSS customization template tags"""
 
-import pytest
 from django.template import Context, Template
 from django.test import override_settings
 
