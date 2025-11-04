@@ -3,16 +3,16 @@
 {% block title %}{{ course.title }} - SCORM Player{% endblock %}
 
 {% block content %}
-<div class="scorm-player-container">
-    <div class="scorm-header">
+<div class="lms-player">
+    <header class="lms-player__header">
         <h2>{{ course.title }}</h2>
-        <div class="scorm-controls">
-            <a href="{{ course.url }}" class="btn btn-secondary">Back to Course</a>
-            <span class="scorm-status">Status: <span id="scorm-status">Loading...</span></span>
+        <div class="lms-player__controls">
+            <a href="{{ course.url }}" class="lms-player__back-button">Back to Course</a>
+            <span class="lms-player__status">Status: <span id="scorm-status">Loading...</span></span>
         </div>
-    </div>
+    </header>
 
-    <div class="scorm-content">
+    <div class="lms-player__content">
         <iframe
             id="scorm-frame"
             src="{{ launch_url }}"
@@ -149,7 +149,8 @@ console.log('SCORM API loaded and ready');
 </script>
 
 <style>
-.scorm-player-container {
+/* Minimal, functional styling for SCORM player */
+.lms-player {
     margin: 0;
     padding: 0;
     height: 100vh;
@@ -157,32 +158,48 @@ console.log('SCORM API loaded and ready');
     flex-direction: column;
 }
 
-.scorm-header {
-    background-color: #f8f9fa;
-    padding: 15px 20px;
-    border-bottom: 1px solid #dee2e6;
+.lms-player__header {
+    background-color: #f5f5f5;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #ddd;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
 }
 
-.scorm-header h2 {
+.lms-player__header h2 {
     margin: 0;
     font-size: 1.5rem;
 }
 
-.scorm-controls {
+.lms-player__controls {
     display: flex;
     align-items: center;
-    gap: 15px;
+    gap: 1rem;
 }
 
-.scorm-status {
-    font-weight: bold;
-    color: #6c757d;
+.lms-player__back-button {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    background-color: #666;
+    color: white;
+    text-decoration: none;
+    border-radius: 4px;
+    font-weight: 500;
 }
 
-.scorm-content {
+.lms-player__back-button:hover {
+    background-color: #555;
+}
+
+.lms-player__status {
+    font-weight: 600;
+    color: #666;
+}
+
+.lms-player__content {
     flex: 1;
     position: relative;
 }
@@ -191,25 +208,6 @@ console.log('SCORM API loaded and ready');
     border: none;
     width: 100%;
     height: 100%;
-}
-
-.btn {
-    padding: 8px 16px;
-    border: none;
-    border-radius: 4px;
-    text-decoration: none;
-    font-weight: 500;
-    cursor: pointer;
-}
-
-.btn-secondary {
-    background-color: #6c757d;
-    color: white;
-}
-
-.btn-secondary:hover {
-    background-color: #5a6268;
-    color: white;
 }
 </style>
 {% endblock %}

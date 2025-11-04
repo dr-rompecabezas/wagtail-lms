@@ -23,6 +23,7 @@ Other versions may work but are untested. Refer to the [Roadmap](https://github.
 - 🔒 **Secure Delivery** - Path-validated content serving with iframe support
 - 💾 **Progress Persistence** - CMI data model storage with suspend/resume capability
 - 🔄 **Concurrency Handling** - Retry logic for SQLite database lock scenarios
+- 🎨 **Framework Agnostic** - Minimal default styling, easy to customize with any CSS framework
 
 ## Development Status
 
@@ -107,6 +108,16 @@ WAGTAIL_LMS_AUTO_ENROLL = False
 - Must be a valid SCORM 1.2 or 2004 ZIP file
 - Must contain `imsmanifest.xml` at the root
 - Launch file must be specified in the manifest
+
+### Customizing Templates
+
+The package includes minimal, functional styling that works out of the box. To match your project's design:
+
+- **Quick:** Override the CSS classes in your own stylesheet
+- **Full control:** Override the templates in your project (standard Django approach)
+- **Examples:** See [Template Customization Guide](docs/template_customization.md) for Bootstrap, Tailwind CSS, and Bulma examples
+
+For API-first projects, the templates are optional and can be ignored entirely.
 
 ## Development
 
