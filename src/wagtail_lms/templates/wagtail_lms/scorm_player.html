@@ -1,17 +1,23 @@
 {% extends "base.html" %}
+{% load lms_tags %}
 
 {% block title %}{{ course.title }} - SCORM Player{% endblock %}
 
 {% block content %}
 <div class="scorm-player-container">
+    {% block scorm_header %}
     <div class="scorm-header">
         <h2>{{ course.title }}</h2>
         <div class="scorm-controls">
-            <a href="{{ course.url }}" class="btn btn-secondary">Back to Course</a>
+            {% block scorm_back_button %}
+            <a href="{{ course.url }}" class="{% css_class 'btn_secondary' %}">Back to Course</a>
+            {% endblock scorm_back_button %}
             <span class="scorm-status">Status: <span id="scorm-status">Loading...</span></span>
         </div>
     </div>
+    {% endblock scorm_header %}
 
+    {% block scorm_content %}
     <div class="scorm-content">
         <iframe
             id="scorm-frame"
@@ -22,6 +28,7 @@
             allowfullscreen>
         </iframe>
     </div>
+    {% endblock scorm_content %}
 </div>
 
 <script>

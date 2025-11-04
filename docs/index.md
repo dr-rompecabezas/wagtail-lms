@@ -15,6 +15,7 @@ Welcome to the Wagtail LMS documentation! Here you'll find all the information y
 
 - TODO: [Creating a Course](user_guides/creating_a_course.md)
 - TODO: [Managing Users](user_guides/managing_users.md)
+- [CSS Framework Customization](css_customization.md)
 
 ## Development
 

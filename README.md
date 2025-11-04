@@ -23,6 +23,7 @@ Other versions may work but are untested. Refer to the [Roadmap](https://github.
 - 🔒 **Secure Delivery** - Path-validated content serving with iframe support
 - 💾 **Progress Persistence** - CMI data model storage with suspend/resume capability
 - 🔄 **Concurrency Handling** - Retry logic for SQLite database lock scenarios
+- 🎨 **CSS Framework Flexibility** - Use Bootstrap, Tailwind CSS, Bulma, or any custom framework
 
 ## Development Status
 
@@ -91,7 +92,17 @@ WAGTAIL_LMS_CONTENT_PATH = 'scorm_content/'
 
 # Auto-enroll users when they visit a course
 WAGTAIL_LMS_AUTO_ENROLL = False
+
+# CSS class mappings (Bootstrap by default)
+# Customize to use Tailwind CSS, Bulma, or any other framework
+WAGTAIL_LMS_CSS_CLASSES = {
+    'container': 'container',
+    'btn_primary': 'btn btn-primary',
+    # ... see docs/css_customization.md for full options
+}
 ```
+
+For detailed CSS framework customization, see the [CSS Customization Guide](docs/css_customization.md).
 
 ## Usage
 
