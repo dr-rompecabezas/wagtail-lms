@@ -21,7 +21,7 @@ Include the LMS CSS in your base template's `<head>` section:
 
 ```django
 {# templates/base.html #}
-{% load static %}
+{% load static wagtailcore_tags %}
 <!DOCTYPE html>
 <html>
 <head>

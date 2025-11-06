@@ -4,7 +4,7 @@ A Learning Management System extension for Wagtail CMS with SCORM 1.2/2004 suppo
 
 ## ⚠️ Alpha Release
 
-**This package is in early development (v0.1.0-alpha).**
+**This package is in early development.**
 
 **Currently tested on:**
 
@@ -115,7 +115,7 @@ The package includes minimal, functional styling that works out of the box. To m
 
 - **Quick:** Override the CSS classes in your own stylesheet
 - **Full control:** Override the templates in your project (standard Django approach)
-- **Examples:** See [Template Customization Guide](docs/template_customization.md) for Bootstrap, Tailwind CSS, and Bulma examples
+- **Examples:** See [Template Customization Guide](https://github.com/dr-rompecabezas/wagtail-lms/blob/main/docs/template_customization.md) for Bootstrap, Tailwind CSS, and Bulma examples
 
 For API-first projects, the templates are optional and can be ignored entirely.
 

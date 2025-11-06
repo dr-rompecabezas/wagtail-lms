@@ -1,3 +1,15 @@
+{#
+  Wagtail LMS Course Page Template
+
+  STYLING: This template uses CSS classes from 'lms/css/course.css'.
+  Include the stylesheet in your base template's <head> section:
+
+    {% load static wagtailcore_tags %}
+    <link rel="stylesheet" href="{% static 'lms/css/course.css' %}">
+
+  Alternatively, override these templates with your own (Bootstrap, Tailwind, etc.).
+  See docs: https://github.com/dr-rompecabezas/wagtail-lms/blob/main/docs/template_customization.md
+#}
 {% extends "base.html" %}
 {% load wagtailcore_tags %}
 

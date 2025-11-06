@@ -7,7 +7,79 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Planned for 0.2.0
+## [0.2.0] - TBD
+
+### Status
+
+**Breaking Changes Release** - Removes Bootstrap classes, adds framework-agnostic styling.
+
+### Breaking Changes
+
+**IMPORTANT:** This release changes template class names. If you installed v0.1.0, you'll need to update your templates.
+
+- **Template class names changed from Bootstrap-style to LMS-prefixed classes**
+  - Old: `.container`, `.row`, `.col-md-8`, `.btn-primary`, `.alert-info`
+  - New: `.lms-course`, `.lms-course__layout`, `.lms-button--primary`, `.lms-notice--info`
+  - **Migration:** Update any custom CSS targeting old classes, or override templates with your own
+  - See [Template Customization Guide](docs/template_customization.md) for examples
+
+### Added
+
+- **Framework-Agnostic Styling**
+  - New `lms/css/course.css` with minimal, functional default styles
+  - BEM-style naming convention (`.lms-component__element--modifier`)
+  - Works out of the box without external CSS frameworks
+  - Fully responsive with mobile-first grid layout
+  - Easy to override or replace with your own styles
+
+- **Comprehensive Template Customization Documentation**
+  - New `docs/template_customization.md` guide
+  - Examples for Bootstrap 5, Tailwind CSS, and Bulma
+  - Three customization approaches: default styles, CSS overrides, or template replacement
+  - Guidance for API-first/headless projects
+  - Dynamic template location finder command
+
+- **Accessibility Improvements**
+  - Added `:focus` state to SCORM player back button for keyboard navigation
+  - Visible focus indicator with outline for better accessibility
+  - Semantic HTML structure with proper ARIA roles
+
+- **Developer Experience**
+  - In-template comments explaining CSS requirements
+  - Clear documentation on including stylesheets in base templates
+  - Example project now demonstrates default LMS styling
+  - Updated release process documentation to use `uv publish` instead of `twine` (closes #2)
+
+- **Testing Infrastructure**
+  - Added `tests/templates/base.html` for template rendering in tests
+  - Updated test settings to include test templates directory
+  - Fixed 4 previously failing tests related to missing base template
+
+### Changed
+
+- Templates now use semantic HTML with BEM-style CSS classes
+- Example project updated to include LMS CSS in base template
+- Removed unused Bootstrap-style classes from example project
+- Updated README with template customization section
+
+### Fixed
+
+- v0.1.0 templates had Bootstrap classes but no CSS (broken out of the box)
+  - Now includes working CSS by default
+  - Clear documentation on how to include it
+- FOUC (Flash of Unstyled Content) issue resolved
+  - Documented proper CSS placement in `<head>` section
+  - Removed inline CSS loading from templates
+
+### Notes for v0.1.0 Users
+
+If you installed v0.1.0 and customized the templates:
+
+1. **If you added Bootstrap yourself:** Continue using it by overriding templates (see docs)
+2. **If you have custom CSS:** Update selectors to target new `.lms-*` classes
+3. **Fresh install recommended:** v0.1.0 templates were incomplete, v0.2.0 provides working defaults
+
+### Planned for 0.3.0
 
 - CI/CD pipeline with GitHub Actions
 - Multi-version testing (Python 3.11-3.13, Django 4.2+, Wagtail 6.x-7.x)
