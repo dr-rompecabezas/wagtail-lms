@@ -103,7 +103,7 @@ Before publishing to the real PyPI, test on TestPyPI:
 
 ```bash
 # Upload to TestPyPI
-uv publish --index-url https://test.pypi.org/legacy/
+uv publish --publish-url https://test.pypi.org/legacy/
 ```
 
 You'll be prompted for your TestPyPI credentials or API token.
