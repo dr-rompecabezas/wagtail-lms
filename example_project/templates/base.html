@@ -7,7 +7,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}{% if page %}{{ page.title }}{% else %}Wagtail LMS Example{% endif %}{% endblock %}</title>
 
-    {# Basic CSS for layout #}
+    {# LMS Default Styles #}
+    <link rel="stylesheet" href="{% static 'lms/css/course.css' %}">
+
+    {# Example Project Styles #}
     <style>
         * {
             margin: 0;
@@ -58,78 +61,6 @@
             max-width: 1200px;
             margin: 0 auto;
             padding: 2rem;
-        }
-
-        .alert {
-            padding: 1rem;
-            margin-bottom: 1rem;
-            border-radius: 4px;
-        }
-
-        .alert-info {
-            background-color: #d1ecf1;
-            border: 1px solid #bee5eb;
-            color: #0c5460;
-        }
-
-        .alert-warning {
-            background-color: #fff3cd;
-            border: 1px solid #ffeaa7;
-            color: #856404;
-        }
-
-        .alert-success {
-            background-color: #d4edda;
-            border: 1px solid #c3e6cb;
-            color: #155724;
-        }
-
-        .btn {
-            display: inline-block;
-            padding: 0.5rem 1rem;
-            margin: 0.25rem;
-            border: none;
-            border-radius: 4px;
-            text-decoration: none;
-            font-weight: 500;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-
-        .btn-primary {
-            background-color: #0c4b33;
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background-color: #094030;
-        }
-
-        .btn-success {
-            background-color: #28a745;
-            color: white;
-        }
-
-        .btn-success:hover {
-            background-color: #218838;
-        }
-
-        .btn-secondary {
-            background-color: #6c757d;
-            color: white;
-        }
-
-        .btn-secondary:hover {
-            background-color: #5a6268;
-        }
-
-        .btn-lg {
-            padding: 0.75rem 1.5rem;
-            font-size: 1.1rem;
-        }
-
-        .course-description, .enrollment-status, .enrollment-actions {
-            margin: 1.5rem 0;
         }
 
         .footer {

@@ -213,6 +213,7 @@ Check that:
 ### Files Appearing in Project Root
 
 If you see `media/` or `static/` directories in the project root instead of in `example_project/`, this means the settings weren't correctly configured. The fixed settings point to:
+
 - `MEDIA_ROOT`: `example_project/media/`
 - `STATIC_ROOT`: `example_project/static_collected/`
 

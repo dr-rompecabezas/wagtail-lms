@@ -1,20 +1,32 @@
+{#
+  Wagtail LMS Course Page Template
+
+  STYLING: This template uses CSS classes from 'lms/css/course.css'.
+  Include the stylesheet in your base template's <head> section:
+
+    {% load static wagtailcore_tags %}
+    <link rel="stylesheet" href="{% static 'lms/css/course.css' %}">
+
+  Alternatively, override these templates with your own (Bootstrap, Tailwind, etc.).
+  See docs: https://github.com/dr-rompecabezas/wagtail-lms/blob/main/docs/template_customization.md
+#}
 {% extends "base.html" %}
 {% load wagtailcore_tags %}
 
 {% block content %}
-<div class="container">
-    <div class="row">
-        <div class="col-md-8">
+<div class="lms-course">
+    <div class="lms-course__layout">
+        <main class="lms-course__main">
             <h1>{{ page.title }}</h1>
 
             {% if page.description %}
-                <div class="course-description">
+                <div class="lms-course__description">
                     {{ page.description|richtext }}
                 </div>
             {% endif %}
 
             {% if page.scorm_package %}
-                <div class="scorm-course-info">
+                <div class="lms-course__info">
                     <h3>Course Content</h3>
                     <p><strong>Package:</strong> {{ page.scorm_package.title }}</p>
                     {% if page.scorm_package.description %}
@@ -24,8 +36,8 @@
 
                 {% if user.is_authenticated %}
                     {% if enrollment %}
-                        <div class="enrollment-status">
-                            <div class="alert alert-info">
+                        <div class="lms-enrollment">
+                            <div class="lms-notice lms-notice--info">
                                 <strong>Enrolled:</strong> {{ enrollment.enrolled_at|date:"M d, Y" }}
                                 {% if progress %}
                                     <br><strong>Progress:</strong> {{ progress.completion_status|title }}
@@ -35,7 +47,7 @@
                                     {% endif %}
                                 {% endif %}
                             </div>
-                            <a href="{% url 'wagtail_lms:scorm_player' page.id %}" class="btn btn-primary btn-lg">
+                            <a href="{% url 'wagtail_lms:scorm_player' page.id %}" class="lms-button lms-button--primary">
                                 {% if progress.completion_status == 'completed' %}
                                     Review Course
                                 {% else %}
@@ -44,35 +56,35 @@
                             </a>
                         </div>
                     {% else %}
-                        <div class="enrollment-actions">
-                            <a href="{% url 'wagtail_lms:enroll_course' page.id %}" class="btn btn-success btn-lg">
+                        <div class="lms-enrollment">
+                            <a href="{% url 'wagtail_lms:enroll_course' page.id %}" class="lms-button lms-button--success">
                                 Enroll in Course
                             </a>
                         </div>
                     {% endif %}
                 {% else %}
-                    <div class="alert alert-warning">
+                    <div class="lms-notice lms-notice--warning">
                         Please login to enroll in this course.
                     </div>
                 {% endif %}
             {% else %}
-                <div class="alert alert-warning">
+                <div class="lms-notice lms-notice--warning">
                     This course doesn't have any content assigned yet.
                 </div>
             {% endif %}
-        </div>
+        </main>
 
-        <div class="col-md-4">
-            <div class="course-sidebar">
+        <aside class="lms-course__sidebar">
+            <div class="lms-sidebar-section">
                 <h4>Course Information</h4>
                 {% if page.scorm_package %}
-                    <ul class="list-unstyled">
+                    <ul class="lms-info-list">
                         <li><strong>Type:</strong> SCORM {{ page.scorm_package.version }}</li>
                         <li><strong>Added:</strong> {{ page.scorm_package.created_at|date:"M d, Y" }}</li>
                     </ul>
                 {% endif %}
             </div>
-        </div>
+        </aside>
     </div>
 </div>
 {% endblock %}
