@@ -5,6 +5,7 @@ Wagtail-LMS provides minimal, framework-agnostic templates that you can easily c
 ## Default Styling
 
 The package includes basic CSS with minimal, functional styling:
+
 - **course.css** - Simple grid layout and basic button/notice styles
 - **Inline styles in scorm_player.html** - Self-contained player interface
 
@@ -91,7 +92,7 @@ Replace the LMS templates with your own. This is the standard Django approach fo
 
 **Step 1:** Create template overrides in your project:
 
-```
+```text
 your-project/
 ├── templates/
 │   └── wagtail_lms/
@@ -116,12 +117,14 @@ TEMPLATES = [{
 ### Available LMS CSS Classes
 
 **Layout:**
+
 - `.lms-course` - Main course container
 - `.lms-course__layout` - Grid layout wrapper
 - `.lms-course__main` - Main content area
 - `.lms-course__sidebar` - Sidebar area
 
 **Components:**
+
 - `.lms-button` - Base button
 - `.lms-button--primary` - Primary action button (blue)
 - `.lms-button--success` - Success button (green)
@@ -131,6 +134,7 @@ TEMPLATES = [{
 - `.lms-notice--success` - Success notice (green)
 
 **Course elements:**
+
 - `.lms-course__description` - Course description
 - `.lms-course__info` - Course package info
 - `.lms-enrollment` - Enrollment section
@@ -138,6 +142,7 @@ TEMPLATES = [{
 - `.lms-info-list` - List of course metadata
 
 **SCORM Player:**
+
 - `.lms-player` - Player container
 - `.lms-player__header` - Player header
 - `.lms-player__controls` - Control buttons area
@@ -379,5 +384,5 @@ This will output the path where the default templates are installed, regardless 
 
 **Additional resources:**
 
-- Check Django's template override docs: https://docs.djangoproject.com/en/stable/howto/overriding-templates/
-- Open an issue: https://github.com/dr-rompecabezas/wagtail-lms/issues
+- Check Django's template override docs: <https://docs.djangoproject.com/en/stable/howto/overriding-templates/>
+- Open an issue: <https://github.com/dr-rompecabezas/wagtail-lms/issues>
