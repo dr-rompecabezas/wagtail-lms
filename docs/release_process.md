@@ -102,11 +102,8 @@ This creates files in the `dist/` directory:
 Before publishing to the real PyPI, test on TestPyPI:
 
 ```bash
-# Install twine if not already available
-uv pip install twine
-
 # Upload to TestPyPI
-uv run twine upload --repository testpypi dist/*
+uv publish --index-url https://test.pypi.org/legacy/
 ```
 
 You'll be prompted for your TestPyPI credentials or API token.
@@ -134,19 +131,22 @@ rm -rf test-env
 If TestPyPI testing was successful, publish to the real PyPI:
 
 ```bash
-uv run twine upload dist/*
+uv publish
 ```
 
 **Using API Token (Recommended):**
 
 Create a PyPI API token at <https://pypi.org/manage/account/token/>
 
-Then use it with twine:
+**Option 1: Set environment variables:**
 
-- Username: `__token__`
-- Password: Your API token (including the `pypi-` prefix)
+```bash
+export UV_PUBLISH_USERNAME=__token__
+export UV_PUBLISH_PASSWORD=pypi-YOUR_API_TOKEN_HERE
+uv publish
+```
 
-**Or configure in `~/.pypirc`:**
+**Option 2: Configure in `~/.pypirc`:**
 
 ```ini
 [distutils]
@@ -161,6 +161,13 @@ password = pypi-YOUR_API_TOKEN_HERE
 [testpypi]
 username = __token__
 password = pypi-YOUR_TESTPYPI_TOKEN_HERE
+```
+
+**Option 3: Use keyring (Most Secure):**
+
+```bash
+# Store token in system keyring
+uv publish --keyring
 ```
 
 ### 8. Create Git Tag
@@ -232,11 +239,12 @@ If `uv build` fails:
 
 ### Upload Fails
 
-If `twine upload` fails:
+If `uv publish` fails:
 
-- Verify your PyPI credentials/token
+- Verify your PyPI credentials/token (check environment variables or `~/.pypirc`)
 - Ensure the version number hasn't already been published (PyPI doesn't allow overwriting)
 - Check that you have maintainer access to the project
+- Try using `--username __token__ --password <token>` flags directly
 
 ### Version Already Exists
 
@@ -267,5 +275,5 @@ on:
 
 - [PyPI Publishing Guide](https://packaging.python.org/tutorials/packaging-projects/)
 - [Semantic Versioning](https://semver.org/)
-- [twine Documentation](https://twine.readthedocs.io/)
-- [uv Documentation](https://github.com/astral-sh/uv)
+- [uv Documentation](https://docs.astral.sh/uv/)
+- [uv Publish Guide](https://docs.astral.sh/uv/guides/publish/)
