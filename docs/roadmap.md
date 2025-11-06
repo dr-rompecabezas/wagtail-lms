@@ -2,11 +2,39 @@
 
 This document outlines the planned development path for Wagtail LMS.
 
-## Current Status: v0.1.0 (Alpha)
+## Current Status: v0.2.0 (Alpha)
 
-The current release is a functional alpha with **core SCORM features and comprehensive testing**.
+The current release includes **framework-agnostic templates and improved developer experience**.
 
-**Completed in v0.1.0:**
+**Completed in v0.2.0:**
+
+✅ **Framework-Agnostic Templates** - Breaking changes for better flexibility
+
+- Replaced Bootstrap-style classes with BEM-style `.lms-*` classes
+- Added `lms/css/course.css` with minimal, functional default styles
+- Works out of the box without external CSS frameworks
+- Comprehensive template customization documentation with Bootstrap, Tailwind, and Bulma examples
+
+✅ **Accessibility Improvements**
+
+- Added `:focus` state to SCORM player back button for keyboard navigation
+- Semantic HTML structure with proper ARIA roles
+- Visible focus indicators for better accessibility
+
+✅ **Developer Experience Enhancements**
+
+- In-template comments explaining CSS requirements
+- Updated release process to use `uv publish` instead of `twine`
+- Example project demonstrates default LMS styling
+- Testing infrastructure improvements (base.html for tests)
+
+✅ **Documentation**
+
+- New `docs/template_customization.md` with complete framework examples
+- Dynamic template location finder
+- FOUC (Flash of Unstyled Content) prevention guidance
+
+**Previously completed in v0.1.0:**
 
 ✅ **Comprehensive test suite** - 86% code coverage with 65+ tests
 
@@ -22,10 +50,10 @@ The current release is a functional alpha with **core SCORM features and compreh
 **Currently tested on:**
 
 - Python 3.13.0
-- Django 5.2.3
+- Django 5.2.7
 - Wagtail 7.0.1
 
-## Version 0.2.0 (Beta) - Q1 2026
+## Version 0.3.0 - Q2 2026
 
 **Goal:** Production-ready release with CI/CD and broader platform support
 
@@ -39,6 +67,7 @@ The current release is a functional alpha with **core SCORM features and compreh
   - Python: 3.11, 3.12, 3.13
   - Django: 4.2 LTS, 5.0, 5.2
   - Wagtail: 6.0, 6.1, 6.2, 7.0, 7.1
+- [ ] Fix remaining test suite failures (9 pre-existing failures)
 - [ ] Increase test coverage to 90%+
 
 ### Wagtail Integration Improvements
@@ -71,7 +100,7 @@ The current release is a functional alpha with **core SCORM features and compreh
 - [ ] Better validation messages for SCORM packages
 - [ ] Configuration documentation
 
-## Version 0.3.0 - Q2 2026
+## Version 0.4.0 - Q3 2026
 
 **Goal:** Enhanced LMS features and reporting
 
@@ -102,7 +131,7 @@ The current release is a functional alpha with **core SCORM features and compreh
 - [ ] Advanced filtering and search
 - [ ] Student progress monitoring in admin
 
-## Version 1.0.0 (Stable) - Q3 2026
+## Version 1.0.0 (Stable) - Q4 2026
 
 **Goal:** Production-ready, feature-complete LMS
 
