@@ -11,6 +11,7 @@ from django.contrib.auth.decorators import login_required
 from django.db import OperationalError, transaction
 from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import ListView
 
@@ -319,9 +320,22 @@ def enroll_in_course(request, course_id):
     else:
         messages.info(request, f"You are already enrolled in {course.title}")
 
-    return redirect(course.url)
+    # Redirect to course page or safe referer if course URL is not available
+    if course.url:
+        return redirect(course.url)
+
+    # Validate referer before using it
+    referer = request.META.get('HTTP_REFERER', '')
+    if referer and url_has_allowed_host_and_scheme(
+        referer, allowed_hosts=settings.ALLOWED_HOSTS, require_https=request.is_secure()
+    ):
+        return redirect(referer)
+
+    # Fallback to home page
+    return redirect('/')
 
 
+@login_required
 def serve_scorm_content(request, content_path):
     """Serve SCORM content files with proper headers for iframe embedding"""
     # Construct the full file path

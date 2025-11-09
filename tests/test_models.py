@@ -160,11 +160,14 @@ class TestCourseEnrollment:
 
     def test_enrollment_unique_constraint(self, user, course_page):
         """Test that user can only enroll once per course."""
+        from django.db import transaction
+
         CourseEnrollment.objects.create(user=user, course=course_page)
 
         # Trying to create duplicate should raise IntegrityError
         with pytest.raises(IntegrityError):
-            CourseEnrollment.objects.create(user=user, course=course_page)
+            with transaction.atomic():
+                CourseEnrollment.objects.create(user=user, course=course_page)
 
     def test_enrollment_get_progress_no_attempt(self, user, course_page):
         """Test get_progress with no SCORM attempt."""
@@ -276,6 +279,8 @@ class TestSCORMData:
 
     def test_scorm_data_unique_constraint(self, user, scorm_package):
         """Test unique constraint on attempt+key."""
+        from django.db import transaction
+
         attempt = SCORMAttempt.objects.create(user=user, scorm_package=scorm_package)
         SCORMData.objects.create(
             attempt=attempt, key="cmi.core.lesson_status", value="incomplete"
@@ -283,9 +288,10 @@ class TestSCORMData:
 
         # Trying to create duplicate should raise IntegrityError
         with pytest.raises(IntegrityError):
-            SCORMData.objects.create(
-                attempt=attempt, key="cmi.core.lesson_status", value="completed"
-            )
+            with transaction.atomic():
+                SCORMData.objects.create(
+                    attempt=attempt, key="cmi.core.lesson_status", value="completed"
+                )
 
     def test_scorm_data_update_or_create(self, user, scorm_package):
         """Test updating existing SCORM data."""

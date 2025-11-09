@@ -27,7 +27,8 @@ class TestSCORMPlayerView:
         url = reverse("wagtail_lms:scorm_player", args=[course_page.id])
         response = client.get(url)
         assert response.status_code == 200
-        assert b"Test SCORM Package" in response.content
+        # The player displays the course title, not the SCORM package title
+        assert b"Test Course" in response.content
 
     def test_scorm_player_creates_enrollment(self, client, user, course_page):
         """Test that accessing player creates enrollment."""
@@ -395,7 +396,9 @@ class TestServeScormContent:
 
         assert response.status_code == 200
         assert response["X-Frame-Options"] == "SAMEORIGIN"
-        assert b"Test Course" in response.content
+        # FileResponse uses streaming_content instead of content
+        content = b"".join(response.streaming_content)
+        assert b"Test Course" in content
 
     def test_serve_scorm_content_not_found(self, client, user):
         """Test serving non-existent SCORM content."""
