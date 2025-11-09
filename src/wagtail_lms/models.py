@@ -103,21 +103,17 @@ class SCORMPackage(models.Model):
         return title_elem.text if title_elem is not None else ""
 
     def get_scorm_version(self, root):
-        """Determine SCORM version from manifest"""
-        # Check for SCORM 2004 namespace in manifest
-        namespaces = root.nsmap if hasattr(root, 'nsmap') else {}
-        for prefix, uri in namespaces.items():
-            if 'adlcp_v1p3' in str(uri):
-                return "2004"
+        """Determine SCORM version from manifest.
 
-        # Also check schemaversion element content
-        schemaversion = root.find(".//{http://www.imsproject.org/xsd/imscp_rootv1p1p2}metadata/{http://www.imsproject.org/xsd/imscp_rootv1p1p2}schemaversion")
-        if schemaversion is None:
-            # Try without namespace
-            schemaversion = root.find(".//schemaversion")
-
-        if schemaversion is not None and schemaversion.text and "2004" in schemaversion.text:
-            return "2004"
+        Uses a flexible search for schemaversion element that works with
+        both namespaced and non-namespaced XML using ElementTree.
+        """
+        # Search for schemaversion element - works with any namespace
+        for element in root.iter():
+            # Match either namespaced or non-namespaced schemaversion tags
+            if element.tag.endswith('schemaversion') or element.tag == 'schemaversion':
+                if element.text and "2004" in element.text:
+                    return "2004"
 
         return "1.2"
 
