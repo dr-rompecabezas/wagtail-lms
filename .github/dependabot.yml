@@ -1,6 +1,9 @@
 version: 2
 updates:
-  # Maintain dependencies for GitHub Actions
+  # Maintain dependencies for GitHub Actions only
+  # Note: Python dependencies are NOT auto-updated because this is a library
+  # that needs to support multiple versions of Django, Wagtail, and Python.
+  # Dependency version ranges are managed manually to ensure broad compatibility.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
@@ -11,21 +14,6 @@ updates:
     labels:
       - "dependencies"
       - "github-actions"
-    reviewers:
-      - "dr-rompecabezas"
-    open-pull-requests-limit: 10
-
-  # Maintain dependencies for pip (Python)
-  - package-ecosystem: "pip"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    commit-message:
-      prefix: "deps"
-      include: "scope"
-    labels:
-      - "dependencies"
-      - "python"
     reviewers:
       - "dr-rompecabezas"
     open-pull-requests-limit: 10
