@@ -106,7 +106,7 @@ class SCORMPackage(models.Model):
         """Determine SCORM version from manifest"""
         # Check for SCORM 2004 namespace in manifest
         namespaces = root.nsmap if hasattr(root, 'nsmap') else {}
-        for prefix, uri in namespaces.items() if hasattr(namespaces, 'items') else []:
+        for prefix, uri in namespaces.items():
             if 'adlcp_v1p3' in str(uri):
                 return "2004"
 
@@ -116,7 +116,7 @@ class SCORMPackage(models.Model):
             # Try without namespace
             schemaversion = root.find(".//schemaversion")
 
-        if schemaversion is not None and "2004" in schemaversion.text:
+        if schemaversion is not None and schemaversion.text and "2004" in schemaversion.text:
             return "2004"
 
         return "1.2"
