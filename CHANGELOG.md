@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking Changes
+
+- **SCORM content serving now requires authentication**
+  - The `serve_scorm_content` view now has `@login_required` decorator
+  - **Migration:** SCORM content files can no longer be accessed without login
+  - **Rationale:** Security fix - prevents unauthorized access to course content
+
+- **URL name correction for SCORM content endpoint**
+  - Changed URL name from `scorm_content` to `serve_scorm_content` in `wagtail_lms/urls.py`
+  - **Impact:** Code using `reverse('wagtail_lms:scorm_content', ...)` will break
+  - **Migration:** Update to `reverse('wagtail_lms:serve_scorm_content', ...)`
+  - **Note:** This fixes a bug where the URL name didn't match the view function name
+
+### Fixed
+
+- **Test suite reliability**
+  - Fixed 9 failing tests and 2 transaction errors
+  - All 65 tests now passing consistently
+  - Wrapped IntegrityError tests in atomic transactions to prevent cleanup errors
+
+- **SCORM 2004 version detection**
+  - Fixed ElementTree compatibility (removed lxml-specific `nsmap` usage)
+  - Implemented explicit version string matching to prevent false positives
+  - Now correctly identifies SCORM 2004 packages via schemaversion element
+  - Supports: "2004 3rd Edition", "2004 4th Edition", "CAM 1.3", "2004"
+
+- **Security improvements**
+  - Fixed open redirect vulnerability in enrollment view
+  - Now uses `settings.ALLOWED_HOSTS` for redirect validation
+  - Added proper null checks to prevent AttributeError in manifest parsing
+
+- **Course enrollment redirect handling**
+  - Fixed crash when `course.url` is None
+  - Added safe fallback to HTTP_REFERER with proper validation
+  - Falls back to home page if no safe redirect available
+
+### Changed
+
+- **Test assertions updated for Django 5.2**
+  - Fixed FileResponse test to use `streaming_content` instead of `content`
+  - Updated test expectations to match actual template output
+
 ## [0.2.0] - 2025-11-05
 
 ### Status
