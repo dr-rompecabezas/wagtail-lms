@@ -108,12 +108,24 @@ class SCORMPackage(models.Model):
         Uses a flexible search for schemaversion element that works with
         both namespaced and non-namespaced XML using ElementTree.
         """
+        # Known SCORM 2004 schemaversion values
+        scorm_2004_versions = [
+            "2004 3rd Edition",
+            "2004 4th Edition",
+            "CAM 1.3",
+            "2004",
+        ]
+
         # Search for schemaversion element - works with any namespace
         for element in root.iter():
             # Match either namespaced or non-namespaced schemaversion tags
             if element.tag.endswith('schemaversion') or element.tag == 'schemaversion':
-                if element.text and "2004" in element.text:
-                    return "2004"
+                if element.text:
+                    text = element.text.strip()
+                    # Check against known SCORM 2004 version strings
+                    for version in scorm_2004_versions:
+                        if text.startswith(version):
+                            return "2004"
 
         return "1.2"
 

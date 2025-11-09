@@ -327,7 +327,7 @@ def enroll_in_course(request, course_id):
     # Validate referer before using it
     referer = request.META.get('HTTP_REFERER', '')
     if referer and url_has_allowed_host_and_scheme(
-        referer, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+        referer, allowed_hosts=settings.ALLOWED_HOSTS, require_https=request.is_secure()
     ):
         return redirect(referer)
 
