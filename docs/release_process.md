@@ -5,20 +5,36 @@ This guide outlines the steps for releasing a new version of Wagtail LMS to PyPI
 ## Prerequisites
 
 - Maintainer access to the GitHub repository
-- PyPI account with access to the `wagtail-lms` project
-- PyPI API token configured (recommended over password authentication)
-- `uv` installed and up to date
+- PyPI trusted publishing configured for the repository (see [Setup](#pypi-trusted-publishing-setup) below)
+- `uv` installed and up to date (for local testing)
+
+## PyPI Trusted Publishing Setup
+
+Wagtail LMS uses PyPI's [Trusted Publishing](https://docs.pypi.org/trusted-publishers/) with GitHub Actions. This eliminates the need for API tokens and is more secure.
+
+**One-time setup for maintainers:**
+
+1. Go to <https://pypi.org/manage/project/wagtail-lms/settings/publishing/>
+2. Add a new "pending publisher" with:
+   - **PyPI Project Name**: `wagtail-lms`
+   - **Owner**: `dr-rompecabezas`
+   - **Repository name**: `wagtail-lms`
+   - **Workflow name**: `publish.yml`
+   - **Environment name**: `pypi`
+
+Once configured, GitHub Actions can publish to PyPI without any API tokens.
 
 ## Pre-Release Checklist
 
 Before starting the release process, ensure:
 
 - [ ] All intended changes are merged to `main`
-- [ ] All tests pass: `uv run pytest`
-- [ ] Code quality checks pass: `uv run pre-commit run --all-files`
+- [ ] GitHub Actions CI is passing on `main` branch
 - [ ] Documentation is up to date
 - [ ] CHANGELOG.md is updated with changes for this release
 - [ ] No outstanding critical issues
+
+**Note**: GitHub Actions automatically runs tests and quality checks on every push. Ensure the CI badge shows passing before proceeding.
 
 ## Release Steps
 
@@ -58,139 +74,61 @@ Update the changelog with the release date:
 
 Ensure all changes since the last release are documented.
 
-### 3. Commit Version Bump
+### 3. Commit and Push Version Bump
 
 ```bash
 git add pyproject.toml CHANGELOG.md
 git commit -m "Bump version to 0.2.0"
-```
-
-### 4. Run Full Test Suite
-
-Ensure all tests pass before building:
-
-```bash
-# Run all tests with coverage
-uv run pytest --cov=src/wagtail_lms
-
-# Run pre-commit hooks
-uv run pre-commit run --all-files
-
-# Optional: Run tests against different Python versions if using tox
-# uv run tox
-```
-
-### 5. Build the Package
-
-Clean any previous builds and create distribution files:
-
-```bash
-# Remove old builds
-rm -rf dist/ build/ *.egg-info
-
-# Build source distribution and wheel
-uv build
-```
-
-This creates files in the `dist/` directory:
-
-- `wagtail_lms-0.2.0.tar.gz` (source distribution)
-- `wagtail_lms-0.2.0-py3-none-any.whl` (wheel)
-
-### 6. Test on TestPyPI (Recommended)
-
-Before publishing to the real PyPI, test on TestPyPI:
-
-```bash
-# Upload to TestPyPI
-uv publish --publish-url https://test.pypi.org/legacy/
-```
-
-You'll be prompted for your TestPyPI credentials or API token.
-
-Test the installation from TestPyPI:
-
-```bash
-# Create a test environment
-uv venv test-env
-source test-env/bin/activate  # On Windows: test-env\Scripts\activate
-
-# Install from TestPyPI
-pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ wagtail-lms
-
-# Test that it imports correctly
-python -c "import wagtail_lms; print(wagtail_lms.__version__)"
-
-# Deactivate and remove test environment
-deactivate
-rm -rf test-env
-```
-
-### 7. Publish to PyPI
-
-If TestPyPI testing was successful, publish to the real PyPI:
-
-```bash
-uv publish
-```
-
-**Using API Token (Recommended):**
-
-Create a PyPI API token at <https://pypi.org/manage/account/token/>
-
-**Option 1: Set environment variables:**
-
-```bash
-export UV_PUBLISH_USERNAME=__token__
-export UV_PUBLISH_PASSWORD=pypi-YOUR_API_TOKEN_HERE
-uv publish
-```
-
-**Option 2: Configure in `~/.pypirc`:**
-
-```ini
-[distutils]
-index-servers =
-    pypi
-    testpypi
-
-[pypi]
-username = __token__
-password = pypi-YOUR_API_TOKEN_HERE
-
-[testpypi]
-username = __token__
-password = pypi-YOUR_TESTPYPI_TOKEN_HERE
-```
-
-**Option 3: Use keyring (Most Secure):**
-
-```bash
-# Store token in system keyring
-uv publish --keyring
-```
-
-### 8. Create Git Tag
-
-Tag the release in git:
-
-```bash
-git tag -a v0.2.0 -m "Release version 0.2.0"
 git push origin main
-git push origin v0.2.0
 ```
 
-### 9. Create GitHub Release
+### 4. Wait for CI to Pass
+
+After pushing to `main`, wait for the CI workflow to complete successfully. You can monitor it at:
+
+<https://github.com/dr-rompecabezas/wagtail-lms/actions>
+
+Ensure all jobs (pre-commit, lint, and test) pass before proceeding.
+
+### 5. Create GitHub Release
+
+Creating a GitHub Release will automatically trigger the publish workflow that builds and uploads the package to PyPI.
+
+**Using the GitHub web interface:**
 
 1. Go to <https://github.com/dr-rompecabezas/wagtail-lms/releases>
 2. Click "Draft a new release"
-3. Select the tag you just created (v0.2.0)
-4. Title: "Release 0.2.0"
-5. Description: Copy the relevant section from CHANGELOG.md
-6. Attach the distribution files from `dist/` (optional)
+3. Click "Choose a tag" and type `v0.2.0` (create new tag on publish)
+4. Set the target to `main` branch
+5. Release title: "Release 0.2.0" or "Version 0.2.0"
+6. Description: Copy the relevant section from CHANGELOG.md
 7. Click "Publish release"
 
-### 10. Verify Installation
+**Or using the GitHub CLI:**
+
+```bash
+gh release create v0.2.0 \
+  --title "Release 0.2.0" \
+  --notes-file <(sed -n '/## \[0.2.0\]/,/## \[/p' CHANGELOG.md | sed '$d')
+```
+
+**What happens next:**
+
+- GitHub automatically creates the `v0.2.0` tag
+- The `publish.yml` workflow is triggered automatically
+- The workflow builds the package and publishes to PyPI via trusted publishing
+- You can monitor the workflow at: <https://github.com/dr-rompecabezas/wagtail-lms/actions>
+
+### 6. Monitor the Publish Workflow
+
+After creating the release, monitor the publish workflow:
+
+1. Go to <https://github.com/dr-rompecabezas/wagtail-lms/actions>
+2. Look for the "Publish to PyPI" workflow run
+3. Wait for it to complete successfully (usually takes 1-2 minutes)
+4. If it fails, check the logs and troubleshoot (see [Troubleshooting](#troubleshooting) below)
+
+### 7. Verify Installation
 
 Test that the package can be installed from PyPI:
 
@@ -210,12 +148,24 @@ deactivate
 rm -rf verify-env
 ```
 
-### 11. Post-Release Tasks
+### 8. Post-Release Tasks
 
-- [ ] Announce the release on relevant channels (GitHub Discussions, Twitter, etc.)
+- [ ] Verify the package appears on PyPI: <https://pypi.org/project/wagtail-lms/>
+- [ ] Announce the release on relevant channels (GitHub Discussions, social media, etc.)
 - [ ] Update documentation if needed
 - [ ] Close any resolved issues and milestones on GitHub
 - [ ] Prepare the CHANGELOG.md for the next release by adding an "Unreleased" section:
+
+```bash
+git checkout main
+git pull
+# Edit CHANGELOG.md to add Unreleased section
+git add CHANGELOG.md
+git commit -m "Prepare CHANGELOG for next release"
+git push origin main
+```
+
+Example unreleased section:
 
 ```markdown
 ## [Unreleased]
@@ -229,51 +179,69 @@ rm -rf verify-env
 
 ## Troubleshooting
 
-### Build Fails
+### CI Tests Fail
 
-If `uv build` fails:
+If the CI workflow fails on the `main` branch:
 
-- Ensure `pyproject.toml` is valid TOML syntax
-- Check that all required dependencies are specified
-- Verify the project structure matches the package configuration
+1. Check the workflow logs at <https://github.com/dr-rompecabezas/wagtail-lms/actions>
+2. Fix the failing tests or linting issues
+3. Push the fixes to `main`
+4. Wait for CI to pass before creating the release
 
-### Upload Fails
+### Publish Workflow Fails
 
-If `uv publish` fails:
+If the publish workflow fails after creating a release:
 
-- Verify your PyPI credentials/token (check environment variables or `~/.pypirc`)
-- Ensure the version number hasn't already been published (PyPI doesn't allow overwriting)
-- Check that you have maintainer access to the project
-- Try using `--username __token__ --password <token>` flags directly
+1. Check the workflow logs for the specific error
+2. Common issues:
+   - **Trusted publishing not configured**: Ensure PyPI trusted publishing is set up (see [Setup](#pypi-trusted-publishing-setup))
+   - **Version already exists**: PyPI doesn't allow overwriting versions. You'll need to bump to a new version (e.g., 0.2.1), update CHANGELOG, commit, and create a new release
+   - **Build errors**: Check that `pyproject.toml` is valid and the package structure is correct
 
-### Version Already Exists
+### Version Already Exists on PyPI
 
-PyPI does not allow re-uploading a version. If you need to fix something:
+PyPI does not allow re-uploading a version. If you need to fix something after publishing:
 
-1. Delete the local `dist/` directory
-2. Bump to a new version (e.g., 0.2.1)
-3. Rebuild and re-upload
+1. Bump to a new patch version (e.g., 0.2.0 → 0.2.1)
+2. Update CHANGELOG.md with the fix
+3. Commit and push to `main`
+4. Create a new release with the new version tag
 
-## Automation (Future)
+### Testing on TestPyPI Before Release
 
-Consider setting up GitHub Actions to automate:
+To test the build process before creating an official release, you can manually trigger the TestPyPI workflow:
 
-- Running tests on every push
-- Publishing to PyPI on tag creation
-- Automated changelog generation
+1. Go to <https://github.com/dr-rompecabezas/wagtail-lms/actions/workflows/publish.yml>
+2. Click "Run workflow"
+3. Select the `main` branch
+4. Click "Run workflow"
 
-Example workflow trigger:
+This will build and publish to TestPyPI without creating a release.
 
-```yaml
-on:
-  push:
-    tags:
-      - 'v*'
+## Quick Reference
+
+For experienced maintainers, here's the TL;DR:
+
+```bash
+# 1. Update version in pyproject.toml and CHANGELOG.md
+# 2. Commit and push
+git add pyproject.toml CHANGELOG.md
+git commit -m "Bump version to 0.2.0"
+git push origin main
+
+# 3. Wait for CI to pass, then create release
+gh release create v0.2.0 \
+  --title "Release 0.2.0" \
+  --notes-file <(sed -n '/## \[0.2.0\]/,/## \[/p' CHANGELOG.md | sed '$d')
+
+# 4. Monitor publish workflow and verify on PyPI
+# 5. Update CHANGELOG.md with [Unreleased] section
 ```
 
 ## Resources
 
-- [PyPI Publishing Guide](https://packaging.python.org/tutorials/packaging-projects/)
+- [PyPI Trusted Publishing](https://docs.pypi.org/trusted-publishers/)
+- [GitHub Actions Publishing to PyPI](https://docs.github.com/en/actions/deployment/deploying-to-your-cloud-provider/deploying-to-pypi)
 - [Semantic Versioning](https://semver.org/)
 - [uv Documentation](https://docs.astral.sh/uv/)
-- [uv Publish Guide](https://docs.astral.sh/uv/guides/publish/)
+- [GitHub CLI - Creating Releases](https://cli.github.com/manual/gh_release_create)
