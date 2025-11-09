@@ -12,7 +12,9 @@ This guide outlines the steps for releasing a new version of Wagtail LMS to PyPI
 
 Wagtail LMS uses PyPI's [Trusted Publishing](https://docs.pypi.org/trusted-publishers/) with GitHub Actions. This eliminates the need for API tokens and is more secure.
 
-**One-time setup for maintainers:**
+**One-time setup for maintainers (requires two steps):**
+
+### Step 1: Configure PyPI Trusted Publisher
 
 1. Go to <https://pypi.org/manage/project/wagtail-lms/settings/publishing/>
 2. Add a new "pending publisher" with:
@@ -21,8 +23,26 @@ Wagtail LMS uses PyPI's [Trusted Publishing](https://docs.pypi.org/trusted-publi
    - **Repository name**: `wagtail-lms`
    - **Workflow name**: `publish.yml`
    - **Environment name**: `pypi`
+3. Repeat for TestPyPI at <https://test.pypi.org/manage/project/wagtail-lms/settings/publishing/>
+   - Use environment name: `testpypi`
 
-Once configured, GitHub Actions can publish to PyPI without any API tokens.
+### Step 2: Create GitHub Environments
+
+1. Go to <https://github.com/dr-rompecabezas/wagtail-lms/settings/environments>
+2. Create the `pypi` environment:
+   - Click "New environment"
+   - Name: `pypi`
+   - **Recommended**: Add yourself as a "Required reviewer" for manual approval before publishing
+   - **Uncheck** "Prevent self-review" (only needed with multiple maintainers)
+   - **Enable** "Allow administrators to bypass configured protection rules"
+   - Click "Save protection rules"
+3. Create the `testpypi` environment:
+   - Click "New environment"
+   - Name: `testpypi`
+   - Leave protection rules empty (no approval needed for testing)
+   - Click "Save protection rules"
+
+Once configured, GitHub Actions can publish to PyPI without any API tokens. The `pypi` environment will require your manual approval for extra safety.
 
 ## Pre-Release Checklist
 
@@ -116,17 +136,24 @@ gh release create v0.2.0 \
 
 - GitHub automatically creates the `v0.2.0` tag
 - The `publish.yml` workflow is triggered automatically
-- The workflow builds the package and publishes to PyPI via trusted publishing
+- The workflow builds the package
+- **If you configured required reviewers**: You'll need to manually approve the deployment to the `pypi` environment
+- After approval (or if no approval required), the package is published to PyPI via trusted publishing
 - You can monitor the workflow at: <https://github.com/dr-rompecabezas/wagtail-lms/actions>
 
-### 6. Monitor the Publish Workflow
+### 6. Approve and Monitor the Publish Workflow
 
-After creating the release, monitor the publish workflow:
+After creating the release, the publish workflow will start:
 
 1. Go to <https://github.com/dr-rompecabezas/wagtail-lms/actions>
 2. Look for the "Publish to PyPI" workflow run
-3. Wait for it to complete successfully (usually takes 1-2 minutes)
-4. If it fails, check the logs and troubleshoot (see [Troubleshooting](#troubleshooting) below)
+3. **If you see "Waiting for approval"**:
+   - Click on the workflow run
+   - Click the "Review deployments" button
+   - Check the `pypi` environment
+   - Click "Approve and deploy"
+4. Wait for the workflow to complete successfully (usually takes 1-2 minutes after approval)
+5. If it fails, check the logs and troubleshoot (see [Troubleshooting](#troubleshooting) below)
 
 ### 7. Verify Installation
 
@@ -195,6 +222,7 @@ If the publish workflow fails after creating a release:
 1. Check the workflow logs for the specific error
 2. Common issues:
    - **Trusted publishing not configured**: Ensure PyPI trusted publishing is set up (see [Setup](#pypi-trusted-publishing-setup))
+   - **GitHub environments not created**: Ensure both `pypi` and `testpypi` environments exist in GitHub repository settings. See [Step 2: Create GitHub Environments](#step-2-create-github-environments)
    - **Version already exists**: PyPI doesn't allow overwriting versions. You'll need to bump to a new version (e.g., 0.2.1), update CHANGELOG, commit, and create a new release
    - **Build errors**: Check that `pyproject.toml` is valid and the package structure is correct
 
@@ -234,8 +262,9 @@ gh release create v0.2.0 \
   --title "Release 0.2.0" \
   --notes-file <(sed -n '/## \[0.2.0\]/,/## \[/p' CHANGELOG.md | sed '$d')
 
-# 4. Monitor publish workflow and verify on PyPI
-# 5. Update CHANGELOG.md with [Unreleased] section
+# 4. Approve deployment in GitHub Actions (if required reviewers configured)
+# 5. Monitor publish workflow and verify on PyPI
+# 6. Update CHANGELOG.md with [Unreleased] section
 ```
 
 ## Resources
