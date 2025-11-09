@@ -325,14 +325,14 @@ def enroll_in_course(request, course_id):
         return redirect(course.url)
 
     # Validate referer before using it
-    referer = request.META.get('HTTP_REFERER', '')
+    referer = request.META.get("HTTP_REFERER", "")
     if referer and url_has_allowed_host_and_scheme(
         referer, allowed_hosts=settings.ALLOWED_HOSTS, require_https=request.is_secure()
     ):
         return redirect(referer)
 
     # Fallback to home page
-    return redirect('/')
+    return redirect("/")
 
 
 @login_required

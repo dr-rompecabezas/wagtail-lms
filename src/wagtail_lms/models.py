@@ -119,7 +119,7 @@ class SCORMPackage(models.Model):
         # Search for schemaversion element - works with any namespace
         for element in root.iter():
             # Match either namespaced or non-namespaced schemaversion tags
-            if element.tag.endswith('schemaversion') or element.tag == 'schemaversion':
+            if element.tag.endswith("schemaversion") or element.tag == "schemaversion":
                 if element.text:
                     text = element.text.strip()
                     # Check against known SCORM 2004 version strings
