@@ -18,6 +18,6 @@ urlpatterns = [
     path(
         "scorm-content/<path:content_path>",
         views.serve_scorm_content,
-        name="scorm_content",
+        name="serve_scorm_content",
     ),
 ]

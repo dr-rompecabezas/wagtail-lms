@@ -104,11 +104,21 @@ class SCORMPackage(models.Model):
 
     def get_scorm_version(self, root):
         """Determine SCORM version from manifest"""
-        if (
-            root.find(".//{http://www.adlnet.org/xsd/adlcp_v1p3}schemaversion")
-            is not None
-        ):
+        # Check for SCORM 2004 namespace in manifest
+        namespaces = root.nsmap if hasattr(root, 'nsmap') else {}
+        for prefix, uri in namespaces.items() if hasattr(namespaces, 'items') else []:
+            if 'adlcp_v1p3' in str(uri):
+                return "2004"
+
+        # Also check schemaversion element content
+        schemaversion = root.find(".//{http://www.imsproject.org/xsd/imscp_rootv1p1p2}metadata/{http://www.imsproject.org/xsd/imscp_rootv1p1p2}schemaversion")
+        if schemaversion is None:
+            # Try without namespace
+            schemaversion = root.find(".//schemaversion")
+
+        if schemaversion is not None and "2004" in schemaversion.text:
             return "2004"
+
         return "1.2"
 
     def get_launch_url(self):

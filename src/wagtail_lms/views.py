@@ -319,9 +319,12 @@ def enroll_in_course(request, course_id):
     else:
         messages.info(request, f"You are already enrolled in {course.title}")
 
-    return redirect(course.url)
+    # Redirect to course page or referer if course URL is not available
+    redirect_url = course.url or request.META.get('HTTP_REFERER', '/')
+    return redirect(redirect_url)
 
 
+@login_required
 def serve_scorm_content(request, content_path):
     """Serve SCORM content files with proper headers for iframe embedding"""
     # Construct the full file path
