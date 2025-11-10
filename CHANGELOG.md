@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Multi-version testing infrastructure**
+  - Comprehensive CI testing across Python 3.11-3.13
+  - Django 4.2 (LTS), 5.0, 5.1, 5.2 (LTS) support verified
+  - Wagtail 6.0-7.1 compatibility confirmed
+  - Strategic test matrix with 6 key version combinations
+  - Enhanced GitHub Actions workflow with version-specific installations
+  - Updated package classifiers and dependency specifications
+
 ### Breaking Changes
 
 - **SCORM content serving now requires authentication**
@@ -123,8 +133,6 @@ If you installed v0.1.0 and customized the templates:
 
 ### Planned for 0.3.0
 
-- CI/CD pipeline with GitHub Actions
-- Multi-version testing (Python 3.11-3.13, Django 4.2+, Wagtail 6.x-7.x)
 - Pure Wagtail admin interface (remove Django admin dependency)
 
 ## [0.1.0] - 2025-10-26

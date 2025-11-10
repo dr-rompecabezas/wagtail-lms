@@ -47,27 +47,28 @@ The current release includes **framework-agnostic templates and improved develop
 
 ✅ **Bug fixes** for preview mode and database concurrency
 
-**Currently tested on:**
+**Supported versions:**
 
-- Python 3.13.0
-- Django 5.2.7
-- Wagtail 7.0.1
+- **Python:** 3.11, 3.12, 3.13
+- **Django:** 4.2 (LTS), 5.0, 5.1, 5.2 (LTS)
+- **Wagtail:** 6.0, 6.1, 6.2, 6.3, 7.0 (LTS), 7.1
+
+All combinations tested in CI with strategic version matrix.
 
 ## Version 0.3.0 - Q2 2026
 
-**Goal:** Production-ready release with CI/CD and broader platform support
+**Goal:** Production-ready release with enhanced quality and broader features
 
 ### Testing & Quality
 
-- [ ] CI/CD pipeline with GitHub Actions
-  - Automated testing on every push and PR
-  - Multi-version test matrix
-  - Code quality checks (ruff, pre-commit)
-- [ ] Multi-platform testing
-  - Python: 3.11, 3.12, 3.13
-  - Django: 4.2 LTS, 5.0, 5.2
-  - Wagtail: 6.0, 6.1, 6.2, 7.0, 7.1
-- [ ] Fix remaining test suite failures (9 pre-existing failures)
+- [x] ~~CI/CD pipeline with GitHub Actions~~ ✅ Completed
+  - ~~Automated testing on every push and PR~~
+  - ~~Multi-version test matrix~~
+  - ~~Code quality checks (ruff, pre-commit)~~
+- [x] ~~Multi-platform testing~~ ✅ Completed
+  - ~~Python: 3.11, 3.12, 3.13~~
+  - ~~Django: 4.2 LTS, 5.0, 5.1, 5.2~~
+  - ~~Wagtail: 6.0, 6.1, 6.2, 6.3, 7.0, 7.1~~
 - [ ] Increase test coverage to 90%+
 
 ### Wagtail Integration Improvements
