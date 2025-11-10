@@ -32,12 +32,41 @@ jobs:
           uv run pre-commit run --all-files
 
   test:
-    name: Test on Python ${{ matrix.python-version }}
+    name: Test Py${{ matrix.python-version }}/Dj${{ matrix.django-version }}/Wt${{ matrix.wagtail-version }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.13']
+        include:
+          # Minimum supported versions (oldest combination)
+          - python-version: '3.11'
+            django-version: '4.2'
+            wagtail-version: '6.0'
+
+          # Mid-range stable versions
+          - python-version: '3.12'
+            django-version: '5.1'
+            wagtail-version: '6.3'
+
+          # Latest/bleeding edge (newest combination)
+          - python-version: '3.13'
+            django-version: '5.2'
+            wagtail-version: '7.1'
+
+          # Cross-compatibility: old Python with new frameworks
+          - python-version: '3.11'
+            django-version: '5.2'
+            wagtail-version: '7.1'
+
+          # Cross-compatibility: new Python with old frameworks
+          - python-version: '3.13'
+            django-version: '4.2'
+            wagtail-version: '6.0'
+
+          # Django 5.0 coverage
+          - python-version: '3.12'
+            django-version: '5.0'
+            wagtail-version: '6.2'
 
     steps:
       - uses: actions/checkout@v5
@@ -54,7 +83,10 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv sync --extra testing
+          uv pip install "Django~=${{ matrix.django-version }}.0"
+          uv pip install "wagtail~=${{ matrix.wagtail-version }}.0"
+          uv sync --extra testing --no-install-project
+          uv pip install -e .
 
       - name: Run tests
         run: |

@@ -15,23 +15,30 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Web Environment",
     "Framework :: Django",
+    "Framework :: Django :: 4.2",
+    "Framework :: Django :: 5.0",
+    "Framework :: Django :: 5.1",
     "Framework :: Django :: 5.2",
     "Framework :: Wagtail",
+    "Framework :: Wagtail :: 6",
     "Framework :: Wagtail :: 7",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Topic :: Education",
     "Topic :: Internet :: WWW/HTTP",
     "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
 ]
 keywords = ["wagtail", "django", "lms", "scorm", "xAPI", "e-learning", "education"]
-requires-python = ">=3.13"
+requires-python = ">=3.11"
 dependencies = [
-    "Django>=5.2.3",
-    "wagtail>=7.0.1",
+    "Django>=4.2",
+    "wagtail>=6.0",
 ]
 
 [dependency-groups]
