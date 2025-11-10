@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## 0.3.1 - 2025-11-09
+
+### Fixed
+
+- **GitHub Actions publish workflow**
+  - Fixed workflow stopping after build step when triggered via workflow_dispatch
+  - Added conditional `if: github.event_name == 'release'` to publish-to-pypi job
+  - Separated TestPyPI testing workflow from production PyPI release workflow
+  - TestPyPI publish now only runs on manual workflow_dispatch trigger
+  - PyPI publish now correctly runs on GitHub release events
+  - Removed verify-testpypi dependency from publish-to-pypi job to prevent blocking
+
 ## 0.3.0 - 2025-11-09
 
 ### Added
