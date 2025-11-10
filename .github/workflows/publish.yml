@@ -81,8 +81,9 @@ jobs:
 
   publish-to-pypi:
     name: Publish to PyPI
-    needs: [build, verify-testpypi]
+    needs: [build]
     runs-on: ubuntu-latest
+    if: github.event_name == 'release'
     environment:
       name: pypi
       url: https://pypi.org/p/wagtail-lms
