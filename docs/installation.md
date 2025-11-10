@@ -2,13 +2,13 @@
 
 ## Requirements
 
-**⚠️ Alpha Release:** This package is currently only tested on:
+**Supported versions:**
 
-- Python 3.13.0
-- Django 5.2.3
-- Wagtail 7.0.1
+- **Python:** 3.11, 3.12, 3.13
+- **Django:** 4.2 (LTS), 5.0, 5.1, 5.2 (LTS)
+- **Wagtail:** 6.0, 6.1, 6.2, 6.3, 7.0 (LTS), 7.1
 
-Other versions may work but are untested. See the [Roadmap](roadmap.md) for planned multi-version support in v0.2.0.
+All combinations are tested in CI. See our [GitHub Actions workflow](https://github.com/dr-rompecabezas/wagtail-lms/actions/workflows/ci.yml) for the full compatibility matrix.
 
 ## Step-by-Step Installation
 

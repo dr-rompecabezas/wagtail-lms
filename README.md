@@ -3,7 +3,7 @@
 [![CI](https://github.com/dr-rompecabezas/wagtail-lms/actions/workflows/ci.yml/badge.svg)](https://github.com/dr-rompecabezas/wagtail-lms/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/dr-rompecabezas/wagtail-lms/branch/main/graph/badge.svg)](https://codecov.io/gh/dr-rompecabezas/wagtail-lms)
 [![PyPI version](https://badge.fury.io/py/wagtail-lms.svg)](https://badge.fury.io/py/wagtail-lms)
-[![Python 3.13](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/dr-rompecabezas/wagtail-lms/main.svg)](https://results.pre-commit.ci/latest/github/dr-rompecabezas/wagtail-lms/main)
 
@@ -13,13 +13,13 @@ A Learning Management System extension for Wagtail CMS with SCORM 1.2/2004 suppo
 
 **This package is in early development.**
 
-**Currently tested on:**
+**Supported versions:**
 
-- Python 3.13.0
-- Django 5.2.3
-- Wagtail 7.0.1
+- **Python:** 3.11, 3.12, 3.13
+- **Django:** 4.2 (LTS), 5.0, 5.1, 5.2 (LTS)
+- **Wagtail:** 6.0, 6.1, 6.2, 6.3, 7.0 (LTS), 7.1
 
-Other versions may work but are untested. Refer to the [Roadmap](https://github.com/dr-rompecabezas/wagtail-lms/blob/main/docs/roadmap.md) for planned enhancements, including broader version support.
+All combinations are tested in CI. See our [compatibility matrix](https://github.com/dr-rompecabezas/wagtail-lms/actions/workflows/ci.yml) for specific version combinations.
 
 ## Features
 
