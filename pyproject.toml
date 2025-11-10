@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "wagtail_lms"
-version = "0.3.0"
+version = "0.3.1"
 description = "A Learning Management System extension for Wagtail with SCORM 1.2/2004 support"
 readme = "README.md"
 authors = [
