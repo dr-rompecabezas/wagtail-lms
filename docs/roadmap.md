@@ -2,11 +2,11 @@
 
 This document outlines the planned development path for Wagtail LMS.
 
-## Current Status: v0.2.0 (Alpha)
+## Current Status: v0.3.0 (Alpha)
 
-The current release includes **framework-agnostic templates and improved developer experience**.
+The current release includes **framework-agnostic templates, comprehensive CI/CD infrastructure, and improved developer experience**.
 
-**Completed in v0.2.0:**
+**Completed in v0.3.0:**
 
 ✅ **Framework-Agnostic Templates** - Breaking changes for better flexibility
 
@@ -34,6 +34,17 @@ The current release includes **framework-agnostic templates and improved develop
 - Dynamic template location finder
 - FOUC (Flash of Unstyled Content) prevention guidance
 
+✅ **Testing & Quality Infrastructure**
+
+- CI/CD pipeline with GitHub Actions
+  - Automated testing on every push and PR
+  - Multi-version test matrix
+  - Code quality checks (ruff, pre-commit)
+- Multi-platform testing
+  - Python: 3.11, 3.12, 3.13
+  - Django: 4.2 LTS, 5.0, 5.1, 5.2
+  - Wagtail: 6.0, 6.1, 6.2, 6.3, 7.0, 7.1
+
 **Previously completed in v0.1.0:**
 
 ✅ **Comprehensive test suite** - 86% code coverage with 65+ tests
@@ -55,21 +66,9 @@ The current release includes **framework-agnostic templates and improved develop
 
 All combinations tested in CI with strategic version matrix.
 
-## Version 0.3.0 - Q2 2026
+## Version 0.4.0 - Q3 2026
 
-**Goal:** Production-ready release with enhanced quality and broader features
-
-### Testing & Quality
-
-- [x] ~~CI/CD pipeline with GitHub Actions~~ ✅ Completed
-  - ~~Automated testing on every push and PR~~
-  - ~~Multi-version test matrix~~
-  - ~~Code quality checks (ruff, pre-commit)~~
-- [x] ~~Multi-platform testing~~ ✅ Completed
-  - ~~Python: 3.11, 3.12, 3.13~~
-  - ~~Django: 4.2 LTS, 5.0, 5.1, 5.2~~
-  - ~~Wagtail: 6.0, 6.1, 6.2, 6.3, 7.0, 7.1~~
-- [ ] Increase test coverage to 90%+
+**Goal:** Enhanced Wagtail integration and developer experience
 
 ### Wagtail Integration Improvements
 
@@ -82,7 +81,7 @@ All combinations tested in CI with strategic version matrix.
   - Preview SCORM content in admin
   - Inline enrollment management
 
-### Documentation
+### Documentation & Developer Experience
 
 - [ ] Comprehensive user guide
   - Step-by-step course creation tutorial
@@ -94,14 +93,15 @@ All combinations tested in CI with strategic version matrix.
 - [ ] Docker setup for quick testing
   - Docker Compose configuration
   - Pre-loaded sample SCORM packages
-
-### Developer Experience
-
 - [ ] Improved error handling and logging
 - [ ] Better validation messages for SCORM packages
 - [ ] Configuration documentation
 
-## Version 0.4.0 - Q3 2026
+### Testing & Quality
+
+- [ ] Increase test coverage to 90%+
+
+## Version 0.5.0 - Q4 2026
 
 **Goal:** Enhanced LMS features and reporting
 
@@ -132,7 +132,7 @@ All combinations tested in CI with strategic version matrix.
 - [ ] Advanced filtering and search
 - [ ] Student progress monitoring in admin
 
-## Version 1.0.0 (Stable) - Q4 2026
+## Version 1.0.0 (Stable) - Q1 2027
 
 **Goal:** Production-ready, feature-complete LMS
 
