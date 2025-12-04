@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2025-12-04
+
+### Breaking
+
+- Static assets moved from `static/lms/*` to `static/wagtail_lms/*`; any custom templates that manually include `course.css` must update the path (`{% static 'wagtail_lms/css/course.css' %}`).
+
+### Fixed
+
+- Corrected admin SCORM CSS/JS namespace to match the app, resolving 404s in production.
+- Admin SCORM assets now use Django's `static()` helper, so `STATIC_URL` prefixes and hashed filenames from `ManifestStaticFilesStorage` are honored.
+
 ## 0.3.1 - 2025-11-09
 
 ### Fixed
