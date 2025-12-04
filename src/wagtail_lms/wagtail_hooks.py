@@ -1,3 +1,4 @@
+from django.templatetags.static import static
 from django.utils.html import format_html
 from wagtail import hooks
 from wagtail.admin.menu import MenuItem
@@ -14,10 +15,13 @@ def register_scorm_menu_item():
 @hooks.register("insert_global_admin_css")
 def global_admin_css():
     return format_html(
-        '<link rel="stylesheet" href="/static/wagtail_lms/css/scorm-admin.css">'
+        '<link rel="stylesheet" href="{}">',
+        static("wagtail_lms/css/scorm-admin.css"),
     )
 
 
 @hooks.register("insert_global_admin_js")
 def global_admin_js():
-    return format_html('<script src="/static/wagtail_lms/js/scorm-admin.js"></script>')
+    return format_html(
+        '<script src="{}"></script>', static("wagtail_lms/js/scorm-admin.js")
+    )
