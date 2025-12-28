@@ -3,7 +3,6 @@ import xml.etree.ElementTree as ET
 import zipfile
 
 from django.conf import settings
-from django.contrib.auth.models import User
 from django.db import models
 from wagtail.admin.panels import FieldPanel
 from wagtail.fields import RichTextField
@@ -181,7 +180,7 @@ class CoursePage(Page):
 class CourseEnrollment(models.Model):
     """Track user enrollment in courses"""
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     course = models.ForeignKey(CoursePage, on_delete=models.CASCADE)
     enrolled_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)
@@ -212,7 +211,7 @@ class CourseEnrollment(models.Model):
 class SCORMAttempt(models.Model):
     """Track individual SCORM learning attempts"""
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     scorm_package = models.ForeignKey(SCORMPackage, on_delete=models.CASCADE)
     started_at = models.DateTimeField(auto_now_add=True)
     last_accessed = models.DateTimeField(auto_now=True)
