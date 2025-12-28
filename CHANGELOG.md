@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2025-12-27
+
+### Changed
+
+- User foreign keys now use `settings.AUTH_USER_MODEL` instead of `auth.User` in model definitions, aligning code with existing migrations and Django best practices for reusable apps.
+
 ## [0.4.0] - 2025-12-04
 
 ### Breaking
