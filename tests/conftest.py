@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.utils.functional import empty
 from wagtail.models import Page, Site
 
 # Add project root to Python path
@@ -195,3 +196,44 @@ def course_page(home_page, scorm_package):
     home_page.add_child(instance=course)
     course.save_revision().publish()
     return course
+
+
+@pytest.fixture
+def mock_s3_storage(settings):
+    """Simulate a non-local storage backend (like S3) using InMemoryStorage.
+
+    InMemoryStorage does not support .path, just like S3Boto3Storage,
+    so this fixture verifies that code never relies on the filesystem.
+    Available since Django 4.2.
+    """
+    from django.core.files.storage import default_storage, storages
+
+    settings.STORAGES = {
+        "default": {
+            "BACKEND": "django.core.files.storage.InMemoryStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
+    # Clear cached storage instances so default_storage picks up the new backend
+    storages._storages = {}
+    default_storage._wrapped = empty
+
+
+@pytest.fixture
+def scorm_zip_with_traversal(scorm_12_manifest):
+    """Create a SCORM ZIP containing a path-traversal attack alongside valid files."""
+    zip_buffer = io.BytesIO()
+
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+        zip_file.writestr("imsmanifest.xml", scorm_12_manifest)
+        zip_file.writestr("index.html", "<html><body>Safe Content</body></html>")
+        # Malicious entries — should be skipped during extraction
+        zip_file.writestr("../../../etc/passwd", "root:x:0:0:root:/root:/bin/bash")
+        zip_file.writestr("..\\..\\..\\etc\\shadow", "root:!:19000:0:99999:7:::")
+
+    zip_buffer.seek(0)
+    return SimpleUploadedFile(
+        "malicious_scorm.zip", zip_buffer.getvalue(), content_type="application/zip"
+    )

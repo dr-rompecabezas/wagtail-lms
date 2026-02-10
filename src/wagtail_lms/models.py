@@ -1,12 +1,21 @@
+import io
+import logging
 import os
+import posixpath
 import xml.etree.ElementTree as ET
 import zipfile
 
 from django.conf import settings
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 from django.db import models
 from wagtail.admin.panels import FieldPanel
 from wagtail.fields import RichTextField
 from wagtail.models import Page
+
+from . import conf
+
+logger = logging.getLogger(__name__)
 
 
 class SCORMPackage(models.Model):
@@ -42,31 +51,72 @@ class SCORMPackage(models.Model):
             super().save(*args, **kwargs)
 
     def extract_package(self):
-        """Extract SCORM package and parse manifest"""
+        """Extract SCORM package and parse manifest.
+
+        Uses Django's default_storage API so extraction works with any
+        storage backend (local filesystem, S3, etc.).
+        """
         if not self.package_file:
             return
 
         # Create extraction directory with unique path using package ID
         package_name = os.path.splitext(os.path.basename(self.package_file.name))[0]
         unique_dir = f"package_{self.id}_{package_name}"
-        extract_dir = f"scorm_content/{unique_dir}"
-        full_extract_path = os.path.join(settings.MEDIA_ROOT, extract_dir)
+        content_path = conf.WAGTAIL_LMS_CONTENT_PATH.rstrip("/")
 
-        # Extract ZIP file
-        with zipfile.ZipFile(self.package_file.path, "r") as zip_ref:
-            zip_ref.extractall(full_extract_path)
+        manifest_content = None
 
-        self.extracted_path = unique_dir  # Unique directory name
+        # Open file via storage API (works with any backend — no .path needed)
+        with self.package_file.open("rb") as package_fh:
+            with zipfile.ZipFile(package_fh, "r") as zip_ref:
+                for member in zip_ref.infolist():
+                    # Skip directories
+                    if member.is_dir():
+                        continue
+
+                    # Path traversal security: normalize separators, then
+                    # reject members with ".." segments or absolute paths.
+                    # Backslashes are normalized to forward slashes to catch
+                    # Windows-style traversal in crafted ZIPs.
+                    normalized = member.filename.replace("\\", "/")
+                    normalized = posixpath.normpath(normalized)
+                    if (
+                        normalized.startswith("/")
+                        or normalized.startswith("..")
+                        or "/../" in normalized
+                    ):
+                        logger.warning(
+                            "Skipping suspicious ZIP member: %s", member.filename
+                        )
+                        continue
+
+                    file_data = zip_ref.read(member.filename)
+
+                    # Capture manifest in-memory to avoid an extra storage
+                    # round-trip
+                    if member.filename == "imsmanifest.xml":
+                        manifest_content = file_data
+
+                    storage_path = posixpath.join(
+                        content_path, unique_dir, member.filename
+                    )
+                    default_storage.save(storage_path, ContentFile(file_data))
+
+        self.extracted_path = unique_dir
 
         # Parse manifest
-        manifest_path = os.path.join(full_extract_path, "imsmanifest.xml")
-        if os.path.exists(manifest_path):
-            self.parse_manifest(manifest_path)
+        if manifest_content is not None:
+            self.parse_manifest(io.BytesIO(manifest_content))
 
-    def parse_manifest(self, manifest_path):
-        """Parse SCORM manifest file"""
+    def parse_manifest(self, manifest_source):
+        """Parse SCORM manifest file.
+
+        Args:
+            manifest_source: A file path (str) or a file-like object
+                (e.g. io.BytesIO). ET.parse() accepts both.
+        """
         try:
-            tree = ET.parse(manifest_path)
+            tree = ET.parse(manifest_source)
             root = tree.getroot()
 
             # Find the launch URL

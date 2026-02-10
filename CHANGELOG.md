@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-02-10
+
+### Added
+
+- **Django storage backend support for SCORM content** ([#38](https://github.com/dr-rompecabezas/wagtail-lms/issues/38))
+  - `extract_package()` now uses `default_storage.save()` instead of `zipfile.extractall()`, enabling S3 and other remote storage backends
+  - `serve_scorm_content()` now uses `default_storage.exists()` and `default_storage.open()` instead of `os.path` operations
+  - Works transparently with both `FileSystemStorage` (local) and `S3Boto3Storage` (or any Django storage backend)
+  - Fixes SCORM content loss on platforms with ephemeral filesystems (Railway, Heroku, Render)
+- **Path traversal security in ZIP extraction**
+  - Rejects ZIP members containing `..` segments or absolute paths during extraction (logged as warnings)
+  - `serve_scorm_content()` now explicitly rejects `..` segments and leading `/` in request paths
+- **8 new tests** for storage backend compatibility, path traversal protection, and `parse_manifest()` flexibility
+
+### Changed
+
+- `parse_manifest()` parameter renamed from `manifest_path` to `manifest_source` to reflect it now accepts both file paths and file-like objects
+- `extract_package()` captures manifest content in-memory during extraction to avoid an extra storage round-trip
+- `extract_package()` and `serve_scorm_content()` now use `conf.WAGTAIL_LMS_CONTENT_PATH` instead of hardcoded `"scorm_content/"`
+- Replaced `os` import with `posixpath` in views (forward slashes for S3 key compatibility)
+
 ## [0.4.1] - 2025-12-27
 
 ### Changed
