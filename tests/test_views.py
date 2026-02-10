@@ -443,6 +443,25 @@ class TestServeScormContent:
             response = client.get(url)
             assert response.status_code == 404, f"Path {path!r} should be blocked"
 
+    def test_backslash_traversal_blocked(self, user):
+        """Test Windows-style backslash traversal is rejected."""
+        from django.test import RequestFactory
+
+        from wagtail_lms.views import serve_scorm_content
+
+        factory = RequestFactory()
+        request = factory.get("/")
+        request.user = user
+
+        backslash_paths = [
+            "..\\..\\..\\etc\\passwd",
+            "pkg\\..\\..\\secret.html",
+            "pkg/sub\\..\\..\\secret.html",
+        ]
+        for path in backslash_paths:
+            with pytest.raises(Http404):
+                serve_scorm_content(request, path)
+
     def test_absolute_path_blocked(self, user):
         """Test that leading / in content_path is rejected."""
         # Django's <path:> converter strips leading slashes, so we test

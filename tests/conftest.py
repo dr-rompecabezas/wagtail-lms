@@ -229,8 +229,9 @@ def scorm_zip_with_traversal(scorm_12_manifest):
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
         zip_file.writestr("imsmanifest.xml", scorm_12_manifest)
         zip_file.writestr("index.html", "<html><body>Safe Content</body></html>")
-        # Malicious entry — should be skipped during extraction
+        # Malicious entries — should be skipped during extraction
         zip_file.writestr("../../../etc/passwd", "root:x:0:0:root:/root:/bin/bash")
+        zip_file.writestr("..\\..\\..\\etc\\shadow", "root:!:19000:0:99999:7:::")
 
     zip_buffer.seek(0)
     return SimpleUploadedFile(

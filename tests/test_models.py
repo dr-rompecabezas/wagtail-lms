@@ -373,9 +373,10 @@ class TestSCORMPackageStorageBackend:
         safe_path = f"{content_path}/{package.extracted_path}/index.html"
         assert default_storage.exists(safe_path)
 
-        # Malicious entry should NOT have been written to the filesystem
-        # (check at the tmp_path level where ../../../etc/passwd would land)
+        # Malicious entries should NOT have been written to the filesystem
+        # (check at the tmp_path level where traversal paths would land)
         assert not os.path.exists(tmp_path / "etc" / "passwd")
+        assert not os.path.exists(tmp_path / "etc" / "shadow")
 
     def test_parse_manifest_accepts_file_object(self):
         """parse_manifest() should accept a file-like object."""
