@@ -1,8 +1,10 @@
 """Tests for wagtail-lms models."""
 
+import io
 import os
 
 import pytest
+from django.core.files.storage import default_storage
 from django.db import IntegrityError
 
 from wagtail_lms.models import (
@@ -326,3 +328,81 @@ class TestSCORMData:
         # Should truncate to 50 characters
         assert len(str(data)) < 150  # Some extra for attempt info
         assert "cmi.suspend_data" in str(data)
+
+
+@pytest.mark.django_db
+class TestSCORMPackageStorageBackend:
+    """Tests for SCORM extraction using Django's storage API."""
+
+    def test_extract_uses_storage_api(self, scorm_package):
+        """Verify extracted files are accessible via default_storage."""
+        storage_path = f"scorm_content/{scorm_package.extracted_path}/index.html"
+        assert default_storage.exists(storage_path)
+
+    def test_extract_with_in_memory_storage(self, mock_s3_storage, scorm_zip_file, db):
+        """Confirm extraction works when .path is unavailable (simulates S3)."""
+        package = SCORMPackage(
+            title="S3 Test Package",
+            package_file=scorm_zip_file,
+        )
+        package.save()
+
+        assert package.extracted_path != ""
+        storage_path = f"scorm_content/{package.extracted_path}/index.html"
+        assert default_storage.exists(storage_path)
+        assert package.launch_url == "index.html"
+
+    def test_extract_rejects_path_traversal(
+        self, scorm_zip_with_traversal, settings, tmp_path, db
+    ):
+        """Verify malicious ZIP paths are skipped, safe files are extracted."""
+        settings.MEDIA_ROOT = str(tmp_path / "media")
+        os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
+
+        package = SCORMPackage(
+            title="Traversal Test",
+            package_file=scorm_zip_with_traversal,
+        )
+        package.save()
+
+        # Safe files should be extracted
+        safe_path = f"scorm_content/{package.extracted_path}/index.html"
+        assert default_storage.exists(safe_path)
+
+        # Malicious entry should NOT have been written to the filesystem
+        # (check at the tmp_path level where ../../../etc/passwd would land)
+        assert not os.path.exists(tmp_path / "etc" / "passwd")
+
+    def test_parse_manifest_accepts_file_object(self):
+        """parse_manifest() should accept a file-like object."""
+        manifest_xml = b"""<?xml version="1.0"?>
+<manifest identifier="test" version="1.0"
+    xmlns="http://www.imsproject.org/xsd/imscp_rootv1p1p2">
+    <organizations default="org1">
+        <organization identifier="org1">
+            <title>File Object Test</title>
+        </organization>
+    </organizations>
+    <resources>
+        <resource identifier="r1" type="webcontent" href="start.html">
+            <file href="start.html"/>
+        </resource>
+    </resources>
+</manifest>"""
+
+        package = SCORMPackage(title="Manifest Test")
+        package.parse_manifest(io.BytesIO(manifest_xml))
+
+        assert package.launch_url == "start.html"
+        assert package.manifest_data["title"] == "File Object Test"
+
+    def test_parse_manifest_still_accepts_file_path(self, scorm_12_manifest, tmp_path):
+        """parse_manifest() should still accept a string file path."""
+        manifest_file = tmp_path / "imsmanifest.xml"
+        manifest_file.write_text(scorm_12_manifest)
+
+        package = SCORMPackage(title="Path Test")
+        package.parse_manifest(str(manifest_file))
+
+        assert package.launch_url == "index.html"
+        assert package.manifest_data["title"] == "Test SCORM Course"

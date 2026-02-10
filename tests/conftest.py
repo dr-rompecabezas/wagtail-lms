@@ -195,3 +195,38 @@ def course_page(home_page, scorm_package):
     home_page.add_child(instance=course)
     course.save_revision().publish()
     return course
+
+
+@pytest.fixture
+def mock_s3_storage(settings):
+    """Simulate a non-local storage backend (like S3) using InMemoryStorage.
+
+    InMemoryStorage does not support .path, just like S3Boto3Storage,
+    so this fixture verifies that code never relies on the filesystem.
+    Available since Django 4.2.
+    """
+    settings.STORAGES = {
+        "default": {
+            "BACKEND": "django.core.files.storage.InMemoryStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
+
+
+@pytest.fixture
+def scorm_zip_with_traversal(scorm_12_manifest):
+    """Create a SCORM ZIP containing a path-traversal attack alongside valid files."""
+    zip_buffer = io.BytesIO()
+
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+        zip_file.writestr("imsmanifest.xml", scorm_12_manifest)
+        zip_file.writestr("index.html", "<html><body>Safe Content</body></html>")
+        # Malicious entry — should be skipped during extraction
+        zip_file.writestr("../../../etc/passwd", "root:x:0:0:root:/root:/bin/bash")
+
+    zip_buffer.seek(0)
+    return SimpleUploadedFile(
+        "malicious_scorm.zip", zip_buffer.getvalue(), content_type="application/zip"
+    )

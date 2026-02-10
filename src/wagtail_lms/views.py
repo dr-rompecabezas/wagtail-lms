@@ -1,6 +1,6 @@
 import json
 import mimetypes
-import os
+import posixpath
 import time
 from datetime import datetime
 from functools import wraps
@@ -8,6 +8,7 @@ from functools import wraps
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.files.storage import default_storage
 from django.db import OperationalError, transaction
 from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -15,6 +16,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import ListView
 
+from . import conf
 from .models import CourseEnrollment, CoursePage, SCORMAttempt, SCORMData, SCORMPackage
 
 
@@ -337,26 +339,32 @@ def enroll_in_course(request, course_id):
 
 @login_required
 def serve_scorm_content(request, content_path):
-    """Serve SCORM content files with proper headers for iframe embedding"""
-    # Construct the full file path
-    file_path = os.path.join(settings.MEDIA_ROOT, "scorm_content", content_path)
+    """Serve SCORM content files with proper headers for iframe embedding.
 
-    # Security check: ensure the path is within the SCORM content directory
-    scorm_dir = os.path.join(settings.MEDIA_ROOT, "scorm_content")
-    if not os.path.commonpath([file_path, scorm_dir]) == scorm_dir:
+    Uses Django's default_storage API so files are served correctly
+    regardless of storage backend (local filesystem, S3, etc.).
+    """
+    # Path traversal security: reject ".." segments and absolute paths
+    if content_path.startswith("/") or ".." in content_path.split("/"):
         raise Http404("File not found")
 
-    # Check if file exists
-    if not os.path.exists(file_path):
+    # Build storage-relative path (forward slashes work for both local and S3)
+    content_base = conf.WAGTAIL_LMS_CONTENT_PATH.rstrip("/")
+    storage_path = posixpath.join(content_base, content_path)
+
+    # Check if file exists via storage API
+    if not default_storage.exists(storage_path):
         raise Http404("File not found")
 
     # Get the MIME type
-    content_type, _ = mimetypes.guess_type(file_path)
+    content_type, _ = mimetypes.guess_type(content_path)
     if content_type is None:
         content_type = "application/octet-stream"
 
-    # Create response
-    response = FileResponse(open(file_path, "rb"), content_type=content_type)
+    # Open file via storage API and create response
+    response = FileResponse(
+        default_storage.open(storage_path, "rb"), content_type=content_type
+    )
 
     # Set headers to allow iframe embedding
     response["X-Frame-Options"] = "SAMEORIGIN"

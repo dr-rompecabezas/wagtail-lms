@@ -3,6 +3,7 @@
 import json
 
 import pytest
+from django.http import Http404
 from django.urls import reverse
 
 from wagtail_lms.models import CourseEnrollment, SCORMAttempt, SCORMData
@@ -413,3 +414,47 @@ class TestServeScormContent:
         url = reverse("wagtail_lms:serve_scorm_content", args=["../../etc/passwd"])
         response = client.get(url)
         assert response.status_code == 404
+
+    def test_serve_via_storage_api(self, client, user, scorm_package):
+        """Verify content is served through default_storage, not filesystem."""
+        client.force_login(user)
+        url = reverse(
+            "wagtail_lms:serve_scorm_content",
+            args=[f"{scorm_package.extracted_path}/index.html"],
+        )
+        response = client.get(url)
+
+        assert response.status_code == 200
+        content = b"".join(response.streaming_content)
+        assert b"Test Course" in content
+        assert response["Content-Security-Policy"] == "frame-ancestors 'self'"
+
+    def test_path_traversal_dotdot_segments(self, client, user):
+        """Test .. in various path positions."""
+        client.force_login(user)
+
+        traversal_paths = [
+            "../secret/file.html",
+            "pkg/../../../etc/passwd",
+            "pkg/sub/../../secret.html",
+        ]
+        for path in traversal_paths:
+            url = reverse("wagtail_lms:serve_scorm_content", args=[path])
+            response = client.get(url)
+            assert response.status_code == 404, f"Path {path!r} should be blocked"
+
+    def test_absolute_path_blocked(self, client, user):
+        """Test that leading / in content_path is rejected."""
+        client.force_login(user)
+        # Django's <path:> converter strips leading slashes, so we test
+        # via the view function directly
+        from django.test import RequestFactory
+
+        from wagtail_lms.views import serve_scorm_content
+
+        factory = RequestFactory()
+        request = factory.get("/")
+        request.user = user
+
+        with pytest.raises(Http404):
+            serve_scorm_content(request, "/etc/passwd")
