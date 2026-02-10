@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.utils.functional import empty
 from wagtail.models import Page, Site
 
 # Add project root to Python path
@@ -205,6 +206,8 @@ def mock_s3_storage(settings):
     so this fixture verifies that code never relies on the filesystem.
     Available since Django 4.2.
     """
+    from django.core.files.storage import default_storage, storages
+
     settings.STORAGES = {
         "default": {
             "BACKEND": "django.core.files.storage.InMemoryStorage",
@@ -213,6 +216,9 @@ def mock_s3_storage(settings):
             "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
         },
     }
+    # Clear cached storage instances so default_storage picks up the new backend
+    storages._storages = {}
+    default_storage._wrapped = empty
 
 
 @pytest.fixture

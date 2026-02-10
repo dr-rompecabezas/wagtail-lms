@@ -443,9 +443,8 @@ class TestServeScormContent:
             response = client.get(url)
             assert response.status_code == 404, f"Path {path!r} should be blocked"
 
-    def test_absolute_path_blocked(self, client, user):
+    def test_absolute_path_blocked(self, user):
         """Test that leading / in content_path is rejected."""
-        client.force_login(user)
         # Django's <path:> converter strips leading slashes, so we test
         # via the view function directly
         from django.test import RequestFactory

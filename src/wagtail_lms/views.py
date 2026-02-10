@@ -344,27 +344,29 @@ def serve_scorm_content(request, content_path):
     Uses Django's default_storage API so files are served correctly
     regardless of storage backend (local filesystem, S3, etc.).
     """
-    # Path traversal security: reject ".." segments and absolute paths
-    if content_path.startswith("/") or ".." in content_path.split("/"):
+    # Path traversal security: normalize separators then reject ".." and
+    # absolute paths. Backslashes are replaced to catch Windows-style attacks.
+    normalized = content_path.replace("\\", "/")
+    normalized = posixpath.normpath(normalized)
+    if normalized.startswith("/") or normalized.startswith(".."):
         raise Http404("File not found")
 
     # Build storage-relative path (forward slashes work for both local and S3)
     content_base = conf.WAGTAIL_LMS_CONTENT_PATH.rstrip("/")
-    storage_path = posixpath.join(content_base, content_path)
-
-    # Check if file exists via storage API
-    if not default_storage.exists(storage_path):
-        raise Http404("File not found")
+    storage_path = posixpath.join(content_base, normalized)
 
     # Get the MIME type
     content_type, _ = mimetypes.guess_type(content_path)
     if content_type is None:
         content_type = "application/octet-stream"
 
-    # Open file via storage API and create response
-    response = FileResponse(
-        default_storage.open(storage_path, "rb"), content_type=content_type
-    )
+    # Open file via storage API — single round-trip (no separate exists() call)
+    try:
+        fh = default_storage.open(storage_path, "rb")
+    except FileNotFoundError:
+        raise Http404("File not found") from None
+
+    response = FileResponse(fh, content_type=content_type)
 
     # Set headers to allow iframe embedding
     response["X-Frame-Options"] = "SAMEORIGIN"

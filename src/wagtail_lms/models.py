@@ -74,10 +74,16 @@ class SCORMPackage(models.Model):
                     if member.is_dir():
                         continue
 
-                    # Path traversal security: reject members with ".." or
-                    # absolute paths
-                    if ".." in member.filename.split("/") or member.filename.startswith(
-                        "/"
+                    # Path traversal security: normalize separators, then
+                    # reject members with ".." segments or absolute paths.
+                    # Backslashes are normalized to forward slashes to catch
+                    # Windows-style traversal in crafted ZIPs.
+                    normalized = member.filename.replace("\\", "/")
+                    normalized = posixpath.normpath(normalized)
+                    if (
+                        normalized.startswith("/")
+                        or normalized.startswith("..")
+                        or "/../" in normalized
                     ):
                         logger.warning(
                             "Skipping suspicious ZIP member: %s", member.filename
