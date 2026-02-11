@@ -22,6 +22,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `serve_scorm_content` now applies `Cache-Control` headers by default via `WAGTAIL_LMS_CACHE_CONTROL`
 - Migration: set `WAGTAIL_LMS_CACHE_CONTROL = {}` to restore previous no-header behavior
 
+### Fixed
+
+- `serve_scorm_content` now returns `404` (not `500`) for directory-like and dot/empty normalized paths
+- `WAGTAIL_LMS_CACHE_CONTROL` now supports explicit per-MIME `None` values to disable the header without falling back to wildcard/default
+- README cache-control example now includes both `application/javascript` and `text/javascript` MIME variants
+
 ## [0.5.0] - 2026-02-10
 
 ### Added

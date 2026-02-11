@@ -433,6 +433,28 @@ class TestServeScormContent:
         assert response.status_code == 200
         assert response["Cache-Control"] == "max-age=604800"
 
+    def test_serve_scorm_content_explicit_none_cache_rule(
+        self, client, user, scorm_package, monkeypatch
+    ):
+        """Exact MIME None should disable header instead of falling back."""
+        from wagtail_lms import conf
+
+        client.force_login(user)
+        monkeypatch.setattr(
+            conf,
+            "WAGTAIL_LMS_CACHE_CONTROL",
+            {"text/html": None, "default": "max-age=86400"},
+        )
+
+        url = reverse(
+            "wagtail_lms:serve_scorm_content",
+            args=[f"{scorm_package.extracted_path}/index.html"],
+        )
+        response = client.get(url)
+
+        assert response.status_code == 200
+        assert "Cache-Control" not in response
+
     def test_serve_scorm_content_redirects_media_when_enabled(
         self, client, user, scorm_package, monkeypatch
     ):
@@ -544,6 +566,29 @@ class TestServeScormContent:
 
         with pytest.raises(Http404):
             view(request, content_path="/etc/passwd")
+
+    def test_empty_and_dot_paths_blocked(self, user):
+        """Empty and dot-normalized paths should return 404."""
+        from wagtail_lms.views import ServeScormContentView
+
+        factory = RequestFactory()
+        request = factory.get("/")
+        request.user = user
+        view = ServeScormContentView.as_view()
+
+        with pytest.raises(Http404):
+            view(request, content_path="")
+        with pytest.raises(Http404):
+            view(request, content_path=".")
+
+    def test_directory_path_returns_404(self, client, user, scorm_package):
+        """Directory-like path should not raise 500."""
+        client.force_login(user)
+        url = reverse(
+            "wagtail_lms:serve_scorm_content", args=[scorm_package.extracted_path]
+        )
+        response = client.get(url)
+        assert response.status_code == 404
 
     def test_serve_scorm_content_import_warning_emitted_once(self, user, monkeypatch):
         """Deprecated alias should emit a warning only once."""

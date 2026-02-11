@@ -105,6 +105,7 @@ WAGTAIL_LMS_CACHE_CONTROL = {
     "text/html": "no-cache",
     "text/css": "max-age=86400",
     "application/javascript": "max-age=86400",
+    "text/javascript": "max-age=86400",
     "image/*": "max-age=604800",
     "font/*": "max-age=604800",
     "default": "max-age=86400",

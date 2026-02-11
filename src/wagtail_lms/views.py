@@ -351,6 +351,8 @@ class ServeScormContentView(LoginRequiredMixin, View):
         # absolute paths. Backslashes are replaced to catch Windows-style paths.
         normalized = content_path.replace("\\", "/")
         normalized = posixpath.normpath(normalized)
+        if normalized in {"", "."}:
+            raise Http404("File not found")
         if normalized.startswith("/") or normalized.startswith(".."):
             raise Http404("File not found")
         return normalized
@@ -369,9 +371,8 @@ class ServeScormContentView(LoginRequiredMixin, View):
         if not isinstance(cache_rules, dict):
             return None
 
-        exact_match = cache_rules.get(content_type)
-        if exact_match is not None:
-            return exact_match
+        if content_type in cache_rules:
+            return cache_rules[content_type]
 
         wildcard_matches = []
         for pattern, value in cache_rules.items():
@@ -417,7 +418,7 @@ class ServeScormContentView(LoginRequiredMixin, View):
 
         try:
             fh = default_storage.open(storage_path, "rb")
-        except FileNotFoundError:
+        except (FileNotFoundError, IsADirectoryError, NotADirectoryError):
             raise Http404("File not found") from None
 
         response = FileResponse(fh, content_type=content_type)
