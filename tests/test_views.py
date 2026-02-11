@@ -1,6 +1,7 @@
 """Tests for wagtail-lms views."""
 
 import json
+import warnings
 
 import pytest
 from django.core.files.base import ContentFile
@@ -514,13 +515,12 @@ class TestServeScormContent:
 
     def test_backslash_traversal_blocked(self, user):
         """Test Windows-style backslash traversal is rejected."""
-        from django.test import RequestFactory
-
-        from wagtail_lms.views import serve_scorm_content
+        from wagtail_lms.views import ServeScormContentView
 
         factory = RequestFactory()
         request = factory.get("/")
         request.user = user
+        view = ServeScormContentView.as_view()
 
         backslash_paths = [
             "..\\..\\..\\etc\\passwd",
@@ -529,19 +529,43 @@ class TestServeScormContent:
         ]
         for path in backslash_paths:
             with pytest.raises(Http404):
-                serve_scorm_content(request, path)
+                view(request, content_path=path)
 
     def test_absolute_path_blocked(self, user):
         """Test that leading / in content_path is rejected."""
         # Django's <path:> converter strips leading slashes, so we test
         # via the view function directly
-        from django.test import RequestFactory
+        from wagtail_lms.views import ServeScormContentView
 
-        from wagtail_lms.views import serve_scorm_content
+        factory = RequestFactory()
+        request = factory.get("/")
+        request.user = user
+        view = ServeScormContentView.as_view()
+
+        with pytest.raises(Http404):
+            view(request, content_path="/etc/passwd")
+
+    def test_serve_scorm_content_import_warning_emitted_once(self, user, monkeypatch):
+        """Deprecated alias should emit a warning only once."""
+        from wagtail_lms import views as lms_views
+
+        monkeypatch.setattr(lms_views, "_serve_scorm_content_warned", False)
 
         factory = RequestFactory()
         request = factory.get("/")
         request.user = user
 
-        with pytest.raises(Http404):
-            serve_scorm_content(request, "/etc/passwd")
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            with pytest.raises(Http404):
+                lms_views.serve_scorm_content(request, "/etc/passwd")
+            with pytest.raises(Http404):
+                lms_views.serve_scorm_content(request, "/etc/passwd")
+
+        deprecations = [
+            warning
+            for warning in caught
+            if issubclass(warning.category, DeprecationWarning)
+        ]
+        assert len(deprecations) == 1
+        assert "ServeScormContentView.as_view()" in str(deprecations[0].message)

@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-02-11
+
 ### Added
 
 - **Extensible SCORM content serving with cache and media redirect hooks** ([#41](https://github.com/dr-rompecabezas/wagtail-lms/issues/41))
@@ -14,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added `WAGTAIL_LMS_CACHE_CONTROL` setting with exact MIME, wildcard (e.g. `image/*`), and `default` matching
   - Added `WAGTAIL_LMS_REDIRECT_MEDIA` setting to redirect `audio/*` and `video/*` assets to storage-backed URLs (useful for S3)
   - Preserved upstream path traversal protection and iframe headers
+
+### Changed
+
+- `serve_scorm_content` now applies `Cache-Control` headers by default via `WAGTAIL_LMS_CACHE_CONTROL`
+- Migration: set `WAGTAIL_LMS_CACHE_CONTROL = {}` to restore previous no-header behavior
 
 ## [0.5.0] - 2026-02-10
 
