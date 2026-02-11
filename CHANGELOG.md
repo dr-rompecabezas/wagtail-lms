@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-02-11
+
+### Added
+
+- **Extensible SCORM content serving with cache and media redirect hooks** ([#41](https://github.com/dr-rompecabezas/wagtail-lms/issues/41))
+  - Replaced function-based content serving with `ServeScormContentView` (CBV), making downstream subclass overrides straightforward
+  - Added `WAGTAIL_LMS_CACHE_CONTROL` setting with exact MIME, wildcard (e.g. `image/*`), and `default` matching
+  - Added `WAGTAIL_LMS_REDIRECT_MEDIA` setting to redirect `audio/*` and `video/*` assets to storage-backed URLs (useful for S3)
+  - Preserved upstream path traversal protection and iframe headers
+
+### Changed
+
+- `serve_scorm_content` now applies `Cache-Control` headers by default via `WAGTAIL_LMS_CACHE_CONTROL`
+- Migration: set `WAGTAIL_LMS_CACHE_CONTROL = {}` to restore previous no-header behavior
+
+### Fixed
+
+- `serve_scorm_content` now returns `404` (not `500`) for directory-like and dot/empty normalized paths
+- `WAGTAIL_LMS_CACHE_CONTROL` now supports explicit per-MIME `None` values to disable the header without falling back to wildcard/default
+- README cache-control example now includes both `application/javascript` and `text/javascript` MIME variants
+
 ## [0.5.0] - 2026-02-10
 
 ### Added

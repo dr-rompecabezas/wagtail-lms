@@ -1,9 +1,13 @@
 """Tests for wagtail-lms views."""
 
 import json
+import warnings
 
 import pytest
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 from django.http import Http404
+from django.test import RequestFactory
 from django.urls import reverse
 
 from wagtail_lms.models import CourseEnrollment, SCORMAttempt, SCORMData
@@ -401,6 +405,94 @@ class TestServeScormContent:
         content = b"".join(response.streaming_content)
         assert b"Test Course" in content
 
+    def test_serve_scorm_content_sets_cache_control(self, client, user, scorm_package):
+        """Test default Cache-Control for HTML assets."""
+        client.force_login(user)
+        url = reverse(
+            "wagtail_lms:serve_scorm_content",
+            args=[f"{scorm_package.extracted_path}/index.html"],
+        )
+        response = client.get(url)
+        assert response.status_code == 200
+        assert response["Cache-Control"] == "no-cache"
+
+    def test_serve_scorm_content_wildcard_cache_control(
+        self, client, user, scorm_package
+    ):
+        """Test wildcard MIME cache rules (image/*)."""
+        from wagtail_lms import conf
+
+        client.force_login(user)
+
+        relative_path = f"{scorm_package.extracted_path}/logo.png"
+        storage_path = f"{conf.WAGTAIL_LMS_CONTENT_PATH.rstrip('/')}/{relative_path}"
+        default_storage.save(storage_path, ContentFile(b"fake-image"))
+
+        url = reverse("wagtail_lms:serve_scorm_content", args=[relative_path])
+        response = client.get(url)
+        assert response.status_code == 200
+        assert response["Cache-Control"] == "max-age=604800"
+
+    def test_serve_scorm_content_explicit_none_cache_rule(
+        self, client, user, scorm_package, monkeypatch
+    ):
+        """Exact MIME None should disable header instead of falling back."""
+        from wagtail_lms import conf
+
+        client.force_login(user)
+        monkeypatch.setattr(
+            conf,
+            "WAGTAIL_LMS_CACHE_CONTROL",
+            {"text/html": None, "default": "max-age=86400"},
+        )
+
+        url = reverse(
+            "wagtail_lms:serve_scorm_content",
+            args=[f"{scorm_package.extracted_path}/index.html"],
+        )
+        response = client.get(url)
+
+        assert response.status_code == 200
+        assert "Cache-Control" not in response
+
+    def test_serve_scorm_content_redirects_media_when_enabled(
+        self, client, user, scorm_package, monkeypatch
+    ):
+        """Test opt-in redirect flow for media files."""
+        from wagtail_lms import conf
+
+        client.force_login(user)
+        monkeypatch.setattr(conf, "WAGTAIL_LMS_REDIRECT_MEDIA", True)
+
+        relative_path = f"{scorm_package.extracted_path}/lesson.mp4"
+        storage_path = f"{conf.WAGTAIL_LMS_CONTENT_PATH.rstrip('/')}/{relative_path}"
+        default_storage.save(storage_path, ContentFile(b"fake-video"))
+
+        url = reverse("wagtail_lms:serve_scorm_content", args=[relative_path])
+        response = client.get(url)
+
+        assert response.status_code == 302
+        assert response["Location"] == default_storage.url(storage_path)
+
+    def test_serve_scorm_content_cbv_can_be_subclassed(self, user, scorm_package):
+        """Test projects can override CBV hooks via subclassing."""
+        from wagtail_lms.views import ServeScormContentView
+
+        factory = RequestFactory()
+        request = factory.get("/")
+        request.user = user
+
+        class CustomCacheView(ServeScormContentView):
+            def get_cache_control(self, content_type):
+                return "max-age=42"
+
+        response = CustomCacheView.as_view()(
+            request, content_path=f"{scorm_package.extracted_path}/index.html"
+        )
+
+        assert response.status_code == 200
+        assert response["Cache-Control"] == "max-age=42"
+
     def test_serve_scorm_content_not_found(self, client, user):
         """Test serving non-existent SCORM content."""
         client.force_login(user)
@@ -445,13 +537,12 @@ class TestServeScormContent:
 
     def test_backslash_traversal_blocked(self, user):
         """Test Windows-style backslash traversal is rejected."""
-        from django.test import RequestFactory
-
-        from wagtail_lms.views import serve_scorm_content
+        from wagtail_lms.views import ServeScormContentView
 
         factory = RequestFactory()
         request = factory.get("/")
         request.user = user
+        view = ServeScormContentView.as_view()
 
         backslash_paths = [
             "..\\..\\..\\etc\\passwd",
@@ -460,19 +551,66 @@ class TestServeScormContent:
         ]
         for path in backslash_paths:
             with pytest.raises(Http404):
-                serve_scorm_content(request, path)
+                view(request, content_path=path)
 
     def test_absolute_path_blocked(self, user):
         """Test that leading / in content_path is rejected."""
         # Django's <path:> converter strips leading slashes, so we test
         # via the view function directly
-        from django.test import RequestFactory
+        from wagtail_lms.views import ServeScormContentView
 
-        from wagtail_lms.views import serve_scorm_content
+        factory = RequestFactory()
+        request = factory.get("/")
+        request.user = user
+        view = ServeScormContentView.as_view()
+
+        with pytest.raises(Http404):
+            view(request, content_path="/etc/passwd")
+
+    def test_empty_and_dot_paths_blocked(self, user):
+        """Empty and dot-normalized paths should return 404."""
+        from wagtail_lms.views import ServeScormContentView
+
+        factory = RequestFactory()
+        request = factory.get("/")
+        request.user = user
+        view = ServeScormContentView.as_view()
+
+        with pytest.raises(Http404):
+            view(request, content_path="")
+        with pytest.raises(Http404):
+            view(request, content_path=".")
+
+    def test_directory_path_returns_404(self, client, user, scorm_package):
+        """Directory-like path should not raise 500."""
+        client.force_login(user)
+        url = reverse(
+            "wagtail_lms:serve_scorm_content", args=[scorm_package.extracted_path]
+        )
+        response = client.get(url)
+        assert response.status_code == 404
+
+    def test_serve_scorm_content_import_warning_emitted_once(self, user, monkeypatch):
+        """Deprecated alias should emit a warning only once."""
+        from wagtail_lms import views as lms_views
+
+        monkeypatch.setattr(lms_views, "_serve_scorm_content_warned", False)
 
         factory = RequestFactory()
         request = factory.get("/")
         request.user = user
 
-        with pytest.raises(Http404):
-            serve_scorm_content(request, "/etc/passwd")
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            with pytest.raises(Http404):
+                lms_views.serve_scorm_content(request, "/etc/passwd")
+            with pytest.raises(Http404):
+                lms_views.serve_scorm_content(request, "/etc/passwd")
+
+        deprecations = [
+            warning
+            for warning in caught
+            if issubclass(warning.category, DeprecationWarning)
+        ]
+        assert len(deprecations) == 1
+        assert "ServeScormContentView.as_view()" in str(deprecations[0].message)
