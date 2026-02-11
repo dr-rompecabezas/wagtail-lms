@@ -99,6 +99,19 @@ WAGTAIL_LMS_CONTENT_PATH = 'scorm_content/'
 
 # Auto-enroll users when they visit a course
 WAGTAIL_LMS_AUTO_ENROLL = False
+
+# Cache-Control rules for SCORM assets (exact MIME, wildcard, and default)
+WAGTAIL_LMS_CACHE_CONTROL = {
+    "text/html": "no-cache",
+    "text/css": "max-age=86400",
+    "application/javascript": "max-age=86400",
+    "image/*": "max-age=604800",
+    "font/*": "max-age=604800",
+    "default": "max-age=86400",
+}
+
+# Redirect audio/video assets to storage URLs (useful for S3 backends)
+WAGTAIL_LMS_REDIRECT_MEDIA = False
 ```
 
 ## Usage

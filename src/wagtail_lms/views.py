@@ -8,13 +8,14 @@ from functools import wraps
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.files.storage import default_storage
 from django.db import OperationalError, transaction
 from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.csrf import csrf_exempt
-from django.views.generic import ListView
+from django.views.generic import ListView, View
 
 from . import conf
 from .models import CourseEnrollment, CoursePage, SCORMAttempt, SCORMData, SCORMPackage
@@ -337,39 +338,92 @@ def enroll_in_course(request, course_id):
     return redirect("/")
 
 
-@login_required
-def serve_scorm_content(request, content_path):
-    """Serve SCORM content files with proper headers for iframe embedding.
+class ServeScormContentView(LoginRequiredMixin, View):
+    """Serve SCORM content files with secure path validation.
 
-    Uses Django's default_storage API so files are served correctly
-    regardless of storage backend (local filesystem, S3, etc.).
+    Subclass this view to customize caching and redirect behavior while
+    preserving upstream security checks.
     """
-    # Path traversal security: normalize separators then reject ".." and
-    # absolute paths. Backslashes are replaced to catch Windows-style attacks.
-    normalized = content_path.replace("\\", "/")
-    normalized = posixpath.normpath(normalized)
-    if normalized.startswith("/") or normalized.startswith(".."):
-        raise Http404("File not found")
 
-    # Build storage-relative path (forward slashes work for both local and S3)
-    content_base = conf.WAGTAIL_LMS_CONTENT_PATH.rstrip("/")
-    storage_path = posixpath.join(content_base, normalized)
+    def normalize_content_path(self, content_path):
+        # Path traversal security: normalize separators then reject ".." and
+        # absolute paths. Backslashes are replaced to catch Windows-style paths.
+        normalized = content_path.replace("\\", "/")
+        normalized = posixpath.normpath(normalized)
+        if normalized.startswith("/") or normalized.startswith(".."):
+            raise Http404("File not found")
+        return normalized
 
-    # Get the MIME type
-    content_type, _ = mimetypes.guess_type(content_path)
-    if content_type is None:
-        content_type = "application/octet-stream"
+    def get_storage_path(self, normalized_content_path):
+        content_base = conf.WAGTAIL_LMS_CONTENT_PATH.rstrip("/")
+        return posixpath.join(content_base, normalized_content_path)
 
-    # Open file via storage API — single round-trip (no separate exists() call)
-    try:
-        fh = default_storage.open(storage_path, "rb")
-    except FileNotFoundError:
-        raise Http404("File not found") from None
+    def get_content_type(self, content_path):
+        content_type, _ = mimetypes.guess_type(content_path)
+        return content_type or "application/octet-stream"
 
-    response = FileResponse(fh, content_type=content_type)
+    def get_cache_control(self, content_type):
+        """Return Cache-Control header value for this MIME type or None."""
+        cache_rules = conf.WAGTAIL_LMS_CACHE_CONTROL
+        if not isinstance(cache_rules, dict):
+            return None
 
-    # Set headers to allow iframe embedding
-    response["X-Frame-Options"] = "SAMEORIGIN"
-    response["Content-Security-Policy"] = "frame-ancestors 'self'"
+        exact_match = cache_rules.get(content_type)
+        if exact_match is not None:
+            return exact_match
 
-    return response
+        wildcard_matches = []
+        for pattern, value in cache_rules.items():
+            if pattern.endswith("/*") and content_type.startswith(pattern[:-1]):
+                wildcard_matches.append((len(pattern), value))
+
+        if wildcard_matches:
+            _, best_match_value = max(wildcard_matches, key=lambda match: match[0])
+            return best_match_value
+
+        return cache_rules.get("default")
+
+    def should_redirect(self, content_type, storage_path):
+        """Return True to redirect this asset request instead of proxying."""
+        if not conf.WAGTAIL_LMS_REDIRECT_MEDIA:
+            return False
+        return content_type.startswith(("audio/", "video/"))
+
+    def get_redirect_url(self, storage_path):
+        return default_storage.url(storage_path)
+
+    def apply_security_headers(self, response):
+        response["X-Frame-Options"] = "SAMEORIGIN"
+        response["Content-Security-Policy"] = "frame-ancestors 'self'"
+        return response
+
+    def apply_cache_header(self, response, content_type):
+        cache_control = self.get_cache_control(content_type)
+        if cache_control:
+            response["Cache-Control"] = cache_control
+        return response
+
+    def get(self, request, content_path):
+        normalized = self.normalize_content_path(content_path)
+        storage_path = self.get_storage_path(normalized)
+        content_type = self.get_content_type(normalized)
+
+        if self.should_redirect(content_type, storage_path):
+            if not default_storage.exists(storage_path):
+                raise Http404("File not found")
+            response = redirect(self.get_redirect_url(storage_path))
+            return self.apply_cache_header(response, content_type)
+
+        try:
+            fh = default_storage.open(storage_path, "rb")
+        except FileNotFoundError:
+            raise Http404("File not found") from None
+
+        response = FileResponse(fh, content_type=content_type)
+        self.apply_security_headers(response)
+        self.apply_cache_header(response, content_type)
+        return response
+
+
+# Backwards-compatible callable used in older imports and tests.
+serve_scorm_content = ServeScormContentView.as_view()

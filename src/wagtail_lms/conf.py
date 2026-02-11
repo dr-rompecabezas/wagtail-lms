@@ -11,3 +11,19 @@ WAGTAIL_LMS_CONTENT_PATH = getattr(
 )
 
 WAGTAIL_LMS_AUTO_ENROLL = getattr(settings, "WAGTAIL_LMS_AUTO_ENROLL", False)
+
+WAGTAIL_LMS_CACHE_CONTROL = getattr(
+    settings,
+    "WAGTAIL_LMS_CACHE_CONTROL",
+    {
+        "text/html": "no-cache",
+        "text/css": "max-age=86400",
+        "application/javascript": "max-age=86400",
+        "text/javascript": "max-age=86400",
+        "image/*": "max-age=604800",
+        "font/*": "max-age=604800",
+        "default": "max-age=86400",
+    },
+)
+
+WAGTAIL_LMS_REDIRECT_MEDIA = getattr(settings, "WAGTAIL_LMS_REDIRECT_MEDIA", False)

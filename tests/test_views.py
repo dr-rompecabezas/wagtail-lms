@@ -3,7 +3,10 @@
 import json
 
 import pytest
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 from django.http import Http404
+from django.test import RequestFactory
 from django.urls import reverse
 
 from wagtail_lms.models import CourseEnrollment, SCORMAttempt, SCORMData
@@ -400,6 +403,72 @@ class TestServeScormContent:
         # FileResponse uses streaming_content instead of content
         content = b"".join(response.streaming_content)
         assert b"Test Course" in content
+
+    def test_serve_scorm_content_sets_cache_control(self, client, user, scorm_package):
+        """Test default Cache-Control for HTML assets."""
+        client.force_login(user)
+        url = reverse(
+            "wagtail_lms:serve_scorm_content",
+            args=[f"{scorm_package.extracted_path}/index.html"],
+        )
+        response = client.get(url)
+        assert response.status_code == 200
+        assert response["Cache-Control"] == "no-cache"
+
+    def test_serve_scorm_content_wildcard_cache_control(
+        self, client, user, scorm_package
+    ):
+        """Test wildcard MIME cache rules (image/*)."""
+        from wagtail_lms import conf
+
+        client.force_login(user)
+
+        relative_path = f"{scorm_package.extracted_path}/logo.png"
+        storage_path = f"{conf.WAGTAIL_LMS_CONTENT_PATH.rstrip('/')}/{relative_path}"
+        default_storage.save(storage_path, ContentFile(b"fake-image"))
+
+        url = reverse("wagtail_lms:serve_scorm_content", args=[relative_path])
+        response = client.get(url)
+        assert response.status_code == 200
+        assert response["Cache-Control"] == "max-age=604800"
+
+    def test_serve_scorm_content_redirects_media_when_enabled(
+        self, client, user, scorm_package, monkeypatch
+    ):
+        """Test opt-in redirect flow for media files."""
+        from wagtail_lms import conf
+
+        client.force_login(user)
+        monkeypatch.setattr(conf, "WAGTAIL_LMS_REDIRECT_MEDIA", True)
+
+        relative_path = f"{scorm_package.extracted_path}/lesson.mp4"
+        storage_path = f"{conf.WAGTAIL_LMS_CONTENT_PATH.rstrip('/')}/{relative_path}"
+        default_storage.save(storage_path, ContentFile(b"fake-video"))
+
+        url = reverse("wagtail_lms:serve_scorm_content", args=[relative_path])
+        response = client.get(url)
+
+        assert response.status_code == 302
+        assert response["Location"] == default_storage.url(storage_path)
+
+    def test_serve_scorm_content_cbv_can_be_subclassed(self, user, scorm_package):
+        """Test projects can override CBV hooks via subclassing."""
+        from wagtail_lms.views import ServeScormContentView
+
+        factory = RequestFactory()
+        request = factory.get("/")
+        request.user = user
+
+        class CustomCacheView(ServeScormContentView):
+            def get_cache_control(self, content_type):
+                return "max-age=42"
+
+        response = CustomCacheView.as_view()(
+            request, content_path=f"{scorm_package.extracted_path}/index.html"
+        )
+
+        assert response.status_code == 200
+        assert response["Cache-Control"] == "max-age=42"
 
     def test_serve_scorm_content_not_found(self, client, user):
         """Test serving non-existent SCORM content."""

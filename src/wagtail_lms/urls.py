@@ -17,7 +17,7 @@ urlpatterns = [
     ),
     path(
         "scorm-content/<path:content_path>",
-        views.serve_scorm_content,
+        views.ServeScormContentView.as_view(),
         name="serve_scorm_content",
     ),
 ]
