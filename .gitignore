@@ -209,7 +209,7 @@ __marimo__/
 example_project/db.sqlite3
 example_project/media/
 example_project/static_collected/
-example_project/home/migrations/0001_initial.py
+
 
 # Accidental media/static in project root (should be in example_project/)
 /media/

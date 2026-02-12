@@ -20,61 +20,39 @@ This example project serves multiple purposes:
 From the root of the `wagtail-lms` repository:
 
 ```bash
-# Install the package in development mode
-pip install -e .
-
-# Or install with uv
-uv pip install -e .
+# Creates a virtual environment and installs all dependencies
+uv sync
 ```
 
-### 2. Create Home App Migrations
+### 2. Run Migrations
 
 ```bash
-cd /path/to/wagtail-lms
-PYTHONPATH=. python example_project/manage.py makemigrations home
+PYTHONPATH=. uv run python example_project/manage.py migrate
 ```
 
-### 3. Run Migrations
+### 3. Create a Superuser
 
 ```bash
-PYTHONPATH=. python example_project/manage.py migrate
-```
-
-### 4. Create a Superuser
-
-```bash
-PYTHONPATH=. python example_project/manage.py createsuperuser
+PYTHONPATH=. uv run python example_project/manage.py createsuperuser
 ```
 
 Follow the prompts to create an admin user.
 
-### 5. Start the Development Server
+### 4. Start the Development Server
 
 ```bash
-PYTHONPATH=. python example_project/manage.py runserver
+PYTHONPATH=. uv run python example_project/manage.py runserver
 ```
 
 The site will be available at `http://localhost:8000`
 
-### 6. Set Up the Home Page
+### 5. Set Up the Home Page
 
-The first time you run the project, Wagtail creates a default "Welcome" page. Replace it with the custom HomePage:
+Replace Wagtail's default welcome page with the example project `HomePage`:
 
-1. Login to Wagtail Admin: <http://localhost:8000/admin/>
-
-2. Go to **Pages** → Click the "Welcome to your new Wagtail site!" page
-
-3. Click the three dots menu → **Delete**
-
-4. Go back to **Pages** → Click **Add child page** at the root level
-
-5. Select **Home Page**
-
-6. Fill in:
-   - Title: "Welcome to Wagtail LMS"
-   - Body: Add welcome content (optional)
-
-7. Click **Publish**
+```bash
+PYTHONPATH=. uv run python example_project/manage.py setup_pages
+```
 
 The home page will now be visible at `http://localhost:8000/`
 
@@ -93,7 +71,7 @@ The home page will now be visible at `http://localhost:8000/`
 2. Navigate to **Wagtail Lms** → **SCORM Packages**
 3. Click **Add SCORM Package**
 4. Upload a SCORM 1.2 or 2004 ZIP file
-5. Add a title and description
+5. Add a title (required) and description (optional)
 6. Save
 
 The package will be automatically extracted and parsed.
@@ -105,7 +83,7 @@ The package will be automatically extracted and parsed.
 3. Under the Home page, click **Add child page**
 4. Select **Course Page**
 5. Fill in the course details:
-   - Title
+   - Title (required)
    - Description (optional)
    - Select the SCORM package you uploaded
 6. Click **Publish**
@@ -150,22 +128,21 @@ example_project/
 
 ```bash
 rm example_project/db.sqlite3
-rm example_project/home/migrations/0001_initial.py
-PYTHONPATH=. python example_project/manage.py makemigrations home
-PYTHONPATH=. python example_project/manage.py migrate
-PYTHONPATH=. python example_project/manage.py createsuperuser
+PYTHONPATH=. uv run python example_project/manage.py migrate
+PYTHONPATH=. uv run python example_project/manage.py setup_pages
+PYTHONPATH=. uv run python example_project/manage.py createsuperuser
 ```
 
 ### Collect Static Files
 
 ```bash
-PYTHONPATH=. python example_project/manage.py collectstatic --noinput
+PYTHONPATH=. uv run python example_project/manage.py collectstatic --noinput
 ```
 
 ### Run Django Shell
 
 ```bash
-PYTHONPATH=. python example_project/manage.py shell
+PYTHONPATH=. uv run python example_project/manage.py shell
 ```
 
 ### Create Migrations for wagtail-lms
@@ -173,7 +150,7 @@ PYTHONPATH=. python example_project/manage.py shell
 If you're developing wagtail-lms and make model changes:
 
 ```bash
-PYTHONPATH=. python example_project/manage.py makemigrations wagtail_lms
+PYTHONPATH=. uv run python example_project/manage.py makemigrations wagtail_lms
 ```
 
 ## Testing SCORM Packages
@@ -190,7 +167,7 @@ You can find free SCORM test packages here:
 If you get import errors for `wagtail_lms`, make sure you installed the package:
 
 ```bash
-pip install -e .
+uv sync
 ```
 
 ### Database Errors
@@ -199,7 +176,7 @@ If migrations fail, try:
 
 ```bash
 rm example_project/db.sqlite3
-python example_project/manage.py migrate
+uv run python example_project/manage.py migrate
 ```
 
 ### SCORM Package Not Extracting
