@@ -165,7 +165,17 @@ WAGTAILADMIN_BASE_URL = "http://localhost:8000"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
-# Wagtail LMS settings (optional)
+# Wagtail LMS settings (optional — defaults shown)
 # WAGTAIL_LMS_SCORM_UPLOAD_PATH = 'scorm_packages/'
 # WAGTAIL_LMS_CONTENT_PATH = 'scorm_content/'
 # WAGTAIL_LMS_AUTO_ENROLL = False
+# WAGTAIL_LMS_CACHE_CONTROL = {
+#     "text/html": "no-cache",
+#     "text/css": "max-age=86400",
+#     "application/javascript": "max-age=86400",
+#     "text/javascript": "max-age=86400",
+#     "image/*": "max-age=604800",
+#     "font/*": "max-age=604800",
+#     "default": "max-age=86400",
+# }
+# WAGTAIL_LMS_REDIRECT_MEDIA = False

@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Django 6.0 and Wagtail 7.2/7.3 support with two new CI matrix entries
+- Example project: add `setup_pages` management command replacing manual home page setup
+- Example project: document all `WAGTAIL_LMS_*` settings, update lockfile to latest versions
 
 ### Changed
 
