@@ -498,6 +498,52 @@ class TestServeScormContent:
         with pytest.raises(Http404):
             BrokenRedirectView.as_view()(request, content_path=relative_path)
 
+    @pytest.mark.parametrize(
+        "exc_class",
+        [
+            Http404,
+            pytest.param(
+                "PermissionDenied",
+                id="PermissionDenied",
+            ),
+            pytest.param(
+                "SuspiciousOperation",
+                id="SuspiciousOperation",
+            ),
+        ],
+    )
+    def test_serve_scorm_content_redirect_preserves_django_exceptions(
+        self, user, scorm_package, monkeypatch, exc_class
+    ):
+        """Intentional Django exceptions from get_redirect_url() propagate."""
+        from django.core.exceptions import PermissionDenied, SuspiciousOperation
+
+        from wagtail_lms import conf
+        from wagtail_lms.views import ServeScormContentView
+
+        exc_map = {
+            "PermissionDenied": PermissionDenied,
+            "SuspiciousOperation": SuspiciousOperation,
+        }
+        exc_class = exc_map.get(exc_class, exc_class)
+
+        monkeypatch.setattr(conf, "WAGTAIL_LMS_REDIRECT_MEDIA", True)
+
+        relative_path = f"{scorm_package.extracted_path}/lesson.mp4"
+        storage_path = f"{conf.WAGTAIL_LMS_CONTENT_PATH.rstrip('/')}/{relative_path}"
+        default_storage.save(storage_path, ContentFile(b"fake-video"))
+
+        class GuardedRedirectView(ServeScormContentView):
+            def get_redirect_url(self, path):
+                raise exc_class("denied")
+
+        factory = RequestFactory()
+        request = factory.get("/")
+        request.user = user
+
+        with pytest.raises(exc_class):
+            GuardedRedirectView.as_view()(request, content_path=relative_path)
+
     def test_serve_scorm_content_cbv_can_be_subclassed(self, user, scorm_package):
         """Test projects can override CBV hooks via subclassing."""
         from wagtail_lms.views import ServeScormContentView

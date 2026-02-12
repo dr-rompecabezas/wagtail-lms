@@ -10,6 +10,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.exceptions import PermissionDenied, SuspiciousOperation
 from django.core.files.storage import default_storage
 from django.db import OperationalError, transaction
 from django.http import FileResponse, Http404, JsonResponse
@@ -415,6 +416,8 @@ class ServeScormContentView(LoginRequiredMixin, View):
                 raise Http404("File not found")
             try:
                 response = redirect(self.get_redirect_url(storage_path))
+            except (Http404, PermissionDenied, SuspiciousOperation):
+                raise
             except Exception:
                 raise Http404("File not found") from None
             return self.apply_cache_header(response, content_type)
