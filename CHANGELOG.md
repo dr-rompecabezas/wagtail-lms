@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-02-12
+
 ### Added
 
 - Django 6.0 and Wagtail 7.2/7.3 support with two new CI matrix entries
