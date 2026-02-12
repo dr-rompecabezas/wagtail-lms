@@ -412,8 +412,6 @@ class ServeScormContentView(LoginRequiredMixin, View):
         content_type = self.get_content_type(normalized)
 
         if self.should_redirect(content_type, storage_path):
-            if not default_storage.exists(storage_path):
-                raise Http404("File not found")
             try:
                 response = redirect(self.get_redirect_url(storage_path))
             except (Http404, PermissionDenied, SuspiciousOperation):

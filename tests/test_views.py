@@ -484,8 +484,6 @@ class TestServeScormContent:
         monkeypatch.setattr(conf, "WAGTAIL_LMS_REDIRECT_MEDIA", True)
 
         relative_path = f"{scorm_package.extracted_path}/lesson.mp4"
-        storage_path = f"{conf.WAGTAIL_LMS_CONTENT_PATH.rstrip('/')}/{relative_path}"
-        default_storage.save(storage_path, ContentFile(b"fake-video"))
 
         class BrokenRedirectView(ServeScormContentView):
             def get_redirect_url(self, storage_path):
@@ -530,8 +528,6 @@ class TestServeScormContent:
         monkeypatch.setattr(conf, "WAGTAIL_LMS_REDIRECT_MEDIA", True)
 
         relative_path = f"{scorm_package.extracted_path}/lesson.mp4"
-        storage_path = f"{conf.WAGTAIL_LMS_CONTENT_PATH.rstrip('/')}/{relative_path}"
-        default_storage.save(storage_path, ContentFile(b"fake-video"))
 
         class GuardedRedirectView(ServeScormContentView):
             def get_redirect_url(self, path):

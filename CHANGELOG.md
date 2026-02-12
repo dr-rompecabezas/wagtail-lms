@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Remove extra `default_storage.exists()` call from `ServeScormContentView` redirect path ([#44](https://github.com/dr-rompecabezas/wagtail-lms/issues/44))
+  - Eliminates ~50-100ms latency per media asset request in S3-backed deployments
+  - Missing files now produce a redirect to S3 (which returns 403/404) instead of a Django 404
+
 ### Fixed
 
 - Handle exceptions in `ServeScormContentView` redirect path ([#43](https://github.com/dr-rompecabezas/wagtail-lms/issues/43))
