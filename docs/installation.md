@@ -2,13 +2,11 @@
 
 ## Requirements
 
-**Supported versions:**
+- **Python:** 3.11+
+- **Django:** 4.2+
+- **Wagtail:** 6.0+
 
-- **Python:** 3.11, 3.12, 3.13
-- **Django:** 4.2 (LTS), 5.0, 5.1, 5.2 (LTS)
-- **Wagtail:** 6.0, 6.1, 6.2, 6.3, 7.0 (LTS), 7.1
-
-All combinations are tested in CI. See our [GitHub Actions workflow](https://github.com/dr-rompecabezas/wagtail-lms/actions/workflows/ci.yml) for the full compatibility matrix.
+For the full list of tested version combinations, see the [CI matrix](https://github.com/dr-rompecabezas/wagtail-lms/actions/workflows/ci.yml).
 
 ## Step-by-Step Installation
 

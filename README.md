@@ -16,8 +16,8 @@ A Learning Management System extension for Wagtail CMS with SCORM 1.2/2004 suppo
 **Supported versions:**
 
 - **Python:** 3.11, 3.12, 3.13
-- **Django:** 4.2 (LTS), 5.0, 5.1, 5.2 (LTS)
-- **Wagtail:** 6.0, 6.1, 6.2, 6.3, 7.0 (LTS), 7.1
+- **Django:** 4.2 (LTS), 5.0, 5.1, 5.2 (LTS), 6.0
+- **Wagtail:** 6.0, 6.2, 6.3, 7.1, 7.2, 7.3
 
 All combinations are tested in CI. See our [compatibility matrix](https://github.com/dr-rompecabezas/wagtail-lms/actions/workflows/ci.yml) for specific version combinations.
 
