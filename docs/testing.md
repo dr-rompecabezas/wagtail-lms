@@ -136,15 +136,18 @@ Each test runs in a transaction that is rolled back after completion, ensuring t
 
 ## Continuous Integration
 
-CI/CD with GitHub Actions is planned for v0.2.0. The test suite is ready for integration into automated pipelines.
+GitHub Actions runs the full test suite on every push and pull request. The CI matrix covers 8 version combinations:
+
+- **Python:** 3.11, 3.12, 3.13
+- **Django:** 4.2, 5.0, 5.1, 5.2, 6.0
+- **Wagtail:** 6.0, 6.2, 6.3, 7.1, 7.2, 7.3
+
+See [`.github/workflows/ci.yml`](https://github.com/dr-rompecabezas/wagtail-lms/blob/main/.github/workflows/ci.yml) for the exact matrix.
 
 ## Known Test Limitations
 
-- **Single Version**: Tests currently run only on Python 3.13, Django 5.2.3, Wagtail 7.0.1
 - **No Browser Tests**: No Selenium/Playwright tests for JavaScript interactions
 - **Limited SCORM Packages**: Tests use minimal synthetic SCORM packages
-
-Multi-version testing across Python 3.11-3.13, Django 4.2+, and Wagtail 6.x-7.x is planned for v0.2.0.
 
 ## Contributing Tests
 

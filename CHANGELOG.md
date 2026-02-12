@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Django 6.0 and Wagtail 7.2/7.3 support with two new CI matrix entries
+
 ### Changed
 
 - Remove extra `default_storage.exists()` call from `ServeScormContentView` redirect path ([#44](https://github.com/dr-rompecabezas/wagtail-lms/issues/44))
