@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Handle exceptions in `ServeScormContentView` redirect path ([#43](https://github.com/dr-rompecabezas/wagtail-lms/issues/43))
+  - `get_redirect_url()` failures (expired AWS credentials, transient S3 errors) now return 404 instead of unhandled 500
+  - Intentional Django exceptions (`Http404`, `PermissionDenied`, `SuspiciousOperation`) from subclass overrides propagate correctly
+
 ## [0.6.0] - 2026-02-11
 
 ### Added
