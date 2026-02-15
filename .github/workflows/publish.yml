@@ -34,7 +34,6 @@ jobs:
     name: Publish to TestPyPI
     needs: [build]
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch'
     environment:
       name: testpypi
       url: https://test.pypi.org/p/wagtail-lms
@@ -57,7 +56,6 @@ jobs:
     name: Verify TestPyPI package
     needs: [publish-to-testpypi]
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch'
 
     steps:
       - uses: actions/checkout@v6
@@ -81,7 +79,7 @@ jobs:
 
   publish-to-pypi:
     name: Publish to PyPI
-    needs: [build]
+    needs: [verify-testpypi]
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
     environment:
