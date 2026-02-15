@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **SCORM file cleanup on package deletion** ([#51](https://github.com/dr-rompecabezas/wagtail-lms/issues/51))
+  - Uploaded ZIP and extracted content directory are now deleted from storage when a `SCORMPackage` is removed
+  - Uses `post_delete` signal with `transaction.on_commit()` to avoid deleting files on rollback
+  - Works with both `FileSystemStorage` and remote backends (S3, etc.)
+  - Empty directories are cleaned up on filesystem-backed storage
+
 ## [0.6.1] - 2026-02-12
 
 ### Added
