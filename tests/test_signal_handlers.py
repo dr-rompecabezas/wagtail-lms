@@ -3,12 +3,16 @@
 import io
 import os
 import zipfile
+from unittest.mock import patch
 
 import pytest
 from django.core.files.storage import default_storage
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import models
 
+from wagtail_lms import conf
 from wagtail_lms.models import SCORMPackage
+from wagtail_lms.signal_handlers import _delete_extracted_content
 
 
 def _make_scorm_zip(manifest_xml, content_filename="index.html"):
@@ -21,6 +25,11 @@ def _make_scorm_zip(manifest_xml, content_filename="index.html"):
     return SimpleUploadedFile(
         "test.zip", buf.getvalue(), content_type="application/zip"
     )
+
+
+def _content_prefix(extracted_path):
+    """Build the storage prefix for extracted content using the configured path."""
+    return conf.WAGTAIL_LMS_CONTENT_PATH.rstrip("/") + "/" + extracted_path
 
 
 @pytest.mark.django_db(transaction=True)
@@ -51,20 +60,17 @@ class TestSCORMPackageDeletion:
     ):
         package = self._create_package(settings, tmp_path, scorm_12_manifest)
         extracted_path = package.extracted_path
-        content_prefix = f"scorm_content/{extracted_path}"
+        prefix = _content_prefix(extracted_path)
 
         # Verify extracted files exist
-        dirs, files = default_storage.listdir(content_prefix)
+        dirs, files = default_storage.listdir(prefix)
         assert len(files) > 0 or len(dirs) > 0
 
         package.delete()
 
-        # Verify extracted files are gone (directory may still exist but be empty)
-        try:
-            dirs, files = default_storage.listdir(content_prefix)
-            assert len(files) == 0 and len(dirs) == 0
-        except FileNotFoundError:
-            pass  # Directory gone entirely — also acceptable
+        # Verify extracted files and directory are gone
+        with pytest.raises(FileNotFoundError):
+            default_storage.listdir(prefix)
 
     def test_delete_without_extracted_path(self, settings, tmp_path, scorm_12_manifest):
         """Package saved but extraction didn't happen (e.g., invalid ZIP)."""
@@ -77,12 +83,8 @@ class TestSCORMPackageDeletion:
             package_file=_make_scorm_zip(scorm_12_manifest),
             version="1.2",
         )
-        # Save without triggering extraction by pre-setting extracted_path to skip
-        # We'll manually bypass by saving with update_fields after initial save
-        package.save()
-        # Clear extracted_path to simulate no extraction
-        SCORMPackage.objects.filter(pk=package.pk).update(extracted_path="")
-        package.refresh_from_db()
+        # Save via base Model.save() to bypass extraction logic
+        models.Model.save(package)
 
         assert package.extracted_path == ""
         # Should not raise
@@ -95,11 +97,8 @@ class TestSCORMPackageDeletion:
         os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
 
         package = SCORMPackage(title="No file")
-        # Use super().save() to skip extraction logic
-        SCORMPackage.save(package)
-        # Clear the package_file
-        SCORMPackage.objects.filter(pk=package.pk).update(package_file="")
-        package.refresh_from_db()
+        # Save via base Model.save() to bypass extraction logic
+        models.Model.save(package)
 
         assert not package.package_file
         # Should not raise
@@ -134,8 +133,51 @@ class TestSCORMPackageDeletion:
         for name in zip_names:
             assert not default_storage.exists(name)
         for ep in extracted_paths:
-            try:
-                dirs, files = default_storage.listdir(f"scorm_content/{ep}")
-                assert len(files) == 0 and len(dirs) == 0
-            except FileNotFoundError:
-                pass  # Directory gone entirely — also acceptable
+            with pytest.raises(FileNotFoundError):
+                default_storage.listdir(_content_prefix(ep))
+
+    def test_delete_with_mock_s3_storage(self, mock_s3_storage, scorm_12_manifest, db):
+        """Cleanup works on remote backends where .path() is unavailable."""
+        package = SCORMPackage(
+            title="S3 Cleanup Test",
+            package_file=_make_scorm_zip(scorm_12_manifest),
+            version="1.2",
+        )
+        package.save()
+
+        zip_name = package.package_file.name
+        prefix = _content_prefix(package.extracted_path)
+
+        assert default_storage.exists(zip_name)
+        dirs, files = default_storage.listdir(prefix)
+        assert len(files) > 0 or len(dirs) > 0
+
+        package.delete()
+
+        assert not default_storage.exists(zip_name)
+        # InMemoryStorage keeps empty "directories" as keys, so just check files
+        dirs, files = default_storage.listdir(prefix)
+        assert len(files) == 0
+
+    def test_path_traversal_rejected(self):
+        """extracted_path with traversal segments is refused."""
+        with patch("wagtail_lms.signal_handlers.default_storage") as mock_storage:
+            _delete_extracted_content("../../etc")
+            mock_storage.listdir.assert_not_called()
+            mock_storage.delete.assert_not_called()
+
+    def test_file_delete_error_logged(
+        self, settings, tmp_path, scorm_12_manifest, caplog
+    ):
+        """Errors during file deletion are logged, not raised."""
+        package = self._create_package(settings, tmp_path, scorm_12_manifest)
+        zip_name = package.package_file.name
+
+        with patch(
+            "wagtail_lms.signal_handlers.default_storage.delete",
+            side_effect=OSError("disk error"),
+        ):
+            package.delete()
+
+        assert "Failed to delete package file" in caplog.text
+        assert zip_name in caplog.text
