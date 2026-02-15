@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-02-15
+
 ### Added
 
 - **SCORM file cleanup on package deletion** ([#51](https://github.com/dr-rompecabezas/wagtail-lms/issues/51))
@@ -14,6 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Uses `post_delete` signal with `transaction.on_commit()` to avoid deleting files on rollback
   - Works with both `FileSystemStorage` and remote backends (S3, etc.)
   - Empty directories are cleaned up on filesystem-backed storage
+
+### Fixed
+
+- **Publish workflow: TestPyPI now runs on release events**
+  - Previously `publish-to-testpypi` and `verify-testpypi` were gated to `workflow_dispatch` only
+  - TestPyPI publish and verification now run before PyPI publish on every release
 
 ## [0.6.1] - 2026-02-12
 
