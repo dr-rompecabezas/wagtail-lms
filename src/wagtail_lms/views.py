@@ -429,6 +429,7 @@ _serve_scorm_content_warned = False
 
 def serve_scorm_content(request, content_path, *args, **kwargs):
     """Deprecated compatibility wrapper for old FBV imports."""
+    # TODO(0.8.0): Remove this function and the _serve_scorm_content_* module globals above.
     global _serve_scorm_content_warned
 
     if not _serve_scorm_content_warned:
