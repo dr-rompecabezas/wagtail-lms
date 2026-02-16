@@ -9,7 +9,7 @@ from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.db import models
-from wagtail.admin.panels import FieldPanel
+from wagtail.admin.panels import FieldPanel, TitleFieldPanel
 from wagtail.fields import RichTextField
 from wagtail.models import Page
 
@@ -32,6 +32,15 @@ class SCORMPackage(models.Model):
 
     # Metadata from manifest
     manifest_data = models.JSONField(default=dict, blank=True)
+
+    panels = [
+        TitleFieldPanel("title"),
+        FieldPanel("description"),
+        FieldPanel("package_file"),
+        FieldPanel("version"),
+        FieldPanel("extracted_path", read_only=True),
+        FieldPanel("launch_url", read_only=True),
+    ]
 
     class Meta:
         verbose_name = "SCORM Package"
@@ -235,6 +244,13 @@ class CourseEnrollment(models.Model):
     enrolled_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)
 
+    panels = [
+        FieldPanel("user"),
+        FieldPanel("course"),
+        FieldPanel("enrolled_at", read_only=True),
+        FieldPanel("completed_at", read_only=True),
+    ]
+
     class Meta:
         unique_together = ("user", "course")
         verbose_name = "Course Enrollment"
@@ -296,6 +312,21 @@ class SCORMAttempt(models.Model):
     total_time = models.DurationField(null=True, blank=True)
     location = models.CharField(max_length=1000, blank=True)
     suspend_data = models.TextField(blank=True)
+
+    panels = [
+        FieldPanel("user", read_only=True),
+        FieldPanel("scorm_package", read_only=True),
+        FieldPanel("completion_status", read_only=True),
+        FieldPanel("success_status", read_only=True),
+        FieldPanel("score_raw", read_only=True),
+        FieldPanel("score_min", read_only=True),
+        FieldPanel("score_max", read_only=True),
+        FieldPanel("score_scaled", read_only=True),
+        FieldPanel("total_time", read_only=True),
+        FieldPanel("location", read_only=True),
+        FieldPanel("started_at", read_only=True),
+        FieldPanel("last_accessed", read_only=True),
+    ]
 
     class Meta:
         verbose_name = "SCORM Attempt"

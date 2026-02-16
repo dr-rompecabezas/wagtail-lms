@@ -17,10 +17,10 @@ from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.csrf import csrf_exempt
-from django.views.generic import ListView, View
+from django.views.generic import View
 
 from . import conf
-from .models import CourseEnrollment, CoursePage, SCORMAttempt, SCORMData, SCORMPackage
+from .models import CourseEnrollment, CoursePage, SCORMAttempt, SCORMData
 
 
 def retry_on_db_lock(max_attempts=3, delay=0.1, backoff=2):
@@ -64,14 +64,6 @@ def retry_on_db_lock(max_attempts=3, delay=0.1, backoff=2):
         return wrapper
 
     return decorator
-
-
-class SCORMPackageListView(ListView):
-    """List all SCORM packages (admin view)"""
-
-    model = SCORMPackage
-    template_name = "wagtail_lms/scorm_package_list.html"
-    context_object_name = "packages"
 
 
 @login_required

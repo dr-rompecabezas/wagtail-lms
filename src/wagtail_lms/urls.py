@@ -5,11 +5,6 @@ from . import views
 app_name = "wagtail_lms"
 
 urlpatterns = [
-    path(
-        "scorm-packages/",
-        views.SCORMPackageListView.as_view(),
-        name="scorm_package_list",
-    ),
     path("course/<int:course_id>/play/", views.scorm_player_view, name="scorm_player"),
     path("scorm-api/<int:attempt_id>/", views.scorm_api_endpoint, name="scorm_api"),
     path(
