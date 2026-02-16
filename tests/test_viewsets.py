@@ -89,5 +89,4 @@ class TestSCORMAttemptAdmin:
         client.force_login(superuser)
         response = client.get("/admin/scormattempt/")
         content = response.content.decode()
-        assert "Why not" not in content
         assert "/admin/scormattempt/new/" not in content

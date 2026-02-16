@@ -22,7 +22,6 @@ class SCORMPackageViewSet(ModelViewSet):
     list_display = ["title", "version", "created_at", "launch_url"]
     list_filter = ["version", "created_at"]
     search_fields = ["title", "description"]
-    form_fields = ["title", "description", "package_file", "version"]
 
 
 class CourseEnrollmentViewSet(ModelViewSet):
@@ -34,7 +33,6 @@ class CourseEnrollmentViewSet(ModelViewSet):
     list_display = ["user", "course", "enrolled_at", "completed_at"]
     list_filter = ["enrolled_at", "completed_at"]
     search_fields = ["user__username", "course__title"]
-    form_fields = ["user", "course"]
 
 
 class SCORMAttemptViewSet(ModelViewSet):
@@ -54,10 +52,7 @@ class SCORMAttemptViewSet(ModelViewSet):
     ]
     list_filter = ["completion_status", "success_status", "started_at"]
     search_fields = ["user__username", "scorm_package__title"]
-
-    @property
-    def permission_policy(self):
-        return ReadOnlyPermissionPolicy(self.model)
+    permission_policy = ReadOnlyPermissionPolicy(SCORMAttempt)
 
 
 class LMSViewSetGroup(ModelViewSetGroup):
