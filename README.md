@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/dr-rompecabezas/wagtail-lms/actions/workflows/ci.yml/badge.svg)](https://github.com/dr-rompecabezas/wagtail-lms/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/dr-rompecabezas/wagtail-lms/branch/main/graph/badge.svg)](https://codecov.io/gh/dr-rompecabezas/wagtail-lms)
-[![PyPI version](https://badge.fury.io/py/wagtail-lms.svg)](https://badge.fury.io/py/wagtail-lms)
+[![PyPI version](https://img.shields.io/pypi/v/wagtail-lms.svg)](https://pypi.org/project/wagtail-lms/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/dr-rompecabezas/wagtail-lms/main.svg)](https://results.pre-commit.ci/latest/github/dr-rompecabezas/wagtail-lms/main)
@@ -11,7 +11,7 @@ A Learning Management System extension for Wagtail CMS with SCORM 1.2/2004 suppo
 
 ## ⚠️ Alpha Release
 
-**This package is in early development.**
+**This package is in early development.** That said, it is actively used in production at [thinkelearn.com](https://thinkelearn.com).
 
 **Supported versions:**
 
@@ -19,7 +19,7 @@ A Learning Management System extension for Wagtail CMS with SCORM 1.2/2004 suppo
 - **Django:** 4.2 (LTS), 5.0, 5.1, 5.2 (LTS), 6.0
 - **Wagtail:** 6.0, 6.2, 6.3, 7.1, 7.2, 7.3
 
-All combinations are tested in CI. See our [compatibility matrix](https://github.com/dr-rompecabezas/wagtail-lms/actions/workflows/ci.yml) for specific version combinations.
+All combinations are tested in CI. See our [compatibility matrix](https://github.com/dr-rompecabezas/wagtail-lms/blob/main/.github/workflows/ci.yml) for specific version combinations.
 
 ## Features
 
@@ -31,18 +31,6 @@ All combinations are tested in CI. See our [compatibility matrix](https://github
 - 💾 **Progress Persistence** - CMI data model storage with suspend/resume capability
 - 🔄 **Concurrency Handling** - Retry logic for SQLite database lock scenarios
 - 🎨 **Framework Agnostic** - Minimal default styling, easy to customize with any CSS framework
-
-## Development Status
-
-✅ **Core functionality tested and working**
-
-- Comprehensive test suite with **86% code coverage**
-- 65+ tests covering models, views, API, and integration workflows
-- Example project fully functional for development and testing
-- Database lock handling for concurrent SCORM operations
-- Wagtail preview mode fully supported
-
-See `example_project/README.md` for setup instructions.
 
 ## Installation
 
@@ -142,9 +130,11 @@ For API-first projects, the templates are optional and can be ignored entirely.
 
 ## Development
 
+An example project is available in `example_project/` for local development and testing. See its [README](https://github.com/dr-rompecabezas/wagtail-lms/blob/main/example_project/README.md) for setup instructions.
+
 ### Running Tests
 
-The project includes a comprehensive test suite with 86% code coverage.
+The project includes a comprehensive test suite. See [current coverage](https://app.codecov.io/gh/dr-rompecabezas/wagtail-lms).
 
 ```bash
 # Install testing dependencies (pytest, pytest-django, pytest-cov)
