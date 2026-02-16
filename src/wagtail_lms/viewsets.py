@@ -13,6 +13,15 @@ class ReadOnlyPermissionPolicy(ModelPermissionPolicy):
         return super().user_has_permission(user, action)
 
 
+class EditOnlyPermissionPolicy(ModelPermissionPolicy):
+    """Permission policy that allows view and change but denies add and delete."""
+
+    def user_has_permission(self, user, action):
+        if action in ("add", "delete"):
+            return False
+        return super().user_has_permission(user, action)
+
+
 class SCORMPackageViewSet(ModelViewSet):
     model = SCORMPackage
     icon = "upload"
@@ -33,6 +42,7 @@ class CourseEnrollmentViewSet(ModelViewSet):
     list_display = ["user", "course", "enrolled_at", "completed_at"]
     list_filter = ["enrolled_at", "completed_at"]
     search_fields = ["user__username", "course__title"]
+    permission_policy = EditOnlyPermissionPolicy(CourseEnrollment)
 
 
 class SCORMAttemptViewSet(ModelViewSet):

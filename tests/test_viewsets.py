@@ -56,12 +56,24 @@ class TestSCORMPackageAdmin:
 
 @pytest.mark.django_db
 class TestCourseEnrollmentAdmin:
-    """Verify enrollment management works in Wagtail admin."""
+    """Verify enrollment management is edit-only (no add/delete)."""
 
     def test_list_view(self, client, superuser):
         client.force_login(superuser)
         response = client.get("/admin/courseenrollment/")
         assert response.status_code == 200
+
+    def test_add_is_blocked(self, client, superuser):
+        """Enrollments are created through the enrollment workflow."""
+        client.force_login(superuser)
+        response = client.get("/admin/courseenrollment/new/")
+        assert response.status_code == 302
+
+    def test_list_view_has_no_add_button(self, client, superuser):
+        client.force_login(superuser)
+        response = client.get("/admin/courseenrollment/")
+        content = response.content.decode()
+        assert "/admin/courseenrollment/new/" not in content
 
 
 @pytest.mark.django_db
