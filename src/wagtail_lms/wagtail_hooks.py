@@ -1,14 +1,15 @@
 from django.templatetags.static import static
 from django.utils.html import format_html
 from wagtail import hooks
-from wagtail.admin.menu import MenuItem
+
+from .viewsets import LMSViewSetGroup
+
+lms_viewset_group = LMSViewSetGroup()
 
 
-@hooks.register("register_admin_menu_item")
-def register_scorm_menu_item():
-    return MenuItem(
-        "SCORM Packages", "/lms/scorm-packages/", icon_name="doc-full", order=1000
-    )
+@hooks.register("register_admin_viewset")
+def register_lms_viewset():
+    return lms_viewset_group
 
 
 # Add custom CSS/JS for SCORM player

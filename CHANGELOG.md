@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Wagtail admin interface for SCORM packages, enrollments, and attempts** ([#52](https://github.com/dr-rompecabezas/wagtail-lms/issues/52))
+  - New `ModelViewSet` classes for `SCORMPackage` (full CRUD), `CourseEnrollment` (list/edit), and `SCORMAttempt` (read-only inspect)
+  - `LMSViewSetGroup` provides a top-level "LMS" menu in Wagtail admin with sub-items for each model
+  - `SCORMAttempt` uses a `ReadOnlyPermissionPolicy` to disable add/edit/delete — attempts are created automatically by the SCORM player
+  - Panels added to `SCORMPackage`, `CourseEnrollment`, and `SCORMAttempt` models with appropriate read-only fields
+  - Django admin registrations preserved for backward compatibility
+  - 11 new tests covering viewset registration, admin view access, and read-only enforcement
+
+### Removed
+
+- `SCORMPackageListView` and its template (`scorm_package_list.html`) — replaced by Wagtail's built-in viewset views
+- `/lms/scorm-packages/` URL endpoint — SCORM packages are now managed at `/admin/scormpackage/`
+
 ## [0.7.0] - 2026-02-15
 
 ### Added
