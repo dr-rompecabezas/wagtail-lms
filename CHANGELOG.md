@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-02-16
+
 ### Added
 
 - **Wagtail admin interface for SCORM packages, enrollments, and attempts** ([#52](https://github.com/dr-rompecabezas/wagtail-lms/issues/52))
@@ -21,6 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `SCORMPackageListView` and its template (`scorm_package_list.html`) — replaced by Wagtail's built-in viewset views
 - `/lms/scorm-packages/` URL endpoint — SCORM packages are now managed at `/admin/scormpackage/`
+- **Deprecated `serve_scorm_content` compatibility wrapper** ([#56](https://github.com/dr-rompecabezas/wagtail-lms/issues/56))
+  - Removed `serve_scorm_content()` function alias in `wagtail_lms.views`
+  - Removed one-time deprecation warning globals (`_serve_scorm_content_view`, `_serve_scorm_content_warned`)
+  - Removed deprecated-wrapper warning test (`test_serve_scorm_content_import_warning_emitted_once`)
 
 ## [0.7.0] - 2026-02-15
 

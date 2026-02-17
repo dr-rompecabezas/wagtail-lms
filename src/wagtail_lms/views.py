@@ -2,7 +2,6 @@ import json
 import mimetypes
 import posixpath
 import time
-import warnings
 from datetime import datetime
 from functools import wraps
 
@@ -421,25 +420,3 @@ class ServeScormContentView(LoginRequiredMixin, View):
         self.apply_security_headers(response)
         self.apply_cache_header(response, content_type)
         return response
-
-
-_serve_scorm_content_view = ServeScormContentView.as_view()
-_serve_scorm_content_warned = False
-
-
-def serve_scorm_content(request, content_path, *args, **kwargs):
-    """Deprecated compatibility wrapper for old FBV imports."""
-    # TODO(0.8.0): Remove this function and the _serve_scorm_content_* module globals above.
-    global _serve_scorm_content_warned
-
-    if not _serve_scorm_content_warned:
-        warnings.warn(
-            "serve_scorm_content is deprecated as a direct import. "
-            "Use ServeScormContentView.as_view() instead. "
-            "This compatibility wrapper will be removed in 0.8.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        _serve_scorm_content_warned = True
-
-    return _serve_scorm_content_view(request, content_path, *args, **kwargs)
