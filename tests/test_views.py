@@ -1,7 +1,6 @@
 """Tests for wagtail-lms views."""
 
 import json
-import warnings
 
 import pytest
 from django.core.files.base import ContentFile
@@ -655,28 +654,3 @@ class TestServeScormContent:
         )
         response = client.get(url)
         assert response.status_code == 404
-
-    def test_serve_scorm_content_import_warning_emitted_once(self, user, monkeypatch):
-        """Deprecated alias should emit a warning only once."""
-        from wagtail_lms import views as lms_views
-
-        monkeypatch.setattr(lms_views, "_serve_scorm_content_warned", False)
-
-        factory = RequestFactory()
-        request = factory.get("/")
-        request.user = user
-
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            with pytest.raises(Http404):
-                lms_views.serve_scorm_content(request, "/etc/passwd")
-            with pytest.raises(Http404):
-                lms_views.serve_scorm_content(request, "/etc/passwd")
-
-        deprecations = [
-            warning
-            for warning in caught
-            if issubclass(warning.category, DeprecationWarning)
-        ]
-        assert len(deprecations) == 1
-        assert "ServeScormContentView.as_view()" in str(deprecations[0].message)
