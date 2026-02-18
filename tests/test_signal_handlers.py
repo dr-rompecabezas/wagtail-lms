@@ -162,7 +162,7 @@ class TestSCORMPackageDeletion:
     def test_path_traversal_rejected(self):
         """extracted_path with traversal segments is refused."""
         with patch("wagtail_lms.signal_handlers.default_storage") as mock_storage:
-            _delete_extracted_content("../../etc")
+            _delete_extracted_content("../../etc", conf.WAGTAIL_LMS_CONTENT_PATH)
             mock_storage.listdir.assert_not_called()
             mock_storage.delete.assert_not_called()
 

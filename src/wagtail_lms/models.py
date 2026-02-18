@@ -1,4 +1,5 @@
 import io
+import json
 import logging
 import os
 import posixpath
@@ -6,12 +7,18 @@ import xml.etree.ElementTree as ET
 import zipfile
 
 from django.conf import settings
+from django.contrib import messages
+from django.contrib.auth.views import redirect_to_login
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.db import models
+from django.shortcuts import redirect
 from wagtail.admin.panels import FieldPanel, TitleFieldPanel
-from wagtail.fields import RichTextField
+from wagtail.blocks import RichTextBlock, StructBlock
+from wagtail.fields import RichTextField, StreamField
 from wagtail.models import Page
+from wagtail.snippets.blocks import SnippetChooserBlock
+from wagtail.snippets.models import register_snippet
 
 from . import conf
 
@@ -195,8 +202,152 @@ class SCORMPackage(models.Model):
         return None
 
 
+@register_snippet
+class H5PActivity(models.Model):
+    """Reusable H5P interactive activity, managed as a Wagtail snippet.
+
+    Authors upload a .h5p file here. The package is extracted on save and
+    the activity can then be embedded in any LessonPage via H5PActivityBlock.
+    """
+
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    package_file = models.FileField(upload_to="h5p_packages/")
+    extracted_path = models.CharField(max_length=500, blank=True)
+    main_library = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    # Metadata from h5p.json
+    h5p_json = models.JSONField(default=dict, blank=True)
+
+    panels = [
+        TitleFieldPanel("title"),
+        FieldPanel("description"),
+        FieldPanel("package_file"),
+        FieldPanel("extracted_path", read_only=True),
+        FieldPanel("main_library", read_only=True),
+    ]
+
+    class Meta:
+        verbose_name = "H5P Activity"
+        verbose_name_plural = "H5P Activities"
+
+    def __str__(self):
+        return self.title
+
+    def save(self, *args, **kwargs):
+        # Save first to ensure file is properly stored
+        super().save(*args, **kwargs)
+
+        # Then extract if we have a package file but no extracted path
+        if self.package_file and not self.extracted_path:
+            self.extract_package()
+            # Save again to store extracted_path and metadata
+            super().save(*args, **kwargs)
+
+    def extract_package(self):
+        """Extract H5P package and parse h5p.json.
+
+        Uses Django's default_storage API so extraction works with any
+        storage backend (local filesystem, S3, etc.).
+        """
+        if not self.package_file:
+            return
+
+        # Create extraction directory with unique path using package ID
+        package_name = os.path.splitext(os.path.basename(self.package_file.name))[0]
+        unique_dir = f"h5p_{self.id}_{package_name}"
+        content_path = conf.WAGTAIL_LMS_H5P_CONTENT_PATH.rstrip("/")
+
+        h5p_json_content = None
+
+        # Open file via storage API (works with any backend — no .path needed)
+        with self.package_file.open("rb") as package_fh:
+            with zipfile.ZipFile(package_fh, "r") as zip_ref:
+                for member in zip_ref.infolist():
+                    # Skip directories
+                    if member.is_dir():
+                        continue
+
+                    # Path traversal security: normalize separators, then
+                    # reject members with ".." segments or absolute paths.
+                    # Backslashes are normalized to forward slashes to catch
+                    # Windows-style traversal in crafted ZIPs.
+                    normalized = member.filename.replace("\\", "/")
+                    normalized = posixpath.normpath(normalized)
+                    if (
+                        normalized.startswith("/")
+                        or normalized.startswith("..")
+                        or "/../" in normalized
+                    ):
+                        logger.warning(
+                            "Skipping suspicious ZIP member: %s", member.filename
+                        )
+                        continue
+
+                    file_data = zip_ref.read(member.filename)
+
+                    # Capture h5p.json in-memory for immediate parsing
+                    if member.filename == "h5p.json":
+                        h5p_json_content = file_data
+
+                    storage_path = posixpath.join(
+                        content_path, unique_dir, member.filename
+                    )
+                    default_storage.save(storage_path, ContentFile(file_data))
+
+        self.extracted_path = unique_dir
+
+        # Parse h5p.json metadata
+        if h5p_json_content is not None:
+            self.parse_h5p_json(h5p_json_content)
+
+    def parse_h5p_json(self, content):
+        """Parse h5p.json to extract package metadata.
+
+        Args:
+            content: Raw bytes of h5p.json file content.
+        """
+        try:
+            data = json.loads(content)
+            self.h5p_json = data
+            self.main_library = data.get("mainLibrary", "")
+            # Update title from h5p.json if not already set
+            if not self.title and data.get("title"):
+                self.title = data["title"]
+        except Exception as e:
+            logger.warning("Error parsing h5p.json: %s", e)
+
+    def get_content_base_url(self):
+        """Get the base URL path for h5p-standalone player initialization.
+
+        The player appends /h5p.json, /content/content.json, etc. to this URL.
+        """
+        if self.extracted_path:
+            return f"/lms/h5p-content/{self.extracted_path}"
+        return None
+
+
+class H5PActivityBlock(StructBlock):
+    """StreamField block for embedding an H5P activity inline in a lesson."""
+
+    activity = SnippetChooserBlock(H5PActivity)
+
+    class Meta:
+        icon = "media"
+        label = "H5P Activity"
+        template = "wagtail_lms/blocks/h5p_activity_block.html"
+
+
 class CoursePage(Page):
-    """Wagtail page for courses"""
+    """Wagtail page for courses.
+
+    Can contain SCORM content (via scorm_package) or H5P-powered lessons
+    (as LessonPage children). These are two distinct delivery modes.
+    """
+
+    subpage_types = ["wagtail_lms.LessonPage"]
 
     description = RichTextField(blank=True)
     scorm_package = models.ForeignKey(
@@ -236,6 +387,58 @@ class CoursePage(Page):
         return context
 
 
+class LessonPage(Page):
+    """A Rise-style long-scroll lesson page, child of CoursePage.
+
+    Composes rich text and H5P activities into a single scrollable page.
+    Access is gated to users enrolled in the parent CoursePage.
+    """
+
+    parent_page_types = ["wagtail_lms.CoursePage"]
+    subpage_types = []
+
+    intro = RichTextField(blank=True)
+    body = StreamField(
+        [
+            ("paragraph", RichTextBlock()),
+            ("h5p_activity", H5PActivityBlock()),
+        ],
+        blank=True,
+    )
+
+    content_panels = [
+        *Page.content_panels,
+        FieldPanel("intro"),
+        FieldPanel("body"),
+    ]
+
+    def serve(self, request):
+        """Gate lesson access to authenticated, enrolled users.
+
+        Wagtail admin users can always access lessons for editing/preview.
+        Regular users must be enrolled in the parent CoursePage.
+        """
+        if not request.user.is_authenticated:
+            return redirect_to_login(request.get_full_path())
+
+        # Wagtail editors can access without enrollment
+        if request.user.has_perm("wagtailadmin.access_admin"):
+            return super().serve(request)
+
+        # Check enrollment in the parent CoursePage
+        course = self.get_parent().specific
+        if not CourseEnrollment.objects.filter(
+            user=request.user, course=course
+        ).exists():
+            messages.error(
+                request,
+                "You must be enrolled in this course to access this lesson.",
+            )
+            return redirect(course.url)
+
+        return super().serve(request)
+
+
 class CourseEnrollment(models.Model):
     """Track user enrollment in courses"""
 
@@ -260,7 +463,7 @@ class CourseEnrollment(models.Model):
         return f"{self.user.username} - {self.course.title}"
 
     def get_progress(self):
-        """Get user's progress in this course"""
+        """Get user's progress in this course (SCORM courses only)."""
         if not self.course.scorm_package:
             return None
 
@@ -353,3 +556,87 @@ class SCORMData(models.Model):
 
     def __str__(self):
         return f"{self.attempt} - {self.key}: {self.value[:50]}"
+
+
+class H5PAttempt(models.Model):
+    """Track progress for an individual H5P activity.
+
+    Created lazily on the first xAPI event from the learner. One record
+    per user + activity combination.
+    """
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    activity = models.ForeignKey(H5PActivity, on_delete=models.CASCADE)
+    started_at = models.DateTimeField(auto_now_add=True)
+    last_accessed = models.DateTimeField(auto_now=True)
+
+    completion_status = models.CharField(
+        max_length=20,
+        choices=[
+            ("not_attempted", "Not Attempted"),
+            ("incomplete", "Incomplete"),
+            ("completed", "Completed"),
+            ("unknown", "Unknown"),
+        ],
+        default="not_attempted",
+    )
+
+    success_status = models.CharField(
+        max_length=20,
+        choices=[
+            ("passed", "Passed"),
+            ("failed", "Failed"),
+            ("unknown", "Unknown"),
+        ],
+        default="unknown",
+    )
+
+    score_raw = models.FloatField(null=True, blank=True)
+    score_min = models.FloatField(null=True, blank=True)
+    score_max = models.FloatField(null=True, blank=True)
+    score_scaled = models.FloatField(null=True, blank=True)
+
+    panels = [
+        FieldPanel("user", read_only=True),
+        FieldPanel("activity", read_only=True),
+        FieldPanel("completion_status", read_only=True),
+        FieldPanel("success_status", read_only=True),
+        FieldPanel("score_raw", read_only=True),
+        FieldPanel("score_min", read_only=True),
+        FieldPanel("score_max", read_only=True),
+        FieldPanel("score_scaled", read_only=True),
+        FieldPanel("started_at", read_only=True),
+        FieldPanel("last_accessed", read_only=True),
+    ]
+
+    class Meta:
+        verbose_name = "H5P Attempt"
+        verbose_name_plural = "H5P Attempts"
+
+    def __str__(self):
+        return (
+            f"{self.user.username} - {self.activity.title} ({self.completion_status})"
+        )
+
+
+class H5PXAPIStatement(models.Model):
+    """Store xAPI statements emitted by H5P content.
+
+    One record per statement. Provides a granular audit trail useful for
+    debugging and future reporting features.
+    """
+
+    attempt = models.ForeignKey(
+        H5PAttempt, on_delete=models.CASCADE, related_name="xapi_statements"
+    )
+    verb = models.CharField(max_length=255)  # xAPI verb IRI
+    verb_display = models.CharField(max_length=255, blank=True)  # Human-readable label
+    statement = models.JSONField()  # Full xAPI statement
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "H5P xAPI Statement"
+        verbose_name_plural = "H5P xAPI Statements"
+
+    def __str__(self):
+        return f"{self.attempt} - {self.verb_display or self.verb}"

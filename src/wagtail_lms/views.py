@@ -19,7 +19,15 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
 
 from . import conf
-from .models import CourseEnrollment, CoursePage, SCORMAttempt, SCORMData
+from .models import (
+    CourseEnrollment,
+    CoursePage,
+    H5PActivity,
+    H5PAttempt,
+    H5PXAPIStatement,
+    SCORMAttempt,
+    SCORMData,
+)
 
 
 def retry_on_db_lock(max_attempts=3, delay=0.1, backoff=2):
@@ -420,3 +428,120 @@ class ServeScormContentView(LoginRequiredMixin, View):
         self.apply_security_headers(response)
         self.apply_cache_header(response, content_type)
         return response
+
+
+class ServeH5PContentView(ServeScormContentView):
+    """Serve H5P content files with secure path validation.
+
+    Subclasses ServeScormContentView and overrides only the storage path
+    resolution to use the H5P content directory instead of SCORM.
+    All security checks, caching, and redirect logic are inherited.
+    """
+
+    def get_storage_path(self, normalized_content_path):
+        content_base = conf.WAGTAIL_LMS_H5P_CONTENT_PATH.rstrip("/")
+        return posixpath.join(content_base, normalized_content_path)
+
+
+# ---------------------------------------------------------------------------
+# H5P xAPI endpoint
+# ---------------------------------------------------------------------------
+
+# xAPI verb IRIs that trigger attempt field updates
+_XAPI_COMPLETED = "http://adlnet.gov/expapi/verbs/completed"
+_XAPI_PASSED = "http://adlnet.gov/expapi/verbs/passed"
+_XAPI_FAILED = "http://adlnet.gov/expapi/verbs/failed"
+_XAPI_SCORE_VERBS = {
+    _XAPI_COMPLETED,
+    _XAPI_PASSED,
+    _XAPI_FAILED,
+    "http://adlnet.gov/expapi/verbs/answered",
+    "http://adlnet.gov/expapi/verbs/scored",
+}
+
+
+def _update_h5p_attempt(attempt, statement, verb_id):
+    """Update H5PAttempt fields from an xAPI statement.
+
+    Maps xAPI verbs to completion/success status and extracts score data
+    from the result object when present.
+    """
+    modified = False
+    result = statement.get("result", {})
+
+    if verb_id == _XAPI_COMPLETED:
+        attempt.completion_status = "completed"
+        modified = True
+    elif verb_id == _XAPI_PASSED:
+        attempt.completion_status = "completed"
+        attempt.success_status = "passed"
+        modified = True
+    elif verb_id == _XAPI_FAILED:
+        attempt.success_status = "failed"
+        modified = True
+
+    if verb_id in _XAPI_SCORE_VERBS:
+        score = result.get("score", {})
+        if isinstance(score, dict):
+            for field, key in (
+                ("score_raw", "raw"),
+                ("score_max", "max"),
+                ("score_min", "min"),
+                ("score_scaled", "scaled"),
+            ):
+                if key in score:
+                    try:
+                        setattr(attempt, field, float(score[key]))
+                        modified = True
+                    except (ValueError, TypeError):
+                        pass
+
+    if modified:
+        attempt.save()
+
+
+@login_required
+def h5p_xapi_view(request, activity_id):
+    """Receive and store an xAPI statement from an H5P activity.
+
+    Called by the lesson page JavaScript whenever H5P emits an xAPI event.
+    Creates an H5PAttempt on the first interaction (lazy creation), stores
+    the raw statement, and updates the attempt's progress fields.
+
+    CSRF protection is active because the POST originates from our own
+    page JavaScript, not from inside an iframe we don't control.
+    """
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    activity = get_object_or_404(H5PActivity, id=activity_id)
+
+    try:
+        statement = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    # Lazy-create the attempt on first interaction
+    attempt, _ = H5PAttempt.objects.get_or_create(
+        user=request.user,
+        activity=activity,
+    )
+
+    # Extract verb metadata
+    verb = statement.get("verb", {})
+    verb_id = verb.get("id", "")
+    verb_display_map = verb.get("display", {})
+    verb_display = next(iter(verb_display_map.values()), "") if verb_display_map else ""
+
+    # Persist the raw statement
+    H5PXAPIStatement.objects.create(
+        attempt=attempt,
+        verb=verb_id,
+        verb_display=verb_display,
+        statement=statement,
+    )
+
+    # Update attempt progress fields
+    _update_h5p_attempt(attempt, statement, verb_id)
+
+    return JsonResponse({"status": "ok"})

@@ -1,7 +1,13 @@
 from wagtail.admin.viewsets.model import ModelViewSet, ModelViewSetGroup
 from wagtail.permission_policies import ModelPermissionPolicy
 
-from .models import CourseEnrollment, SCORMAttempt, SCORMPackage
+from .models import (
+    CourseEnrollment,
+    H5PActivity,
+    H5PAttempt,
+    SCORMAttempt,
+    SCORMPackage,
+)
 
 
 class ReadOnlyPermissionPolicy(ModelPermissionPolicy):
@@ -33,6 +39,17 @@ class SCORMPackageViewSet(ModelViewSet):
     search_fields = ["title", "description"]
 
 
+class H5PActivityViewSet(ModelViewSet):
+    model = H5PActivity
+    icon = "media"
+    add_to_admin_menu = False
+    menu_label = "H5P Activities"
+    menu_icon = "media"
+    list_display = ["title", "main_library", "created_at"]
+    list_filter = ["created_at"]
+    search_fields = ["title", "description", "main_library"]
+
+
 class CourseEnrollmentViewSet(ModelViewSet):
     model = CourseEnrollment
     icon = "group"
@@ -49,7 +66,7 @@ class SCORMAttemptViewSet(ModelViewSet):
     model = SCORMAttempt
     icon = "time"
     add_to_admin_menu = False
-    menu_label = "Attempts"
+    menu_label = "SCORM Attempts"
     menu_icon = "time"
     inspect_view_enabled = True
     list_display = [
@@ -65,7 +82,33 @@ class SCORMAttemptViewSet(ModelViewSet):
     permission_policy = ReadOnlyPermissionPolicy(SCORMAttempt)
 
 
+class H5PAttemptViewSet(ModelViewSet):
+    model = H5PAttempt
+    icon = "time"
+    add_to_admin_menu = False
+    menu_label = "H5P Attempts"
+    menu_icon = "time"
+    inspect_view_enabled = True
+    list_display = [
+        "user",
+        "activity",
+        "completion_status",
+        "success_status",
+        "started_at",
+        "last_accessed",
+    ]
+    list_filter = ["completion_status", "success_status", "started_at"]
+    search_fields = ["user__username", "activity__title"]
+    permission_policy = ReadOnlyPermissionPolicy(H5PAttempt)
+
+
 class LMSViewSetGroup(ModelViewSetGroup):
     menu_label = "LMS"
     menu_icon = "glasses"
-    items = (SCORMPackageViewSet, CourseEnrollmentViewSet, SCORMAttemptViewSet)
+    items = (
+        SCORMPackageViewSet,
+        H5PActivityViewSet,
+        CourseEnrollmentViewSet,
+        SCORMAttemptViewSet,
+        H5PAttemptViewSet,
+    )

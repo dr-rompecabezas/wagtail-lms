@@ -1,0 +1,487 @@
+"""Tests for H5P support — H5PActivity, LessonPage, xAPI endpoint."""
+
+import io
+import json
+import zipfile
+
+import pytest
+from django.core.files.storage import default_storage
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.urls import reverse
+from wagtail.models import Page, Site
+
+from wagtail_lms import conf
+from wagtail_lms.models import (
+    CourseEnrollment,
+    CoursePage,
+    H5PActivity,
+    H5PAttempt,
+    H5PXAPIStatement,
+    LessonPage,
+)
+
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
+
+H5P_JSON = {
+    "title": "Test Activity",
+    "language": "und",
+    "mainLibrary": "H5P.MultiChoice",
+    "embedTypes": ["div"],
+    "license": "U",
+    "preloadedDependencies": [
+        {"machineName": "H5P.MultiChoice", "majorVersion": 1, "minorVersion": 16}
+    ],
+}
+
+CONTENT_JSON = {"media": {"type": {"params": {}}, "disableImageZooming": False}}
+
+
+@pytest.fixture
+def h5p_zip_file():
+    """In-memory .h5p ZIP with h5p.json and content/content.json."""
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("h5p.json", json.dumps(H5P_JSON))
+        zf.writestr("content/content.json", json.dumps(CONTENT_JSON))
+    buf.seek(0)
+    return SimpleUploadedFile(
+        "test_activity.h5p", buf.getvalue(), content_type="application/zip"
+    )
+
+
+@pytest.fixture
+def h5p_activity(h5p_zip_file, settings, tmp_path, db):
+    """Saved H5PActivity with extracted content."""
+    media_root = tmp_path / "media"
+    settings.MEDIA_ROOT = str(media_root)
+
+    activity = H5PActivity(
+        title="Test H5P Activity",
+        description="A test activity",
+        package_file=h5p_zip_file,
+    )
+    activity.save()
+
+    yield activity
+
+    if activity.pk:
+        activity.delete()
+
+
+@pytest.fixture
+def root_page():
+    return Page.objects.get(depth=1)
+
+
+@pytest.fixture
+def home_page(root_page):
+    existing = Page.objects.filter(depth=2).first()
+    if existing:
+        return existing
+    home = Page(
+        title="Home", slug="home-h5p", content_type_id=root_page.content_type_id
+    )
+    root_page.add_child(instance=home)
+    site = Site.objects.filter(is_default_site=True).first()
+    if site:
+        site.root_page = home
+        site.save()
+    else:
+        Site.objects.create(
+            hostname="localhost", port=80, root_page=home, is_default_site=True
+        )
+    return home
+
+
+@pytest.fixture
+def course_page_h5p(home_page):
+    """CoursePage with no SCORM package — intended for H5P LessonPage children."""
+    course = CoursePage(
+        title="H5P Course",
+        slug="h5p-course",
+        description="<p>An H5P-powered course</p>",
+    )
+    home_page.add_child(instance=course)
+    course.save_revision().publish()
+    return course
+
+
+@pytest.fixture
+def lesson_page(course_page_h5p, h5p_activity):
+    """LessonPage child of course_page_h5p containing one H5P activity block."""
+    lesson = LessonPage(
+        title="Lesson One",
+        slug="lesson-one",
+        intro="<p>Welcome to lesson one.</p>",
+        body=json.dumps(
+            [
+                {
+                    "type": "paragraph",
+                    "value": "<p>Some introductory text.</p>",
+                },
+                {
+                    "type": "h5p_activity",
+                    "value": {"activity": h5p_activity.pk},
+                },
+            ]
+        ),
+    )
+    course_page_h5p.add_child(instance=lesson)
+    lesson.save_revision().publish()
+    return lesson
+
+
+@pytest.fixture
+def enrolled_user(user, course_page_h5p):
+    """Regular user enrolled in course_page_h5p."""
+    CourseEnrollment.objects.get_or_create(user=user, course=course_page_h5p)
+    return user
+
+
+# ---------------------------------------------------------------------------
+# H5PActivity model tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestH5PActivity:
+    def test_extraction_on_save(self, h5p_activity):
+        """Saving an H5PActivity with a .h5p file extracts its contents."""
+        assert h5p_activity.extracted_path
+        assert h5p_activity.extracted_path.startswith("h5p_")
+
+    def test_h5p_json_parsed(self, h5p_activity):
+        """h5p.json metadata is stored after extraction."""
+        assert h5p_activity.main_library == "H5P.MultiChoice"
+        assert h5p_activity.h5p_json.get("title") == "Test Activity"
+
+    def test_content_files_stored(self, h5p_activity):
+        """Both h5p.json and content/content.json are written to storage."""
+        base = conf.WAGTAIL_LMS_H5P_CONTENT_PATH.rstrip("/")
+        assert default_storage.exists(f"{base}/{h5p_activity.extracted_path}/h5p.json")
+        assert default_storage.exists(
+            f"{base}/{h5p_activity.extracted_path}/content/content.json"
+        )
+
+    def test_get_content_base_url(self, h5p_activity):
+        """get_content_base_url returns the expected path."""
+        url = h5p_activity.get_content_base_url()
+        assert url == f"/lms/h5p-content/{h5p_activity.extracted_path}"
+
+    def test_get_content_base_url_no_extracted_path(self, db):
+        """get_content_base_url returns None when not yet extracted."""
+        activity = H5PActivity(title="Empty", extracted_path="")
+        assert activity.get_content_base_url() is None
+
+    def test_path_traversal_skipped(self, settings, tmp_path, caplog, db):
+        """Malicious ZIP members with path traversal are silently skipped."""
+        import logging
+
+        settings.MEDIA_ROOT = str(tmp_path / "media")
+
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            zf.writestr("h5p.json", json.dumps(H5P_JSON))
+            zf.writestr("content/content.json", json.dumps(CONTENT_JSON))
+            # Malicious entries
+            zf.writestr("../../../etc/passwd", "root:x:0:0")
+            zf.writestr("..\\..\\evil.txt", "evil")
+        buf.seek(0)
+
+        f = SimpleUploadedFile(
+            "evil.h5p", buf.getvalue(), content_type="application/zip"
+        )
+        with caplog.at_level(logging.WARNING, logger="wagtail_lms.models"):
+            activity = H5PActivity(title="Evil", package_file=f)
+            activity.save()
+
+        # Warnings must have been logged for the skipped members
+        assert any("suspicious ZIP member" in r.message for r in caplog.records)
+
+        # Only the safe files should exist inside h5p_content/
+        base = conf.WAGTAIL_LMS_H5P_CONTENT_PATH.rstrip("/")
+        assert default_storage.exists(f"{base}/{activity.extracted_path}/h5p.json")
+        assert default_storage.exists(
+            f"{base}/{activity.extracted_path}/content/content.json"
+        )
+        # Traversal targets must not have been written inside the content dir
+        assert not default_storage.exists(
+            f"{base}/{activity.extracted_path}/etc/passwd"
+        )
+        assert not default_storage.exists(f"{base}/{activity.extracted_path}/evil.txt")
+
+    def test_storage_backend_agnostic(self, h5p_zip_file, mock_s3_storage, db):
+        """Extraction works with InMemoryStorage (simulating S3)."""
+        activity = H5PActivity(title="S3 Activity", package_file=h5p_zip_file)
+        activity.save()
+        assert activity.extracted_path
+        assert activity.main_library == "H5P.MultiChoice"
+
+    def test_str(self, h5p_activity):
+        assert str(h5p_activity) == "Test H5P Activity"
+
+
+# ---------------------------------------------------------------------------
+# LessonPage access control tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestLessonPageAccess:
+    def test_unauthenticated_redirects_to_login(self, client, lesson_page):
+        """Unauthenticated users are redirected to login."""
+        response = client.get(lesson_page.url)
+        assert response.status_code == 302
+        assert "login" in response.url.lower()
+
+    def test_unenrolled_user_redirected_to_course(
+        self, client, user, lesson_page, course_page_h5p
+    ):
+        """Authenticated but unenrolled users are redirected to the course page."""
+        client.force_login(user)
+        response = client.get(lesson_page.url)
+        assert response.status_code == 302
+        assert course_page_h5p.url in response.url
+
+    def test_enrolled_user_can_access(self, client, enrolled_user, lesson_page):
+        """Enrolled users can view the lesson."""
+        client.force_login(enrolled_user)
+        response = client.get(lesson_page.url)
+        assert response.status_code == 200
+        assert b"Lesson One" in response.content
+
+    def test_admin_bypasses_enrollment(self, client, superuser, lesson_page):
+        """Wagtail admin users can access lessons without being enrolled."""
+        client.force_login(superuser)
+        response = client.get(lesson_page.url)
+        assert response.status_code == 200
+
+    def test_lesson_body_rendered(self, client, enrolled_user, lesson_page):
+        """StreamField content is rendered in the lesson."""
+        client.force_login(enrolled_user)
+        response = client.get(lesson_page.url)
+        # The paragraph block text should appear
+        assert b"introductory text" in response.content
+
+    def test_page_hierarchy_enforced(self, home_page):
+        """LessonPage cannot be created directly under a non-CoursePage parent."""
+        assert "wagtail_lms.LessonPage" in CoursePage.subpage_types
+        assert "wagtail_lms.CoursePage" in LessonPage.parent_page_types
+        assert LessonPage.subpage_types == []
+
+
+# ---------------------------------------------------------------------------
+# H5P xAPI endpoint tests
+# ---------------------------------------------------------------------------
+
+
+def _xapi_statement(verb_id, verb_label="", score=None, object_iri=None):
+    """Build a minimal xAPI statement dict."""
+    stmt = {
+        "actor": {"mbox": "mailto:learner@example.com", "name": "Learner"},
+        "verb": {
+            "id": verb_id,
+            "display": {"en-US": verb_label},
+        },
+        "object": {
+            "id": object_iri or "http://example.com/activity/1",
+            "objectType": "Activity",
+        },
+    }
+    if score is not None:
+        stmt["result"] = {
+            "score": {"raw": score, "min": 0, "max": 100, "scaled": score / 100},
+            "completion": True,
+        }
+    return stmt
+
+
+@pytest.mark.django_db
+class TestH5PXAPIView:
+    def _url(self, activity_id):
+        return reverse("wagtail_lms:h5p_xapi", args=[activity_id])
+
+    def test_requires_login(self, client, h5p_activity):
+        url = self._url(h5p_activity.pk)
+        response = client.post(
+            url,
+            data=json.dumps(
+                _xapi_statement("http://adlnet.gov/expapi/verbs/experienced")
+            ),
+            content_type="application/json",
+        )
+        assert response.status_code == 302  # redirect to login
+
+    def test_get_not_allowed(self, client, user, h5p_activity):
+        client.force_login(user)
+        response = client.get(self._url(h5p_activity.pk))
+        assert response.status_code == 405
+
+    def test_invalid_json_returns_400(self, client, user, h5p_activity):
+        client.force_login(user)
+        response = client.post(
+            self._url(h5p_activity.pk), data="not-json", content_type="application/json"
+        )
+        assert response.status_code == 400
+
+    def test_creates_attempt_and_statement(self, client, user, h5p_activity):
+        """First xAPI POST lazily creates H5PAttempt and H5PXAPIStatement."""
+        client.force_login(user)
+        stmt = _xapi_statement(
+            "http://adlnet.gov/expapi/verbs/experienced", "experienced"
+        )
+        response = client.post(
+            self._url(h5p_activity.pk),
+            data=json.dumps(stmt),
+            content_type="application/json",
+        )
+        assert response.status_code == 200
+        assert response.json() == {"status": "ok"}
+
+        attempt = H5PAttempt.objects.get(user=user, activity=h5p_activity)
+        assert attempt is not None
+        assert H5PXAPIStatement.objects.filter(attempt=attempt).count() == 1
+
+    def test_reuses_existing_attempt(self, client, user, h5p_activity):
+        """Subsequent POSTs reuse the same H5PAttempt."""
+        client.force_login(user)
+        stmt = _xapi_statement("http://adlnet.gov/expapi/verbs/experienced")
+        url = self._url(h5p_activity.pk)
+        client.post(url, data=json.dumps(stmt), content_type="application/json")
+        client.post(url, data=json.dumps(stmt), content_type="application/json")
+
+        assert H5PAttempt.objects.filter(user=user, activity=h5p_activity).count() == 1
+        assert (
+            H5PXAPIStatement.objects.filter(
+                attempt__user=user, attempt__activity=h5p_activity
+            ).count()
+            == 2
+        )
+
+    def test_completed_verb_updates_status(self, client, user, h5p_activity):
+        client.force_login(user)
+        stmt = _xapi_statement("http://adlnet.gov/expapi/verbs/completed", "completed")
+        client.post(
+            self._url(h5p_activity.pk),
+            data=json.dumps(stmt),
+            content_type="application/json",
+        )
+        attempt = H5PAttempt.objects.get(user=user, activity=h5p_activity)
+        assert attempt.completion_status == "completed"
+
+    def test_passed_verb_updates_both_statuses(self, client, user, h5p_activity):
+        client.force_login(user)
+        stmt = _xapi_statement("http://adlnet.gov/expapi/verbs/passed", "passed")
+        client.post(
+            self._url(h5p_activity.pk),
+            data=json.dumps(stmt),
+            content_type="application/json",
+        )
+        attempt = H5PAttempt.objects.get(user=user, activity=h5p_activity)
+        assert attempt.completion_status == "completed"
+        assert attempt.success_status == "passed"
+
+    def test_failed_verb_updates_success_status(self, client, user, h5p_activity):
+        client.force_login(user)
+        stmt = _xapi_statement("http://adlnet.gov/expapi/verbs/failed", "failed")
+        client.post(
+            self._url(h5p_activity.pk),
+            data=json.dumps(stmt),
+            content_type="application/json",
+        )
+        attempt = H5PAttempt.objects.get(user=user, activity=h5p_activity)
+        assert attempt.success_status == "failed"
+
+    def test_score_extracted_from_result(self, client, user, h5p_activity):
+        client.force_login(user)
+        stmt = _xapi_statement(
+            "http://adlnet.gov/expapi/verbs/scored", "scored", score=75
+        )
+        client.post(
+            self._url(h5p_activity.pk),
+            data=json.dumps(stmt),
+            content_type="application/json",
+        )
+        attempt = H5PAttempt.objects.get(user=user, activity=h5p_activity)
+        assert attempt.score_raw == 75.0
+        assert attempt.score_max == 100.0
+        assert attempt.score_min == 0.0
+        assert pytest.approx(attempt.score_scaled, abs=0.01) == 0.75
+
+    def test_verb_display_stored(self, client, user, h5p_activity):
+        client.force_login(user)
+        stmt = _xapi_statement("http://adlnet.gov/expapi/verbs/answered", "answered")
+        client.post(
+            self._url(h5p_activity.pk),
+            data=json.dumps(stmt),
+            content_type="application/json",
+        )
+        statement_obj = H5PXAPIStatement.objects.get(
+            attempt__user=user, attempt__activity=h5p_activity
+        )
+        assert statement_obj.verb_display == "answered"
+
+
+# ---------------------------------------------------------------------------
+# ServeH5PContentView tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestServeH5PContentView:
+    def test_requires_login(self, client, h5p_activity):
+        url = reverse(
+            "wagtail_lms:serve_h5p_content",
+            args=[f"{h5p_activity.extracted_path}/h5p.json"],
+        )
+        response = client.get(url)
+        assert response.status_code == 302
+
+    def test_serves_h5p_json(self, client, user, h5p_activity):
+        client.force_login(user)
+        url = reverse(
+            "wagtail_lms:serve_h5p_content",
+            args=[f"{h5p_activity.extracted_path}/h5p.json"],
+        )
+        response = client.get(url)
+        assert response.status_code == 200
+        assert response["Content-Type"] == "application/json"
+
+    def test_serves_content_json(self, client, user, h5p_activity):
+        client.force_login(user)
+        url = reverse(
+            "wagtail_lms:serve_h5p_content",
+            args=[f"{h5p_activity.extracted_path}/content/content.json"],
+        )
+        response = client.get(url)
+        assert response.status_code == 200
+
+    def test_path_traversal_rejected(self, client, user):
+        client.force_login(user)
+        url = reverse(
+            "wagtail_lms:serve_h5p_content",
+            args=["../../../etc/passwd"],
+        )
+        response = client.get(url)
+        assert response.status_code == 404
+
+    def test_missing_file_returns_404(self, client, user, h5p_activity):
+        client.force_login(user)
+        url = reverse(
+            "wagtail_lms:serve_h5p_content",
+            args=[f"{h5p_activity.extracted_path}/does_not_exist.js"],
+        )
+        response = client.get(url)
+        assert response.status_code == 404
+
+    def test_security_headers_set(self, client, user, h5p_activity):
+        client.force_login(user)
+        url = reverse(
+            "wagtail_lms:serve_h5p_content",
+            args=[f"{h5p_activity.extracted_path}/h5p.json"],
+        )
+        response = client.get(url)
+        assert response["X-Frame-Options"] == "SAMEORIGIN"
+        assert "frame-ancestors" in response["Content-Security-Policy"]

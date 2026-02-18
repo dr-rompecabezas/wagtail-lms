@@ -1,6 +1,14 @@
 from django.contrib import admin
 
-from .models import CourseEnrollment, SCORMAttempt, SCORMData, SCORMPackage
+from .models import (
+    CourseEnrollment,
+    H5PActivity,
+    H5PAttempt,
+    H5PXAPIStatement,
+    SCORMAttempt,
+    SCORMData,
+    SCORMPackage,
+)
 
 
 @admin.register(SCORMPackage)
@@ -48,3 +56,38 @@ class SCORMDataAdmin(admin.ModelAdmin):
         return obj.value[:50] + "..." if len(obj.value) > 50 else obj.value
 
     value_preview.short_description = "Value Preview"
+
+
+@admin.register(H5PActivity)
+class H5PActivityAdmin(admin.ModelAdmin):
+    list_display = ("title", "main_library", "created_at")
+    list_filter = ("created_at",)
+    search_fields = ("title", "description", "main_library")
+    readonly_fields = (
+        "extracted_path",
+        "main_library",
+        "h5p_json",
+        "created_at",
+        "updated_at",
+    )
+
+
+@admin.register(H5PAttempt)
+class H5PAttemptAdmin(admin.ModelAdmin):
+    list_display = (
+        "user",
+        "activity",
+        "completion_status",
+        "success_status",
+        "started_at",
+        "last_accessed",
+    )
+    list_filter = ("completion_status", "success_status", "started_at")
+    search_fields = ("user__username", "activity__title")
+
+
+@admin.register(H5PXAPIStatement)
+class H5PXAPIStatementAdmin(admin.ModelAdmin):
+    list_display = ("attempt", "verb_display", "timestamp")
+    list_filter = ("timestamp",)
+    search_fields = ("attempt__user__username", "verb", "verb_display")

@@ -1,0 +1,26 @@
+{% load i18n wagtailcore_tags %}
+{#
+  H5P Activity block — rendered inline within a LessonPage StreamField.
+
+  Outputs a lightweight placeholder <div>. The h5p-lesson.js IntersectionObserver
+  watches these containers and initializes the h5p-standalone player lazily as
+  each one approaches the viewport, avoiding unnecessary upfront loading.
+
+  data-activity-id  : H5PActivity PK, used to build the xAPI endpoint URL in JS.
+  data-content-url  : Base URL for h5p-standalone's h5pJsonPath option.
+  data-xapi-url     : POST endpoint for xAPI statements (CSRF-protected).
+  data-xapi-iri     : Unique IRI per activity for filtering shared dispatcher events.
+#}
+<div class="lms-h5p-activity"
+     data-activity-id="{{ value.activity.pk }}"
+     data-content-url="{{ value.activity.get_content_base_url }}"
+     data-xapi-url="{% url 'wagtail_lms:h5p_xapi' value.activity.pk %}"
+     data-xapi-iri="{{ request.scheme }}://{{ request.get_host }}/lms/h5p-activity/{{ value.activity.pk }}/">
+
+  <div class="lms-h5p-activity__placeholder" id="h5p-placeholder-{{ value.activity.pk }}">
+    <p class="lms-h5p-activity__title">{{ value.activity.title }}</p>
+    <p class="lms-h5p-activity__loading">{% trans "Loading…" %}</p>
+  </div>
+
+  <div class="lms-h5p-activity__player" id="h5p-container-{{ value.activity.pk }}"></div>
+</div>
