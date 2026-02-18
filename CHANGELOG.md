@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Python 3.14 support; CI matrix rebalanced to two entries per Python version (3.11–3.14)
+
 ## [0.8.0] - 2026-02-16
 
 ### Added
@@ -27,6 +31,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Removed `serve_scorm_content()` function alias in `wagtail_lms.views`
   - Removed one-time deprecation warning globals (`_serve_scorm_content_view`, `_serve_scorm_content_warned`)
   - Removed deprecated-wrapper warning test (`test_serve_scorm_content_import_warning_emitted_once`)
+
+### Changed
+
+- `uv.lock` removed from version control; lock file patterns added to `.gitignore`
+  - This is a reusable library — pinning transitive dependencies in the repo is inappropriate for end users
+  - Contributors should run `uv sync` to generate a local lock file
 
 ## [0.7.0] - 2026-02-15
 

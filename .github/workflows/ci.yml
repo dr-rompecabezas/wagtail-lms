@@ -38,43 +38,43 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Minimum supported versions (oldest combination)
+          # Python 3.11 — minimum supported versions
           - python-version: '3.11'
             django-version: '4.2'
             wagtail-version: '6.0'
 
-          # Mid-range stable versions
-          - python-version: '3.12'
-            django-version: '5.1'
-            wagtail-version: '6.3'
-
-          # Latest/bleeding edge (newest combination)
-          - python-version: '3.13'
-            django-version: '5.2'
-            wagtail-version: '7.1'
-
-          # Cross-compatibility: old Python with new frameworks
+          # Python 3.11 — cross-compatibility: old Python with modern frameworks
           - python-version: '3.11'
             django-version: '5.2'
             wagtail-version: '7.1'
 
-          # Cross-compatibility: new Python with old frameworks
-          - python-version: '3.13'
-            django-version: '4.2'
-            wagtail-version: '6.0'
-
-          # Django 5.0 coverage
+          # Python 3.12 — Django 5.0 coverage
           - python-version: '3.12'
             django-version: '5.0'
             wagtail-version: '6.2'
 
-          # Django 6.0 with minimum Python (3.12)
+          # Python 3.12 — Django 6.0 with minimum supported Python (3.12)
           - python-version: '3.12'
             django-version: '6.0'
             wagtail-version: '7.2'
 
-          # Django 6.0 latest/bleeding edge
+          # Python 3.13 — cross-compatibility: new Python with old frameworks
           - python-version: '3.13'
+            django-version: '4.2'
+            wagtail-version: '6.0'
+
+          # Python 3.13 — mid-range stable
+          - python-version: '3.13'
+            django-version: '5.1'
+            wagtail-version: '6.3'
+
+          # Python 3.14 — stable frameworks
+          - python-version: '3.14'
+            django-version: '5.2'
+            wagtail-version: '7.1'
+
+          # Python 3.14 — bleeding edge
+          - python-version: '3.14'
             django-version: '6.0'
             wagtail-version: '7.3'
 
