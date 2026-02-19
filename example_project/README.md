@@ -65,7 +65,9 @@ The home page will now be visible at `http://localhost:8000/`
 
 ## Using Wagtail LMS
 
-### Upload a SCORM Package
+### SCORM Courses
+
+#### Upload a SCORM Package
 
 1. Login to Django Admin: <http://localhost:8000/django-admin/>
 2. Navigate to **Wagtail Lms** → **SCORM Packages**
@@ -76,7 +78,7 @@ The home page will now be visible at `http://localhost:8000/`
 
 The package will be automatically extracted and parsed.
 
-### Create a Course
+#### Create a Course
 
 1. Login to Wagtail Admin: <http://localhost:8000/admin/>
 2. Navigate to **Pages**
@@ -88,12 +90,68 @@ The package will be automatically extracted and parsed.
    - Select the SCORM package you uploaded
 6. Click **Publish**
 
-### Test the Course
+#### Test the Course
 
 1. Visit the course page URL (visible in the Wagtail admin)
 2. Click **Enroll in Course** (you need to be logged in)
 3. Click **Start Course** to launch the SCORM player
 4. The SCORM content will load in an iframe with full API support
+
+---
+
+### H5P Lessons
+
+H5P activities are reusable snippets that can be embedded inside a
+long-scroll **LessonPage** alongside rich text, images, and other blocks.
+A course can have multiple lessons; each lesson can contain multiple H5P
+activities. Learner progress is tracked via xAPI statements.
+
+#### 1. Upload an H5P Activity
+
+1. Login to Wagtail Admin: <http://localhost:8000/admin/>
+2. Navigate to **LMS** → **H5P Activities**
+3. Click **Add H5P Activity**
+4. Enter a title and upload a `.h5p` file
+5. Save — the package is extracted and ready for use in lessons
+
+> Alternatively, upload via Django Admin at **Wagtail Lms** → **H5P
+> Activities**.
+
+#### 2. Create a Course (if you haven't already)
+
+1. In the Wagtail Admin, navigate to **Pages**
+2. Under the Home page, click **Add child page** → **Course Page**
+3. Fill in title and description (no SCORM package needed for H5P-only
+   courses)
+4. Publish
+
+#### 3. Create a Lesson under the Course
+
+1. Navigate to the Course page in the Wagtail page tree
+2. Click **Add child page** → **Lesson Page**
+3. Fill in:
+   - **Title** (required)
+   - **Intro** — optional introductory rich text shown above the body
+   - **Body** — click **+** to add blocks:
+     - **Paragraph** — rich text block for headings, text, images, etc.
+     - **H5P Activity** — choose an H5P Activity snippet from the library
+4. Publish
+
+#### 4. Test the Lesson
+
+1. Visit the lesson URL (visible in the Wagtail admin page tree)
+2. Unenrolled users are redirected to the parent Course page to enroll
+3. After enrolling, the lesson loads with all H5P activities lazy-loading
+   as you scroll
+4. Complete an H5P activity — xAPI statements are sent to the server and
+   stored under **LMS** → **H5P Attempts** in the Wagtail admin
+
+#### Reviewing Learner Progress
+
+- **Wagtail Admin** → **LMS** → **H5P Attempts** — per-user, per-activity
+  completion and score summary
+- **Django Admin** → **Wagtail Lms** → **H5P Xapi Statements** — full raw
+  xAPI statement log for debugging
 
 ## Project Structure
 
@@ -153,12 +211,21 @@ If you're developing wagtail-lms and make model changes:
 PYTHONPATH=. uv run python example_project/manage.py makemigrations wagtail_lms
 ```
 
-## Testing SCORM Packages
+## Testing Content Packages
+
+### SCORM Packages
 
 You can find free SCORM test packages here:
 
 - [SCORM Cloud - Sample Courses](https://cloud.scorm.com/sc/guest/SignInForm)
 - [Rustici Software - SCORM Sample Content](https://scorm.com/scorm-explained/scorm-resources/scorm-content-examples/)
+
+### H5P Activities
+
+You can find free H5P content here:
+
+- [H5P.org - Example Content](https://h5p.org/content-types-and-applications) — click any activity type, then **Download** to get a `.h5p` file
+- [H5P Hub](https://h5p.org/h5p-hub) — curated content library (requires free account)
 
 ## Troubleshooting
 
@@ -186,6 +253,26 @@ Check that:
 - The ZIP file is a valid SCORM package
 - It contains `imsmanifest.xml` at the root
 - The `example_project/media/` directory exists and has write permissions
+
+### H5P Activity Not Extracting
+
+Check that:
+
+- The file has a `.h5p` extension (it is a ZIP file internally)
+- It contains `h5p.json` at the root
+- The `example_project/media/` directory exists and has write permissions
+
+### H5P Activity Not Rendering
+
+- Open the browser console for JavaScript errors
+- Confirm static files are collected: `uv run python example_project/manage.py collectstatic --noinput`
+- The `h5p-standalone` vendor bundles must be present under
+  `src/wagtail_lms/static/wagtail_lms/vendor/h5p-standalone/`
+
+### LessonPage "Add child page" Not Appearing
+
+- The **Lesson Page** option only appears under a **Course Page**
+- Confirm the Course Page is published before adding lessons
 
 ### Files Appearing in Project Root
 

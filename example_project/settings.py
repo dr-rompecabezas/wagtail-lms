@@ -166,6 +166,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
 # Wagtail LMS settings (optional — defaults shown)
+# SCORM
 # WAGTAIL_LMS_SCORM_UPLOAD_PATH = 'scorm_packages/'
 # WAGTAIL_LMS_CONTENT_PATH = 'scorm_content/'
 # WAGTAIL_LMS_AUTO_ENROLL = False
@@ -179,3 +180,6 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 #     "default": "max-age=86400",
 # }
 # WAGTAIL_LMS_REDIRECT_MEDIA = False
+# H5P
+# WAGTAIL_LMS_H5P_UPLOAD_PATH = 'h5p_packages/'
+# WAGTAIL_LMS_H5P_CONTENT_PATH = 'h5p_content/'
