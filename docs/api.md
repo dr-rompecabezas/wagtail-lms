@@ -109,3 +109,28 @@ and append a new `H5PXAPIStatement` record.
 | `CoursePage` | Wagtail Page representing a course; can hold a SCORM package |
 | `LessonPage` | Child of `CoursePage`; StreamField body of rich text + H5P activities |
 | `CourseEnrollment` | Tracks a user's enrollment in a course |
+
+---
+
+## Subclassing CoursePage
+
+If your project subclasses `CoursePage`, you **must** include `"wagtail_lms.LessonPage"`
+in your subclass's `subpage_types` for H5P lessons to be available:
+
+```python
+class ExtendedCoursePage(CoursePage):
+    subpage_types = ["wagtail_lms.LessonPage"]
+    # ... your extra fields
+```
+
+If you previously set `subpage_types = []` to prevent child pages entirely, update it
+before using H5P lessons. Wagtail will silently hide the "Add child page" option for
+`LessonPage` if it is absent — editors will see no error, the option simply won't appear.
+
+A Django system check (`wagtail_lms.W001`) will warn at startup if a `CoursePage`
+subclass has `subpage_types` defined without `"wagtail_lms.LessonPage"`:
+
+```
+wagtail_lms.W001: ExtendedCoursePage subclasses CoursePage but its subpage_types does
+not include 'wagtail_lms.LessonPage'. H5P lessons cannot be added to this page type.
+```

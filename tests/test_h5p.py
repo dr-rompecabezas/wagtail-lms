@@ -441,6 +441,66 @@ class TestH5PXAPIView:
         )
         assert statement_obj.verb_display == "answered"
 
+    @pytest.mark.parametrize(
+        "verb_iri,verb_display",
+        [
+            ("http://adlnet.gov/expapi/verbs/completed", "completed"),
+            ("http://adlnet.gov/expapi/verbs/passed", "passed"),
+        ],
+    )
+    def test_completion_verb_sets_enrollment_completed_at(
+        self,
+        client,
+        enrolled_user,
+        h5p_activity,
+        lesson_page,
+        course_page_h5p,
+        verb_iri,
+        verb_display,
+    ):
+        """completed/passed verbs propagate to CourseEnrollment.completed_at."""
+        client.force_login(enrolled_user)
+        stmt = _xapi_statement(verb_iri, verb_display)
+        client.post(
+            self._url(h5p_activity.pk),
+            data=json.dumps(stmt),
+            content_type="application/json",
+        )
+        enrollment = CourseEnrollment.objects.get(
+            user=enrolled_user, course=course_page_h5p
+        )
+        assert enrollment.completed_at is not None
+
+    def test_failed_verb_does_not_set_enrollment_completed_at(
+        self, client, enrolled_user, h5p_activity, lesson_page, course_page_h5p
+    ):
+        """failed xAPI verb does not set CourseEnrollment.completed_at."""
+        client.force_login(enrolled_user)
+        stmt = _xapi_statement("http://adlnet.gov/expapi/verbs/failed", "failed")
+        client.post(
+            self._url(h5p_activity.pk),
+            data=json.dumps(stmt),
+            content_type="application/json",
+        )
+        enrollment = CourseEnrollment.objects.get(
+            user=enrolled_user, course=course_page_h5p
+        )
+        assert enrollment.completed_at is None
+
+
+# ---------------------------------------------------------------------------
+# System checks
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_system_check_no_warnings_on_clean_setup():
+    """No warnings emitted when no CoursePage subclasses override subpage_types."""
+    from wagtail_lms.checks import check_coursepage_subclass_subpage_types
+
+    errors = check_coursepage_subclass_subpage_types(app_configs=None)
+    assert errors == []
+
 
 # ---------------------------------------------------------------------------
 # ServeH5PContentView tests

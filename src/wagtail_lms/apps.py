@@ -10,3 +10,5 @@ class WagtailLmsConfig(AppConfig):
         from .signal_handlers import register_signal_handlers
 
         register_signal_handlers()
+
+        from . import checks  # noqa: F401

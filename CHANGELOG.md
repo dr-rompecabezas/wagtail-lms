@@ -25,6 +25,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `WAGTAIL_LMS_H5P_UPLOAD_PATH` and `WAGTAIL_LMS_H5P_CONTENT_PATH` configuration settings (defaults: `h5p_packages/` and `h5p_content/`)
   - Example project updated: migration applied, H5P workflow documented in `README.md`, H5P Activities nav link added to `base.html`
 
+- **`CourseEnrollment.completed_at` set on H5P course completion** ([#60](https://github.com/dr-rompecabezas/wagtail-lms/issues/60))
+  - When a `completed` or `passed` xAPI verb is received for an H5P activity, the `completed_at` field is now set on the linked `CourseEnrollment` (same idempotent `.update()` approach as the SCORM fix in v0.8.1)
+  - Resolves the chain: `H5PAttempt` → activity → live `LessonPage`s (via StreamField body) → parent `CoursePage` → `CourseEnrollment`
+
+- **System check for `CoursePage` subclasses missing `LessonPage` in `subpage_types`** ([#65](https://github.com/dr-rompecabezas/wagtail-lms/issues/65))
+  - `wagtail_lms.W001` is raised at startup when a `CoursePage` subclass defines `subpage_types` without `"wagtail_lms.LessonPage"`, surfacing the silent Wagtail editor omission immediately rather than at edit time
+  - See `docs/api.md` — Subclassing CoursePage for the full upgrade guide
+
+- **xAPI object IRI no longer hardcodes the `/lms/` URL prefix** ([#66](https://github.com/dr-rompecabezas/wagtail-lms/issues/66))
+  - `data-xapi-iri` in `h5p_activity_block.html` now uses `{% url 'wagtail_lms:h5p_xapi' %}` so the IRI reflects any mount point (e.g. `/`, `/courses/`)
+
+- **Four H5P correctness issues identified in code review**
+  - `WAGTAIL_LMS_H5P_UPLOAD_PATH` setting is now honored (`package_file.upload_to` was hardcoded)
+  - `H5PAttempt` now has a DB-level `unique_together` on `(user, activity)` — migration 0003
+  - `h5p_xapi_view` returns 400 for valid-but-non-object JSON (arrays, strings, numbers) instead of crashing with `AttributeError`
+  - Same H5P activity embedded multiple times in a lesson no longer produces duplicate element IDs; `h5p-lesson.js` uses `container.querySelector()` instead of `getElementById`
+
 ### Fixed
 
 - **Security: `_delete_extracted_content` path-normalization bypass**

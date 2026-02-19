@@ -25,6 +25,7 @@ from .models import (
     H5PActivity,
     H5PAttempt,
     H5PXAPIStatement,
+    LessonPage,
     SCORMAttempt,
     SCORMData,
 )
@@ -85,6 +86,32 @@ def _mark_enrollment_complete(attempt):
         course__scorm_package=attempt.scorm_package,
         completed_at__isnull=True,
     ).update(completed_at=timezone.now())
+
+
+def _mark_h5p_enrollment_complete(attempt):
+    """Set completed_at on CourseEnrollment when an H5P activity completes.
+
+    Resolves attempt → activity → live LessonPages (via StreamField body) →
+    parent CoursePage → CourseEnrollment for this user. Walks the Wagtail page
+    tree rather than storing a redundant FK. The completed_at__isnull=True
+    guard makes this a no-op if completion was already recorded.
+
+    Uses icontains (text substring) rather than the JSONField __contains
+    operator because Wagtail's StreamField is stored as a serialised text
+    column on SQLite.  H5PActivityBlock has a single field so the stored
+    value is always '"activity": <pk>}'; the closing '}' prevents a PK of 5
+    from matching an activity with PK 50.
+    """
+    lookup = '"activity": ' + str(attempt.activity_id) + "}"
+    lesson_pages = LessonPage.objects.filter(live=True, body__icontains=lookup)
+    for lesson in lesson_pages:
+        parent = lesson.get_parent().specific
+        if isinstance(parent, CoursePage):
+            CourseEnrollment.objects.filter(
+                user=attempt.user,
+                course=parent,
+                completed_at__isnull=True,
+            ).update(completed_at=timezone.now())
 
 
 @login_required
@@ -479,6 +506,30 @@ _XAPI_SCORE_VERBS = {
 }
 
 
+def _apply_xapi_score(attempt, result):
+    """Extract score fields from an xAPI result object onto the attempt.
+
+    Returns True if any field was updated, False otherwise.
+    """
+    modified = False
+    score = result.get("score", {})
+    if not isinstance(score, dict):
+        return modified
+    for field, key in (
+        ("score_raw", "raw"),
+        ("score_max", "max"),
+        ("score_min", "min"),
+        ("score_scaled", "scaled"),
+    ):
+        if key in score:
+            try:
+                setattr(attempt, field, float(score[key]))
+                modified = True
+            except (ValueError, TypeError):
+                pass
+    return modified
+
+
 def _update_h5p_attempt(attempt, statement, verb_id):
     """Update H5PAttempt fields from an xAPI statement.
 
@@ -500,23 +551,13 @@ def _update_h5p_attempt(attempt, statement, verb_id):
         modified = True
 
     if verb_id in _XAPI_SCORE_VERBS:
-        score = result.get("score", {})
-        if isinstance(score, dict):
-            for field, key in (
-                ("score_raw", "raw"),
-                ("score_max", "max"),
-                ("score_min", "min"),
-                ("score_scaled", "scaled"),
-            ):
-                if key in score:
-                    try:
-                        setattr(attempt, field, float(score[key]))
-                        modified = True
-                    except (ValueError, TypeError):
-                        pass
+        modified = _apply_xapi_score(attempt, result) or modified
 
     if modified:
         attempt.save()
+
+    if verb_id in (_XAPI_COMPLETED, _XAPI_PASSED):
+        _mark_h5p_enrollment_complete(attempt)
 
 
 @login_required
