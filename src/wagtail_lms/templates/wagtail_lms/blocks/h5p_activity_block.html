@@ -15,7 +15,7 @@
      data-activity-id="{{ value.activity.pk }}"
      data-content-url="{{ value.activity.get_content_base_url }}"
      data-xapi-url="{% url 'wagtail_lms:h5p_xapi' value.activity.pk %}"
-     data-xapi-iri="{{ request.scheme }}://{{ request.get_host }}/lms/h5p-activity/{{ value.activity.pk }}/">
+     data-xapi-iri="{{ request.scheme }}://{{ request.get_host }}{% url 'wagtail_lms:h5p_xapi' value.activity.pk %}">
 
   <div class="lms-h5p-activity__placeholder">
     <p class="lms-h5p-activity__title">{{ value.activity.title }}</p>
