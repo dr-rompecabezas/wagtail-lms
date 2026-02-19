@@ -2,7 +2,6 @@ import json
 import mimetypes
 import posixpath
 import time
-from datetime import datetime
 from functools import wraps
 
 from django.conf import settings
@@ -14,6 +13,7 @@ from django.core.files.storage import default_storage
 from django.db import OperationalError, transaction
 from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
@@ -73,6 +73,20 @@ def retry_on_db_lock(max_attempts=3, delay=0.1, backoff=2):
     return decorator
 
 
+def _mark_enrollment_complete(attempt):
+    """Set completed_at on the CourseEnrollment linked to a completed SCORM attempt.
+
+    Traverses attempt → SCORMPackage → CoursePage → CourseEnrollment via ORM
+    join so no extra queries are needed. The completed_at__isnull=True filter
+    makes this a no-op if completion was already recorded.
+    """
+    CourseEnrollment.objects.filter(
+        user=attempt.user,
+        course__scorm_package=attempt.scorm_package,
+        completed_at__isnull=True,
+    ).update(completed_at=timezone.now())
+
+
 @login_required
 def scorm_player_view(request, course_id):
     """Display SCORM player for a course"""
@@ -90,8 +104,11 @@ def scorm_player_view(request, course_id):
         )
         return redirect(course.url)
 
-    # Get or create enrollment
-    CourseEnrollment.objects.get_or_create(user=request.user, course=course)
+    if conf.WAGTAIL_LMS_AUTO_ENROLL:
+        CourseEnrollment.objects.get_or_create(user=request.user, course=course)
+    elif not CourseEnrollment.objects.filter(user=request.user, course=course).exists():
+        messages.error(request, "You must be enrolled in this course to access it.")
+        return redirect(course.url)
 
     # Get or create SCORM attempt
     attempt, _ = SCORMAttempt.objects.get_or_create(
@@ -117,7 +134,7 @@ def handle_scorm_initialize():
 
 def handle_scorm_terminate(attempt):
     """Handle SCORM Terminate method"""
-    attempt.last_accessed = datetime.now()
+    attempt.last_accessed = timezone.now()
     attempt.save()
     return JsonResponse({"result": "true", "errorCode": "0"})
 
@@ -247,6 +264,8 @@ def set_scorm_value(attempt, key, value):  # noqa: C901
         if key == "cmi.core.lesson_status":
             attempt.completion_status = value
             attempt_modified = True
+            if value in ("completed", "passed"):  # "passed" is valid in SCORM 1.2
+                _mark_enrollment_complete(attempt)
         elif key == "cmi.core.lesson_location":
             attempt.location = value
             attempt_modified = True

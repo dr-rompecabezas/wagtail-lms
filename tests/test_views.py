@@ -8,6 +8,7 @@ from django.core.files.storage import default_storage
 from django.http import Http404
 from django.test import RequestFactory
 from django.urls import reverse
+from django.utils import timezone
 
 from wagtail_lms.models import CourseEnrollment, SCORMAttempt, SCORMData
 from wagtail_lms.views import get_scorm_value, set_scorm_value
@@ -79,6 +80,32 @@ class TestSCORMPlayerView:
 
         # Should redirect with error message
         assert response.status_code == 302
+
+    def test_scorm_player_auto_enroll_false_redirects_unenrolled(
+        self, client, user, course_page, monkeypatch
+    ):
+        from wagtail_lms import conf
+
+        monkeypatch.setattr(conf, "WAGTAIL_LMS_AUTO_ENROLL", False)
+        client.force_login(user)
+        url = reverse("wagtail_lms:scorm_player", args=[course_page.id])
+        response = client.get(url)
+        assert response.status_code == 302
+        assert (
+            CourseEnrollment.objects.filter(user=user, course=course_page).count() == 0
+        )
+
+    def test_scorm_player_auto_enroll_false_allows_enrolled(
+        self, client, user, course_page, monkeypatch
+    ):
+        from wagtail_lms import conf
+
+        monkeypatch.setattr(conf, "WAGTAIL_LMS_AUTO_ENROLL", False)
+        CourseEnrollment.objects.create(user=user, course=course_page)
+        client.force_login(user)
+        url = reverse("wagtail_lms:scorm_player", args=[course_page.id])
+        response = client.get(url)
+        assert response.status_code == 200
 
 
 @pytest.mark.django_db
@@ -374,6 +401,47 @@ class TestSCORMDataHelpers:
 
         data = SCORMData.objects.get(attempt=attempt, key="cmi.core.lesson_status")
         assert data.value == "completed"
+
+    def test_set_lesson_status_completed_marks_enrollment(
+        self, user, scorm_package, course_page
+    ):
+        enrollment = CourseEnrollment.objects.create(user=user, course=course_page)
+        attempt = SCORMAttempt.objects.create(user=user, scorm_package=scorm_package)
+        set_scorm_value(attempt, "cmi.core.lesson_status", "completed")
+        enrollment.refresh_from_db()
+        assert enrollment.completed_at is not None
+
+    def test_set_lesson_status_passed_marks_enrollment(
+        self, user, scorm_package, course_page
+    ):
+        enrollment = CourseEnrollment.objects.create(user=user, course=course_page)
+        attempt = SCORMAttempt.objects.create(user=user, scorm_package=scorm_package)
+        set_scorm_value(attempt, "cmi.core.lesson_status", "passed")
+        enrollment.refresh_from_db()
+        assert enrollment.completed_at is not None
+
+    def test_set_lesson_status_incomplete_does_not_mark_enrollment(
+        self, user, scorm_package, course_page
+    ):
+        enrollment = CourseEnrollment.objects.create(user=user, course=course_page)
+        attempt = SCORMAttempt.objects.create(user=user, scorm_package=scorm_package)
+        set_scorm_value(attempt, "cmi.core.lesson_status", "incomplete")
+        enrollment.refresh_from_db()
+        assert enrollment.completed_at is None
+
+    def test_set_lesson_status_completed_idempotent(
+        self, user, scorm_package, course_page
+    ):
+        import datetime as dt
+
+        original = timezone.now() - dt.timedelta(days=1)
+        enrollment = CourseEnrollment.objects.create(
+            user=user, course=course_page, completed_at=original
+        )
+        attempt = SCORMAttempt.objects.create(user=user, scorm_package=scorm_package)
+        set_scorm_value(attempt, "cmi.core.lesson_status", "completed")
+        enrollment.refresh_from_db()
+        assert enrollment.completed_at == original  # not overwritten
 
 
 @pytest.mark.django_db
