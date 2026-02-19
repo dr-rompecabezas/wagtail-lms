@@ -4,8 +4,8 @@ build-backend = "uv_build"
 
 [project]
 name = "wagtail_lms"
-version = "0.8.0"
-description = "A Learning Management System extension for Wagtail with SCORM 1.2/2004 support"
+version = "0.9.0"
+description = "A Learning Management System extension for Wagtail with SCORM 1.2/2004 and H5P support"
 readme = "README.md"
 authors = [
     {name = "Felipe Villegas", email = "felavid@gmail.com"}
@@ -31,11 +31,12 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Education",
     "Topic :: Internet :: WWW/HTTP",
     "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
 ]
-keywords = ["wagtail", "django", "lms", "scorm", "xAPI", "e-learning", "education"]
+keywords = ["wagtail", "django", "lms", "scorm", "xAPI", "H5P", "e-learning", "education"]
 requires-python = ">=3.11"
 dependencies = [
     "Django>=4.2",
