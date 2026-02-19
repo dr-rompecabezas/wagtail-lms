@@ -9,8 +9,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Python 3.14 support; CI matrix rebalanced to two entries per Python version (3.11–3.14)
-
 - **H5P activity support with lesson pages** ([#57](https://github.com/dr-rompecabezas/wagtail-lms/issues/57))
   - `H5PActivity` Wagtail snippet — import `.h5p` packages, auto-extract to Django storage backend, parse `h5p.json` metadata; appears in the snippet chooser for lesson composition
   - `LessonPage` Wagtail page — long-scroll layout with `StreamField` body (`RichTextBlock` + `H5PActivityBlock`); enforced page hierarchy (`parent_page_types = [CoursePage]`, `subpage_types = []`); enrollment gate in `serve()` redirects unauthenticated users to login and unenrolled users to the parent course
@@ -37,6 +35,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Example project: broken CSS path since v0.4.0**
   - `base.html` still referenced `lms/css/course.css` after static assets were moved to `wagtail_lms/css/course.css` in v0.4.0; LMS styles were silently not loading in the example project
   - Corrected to `{% static 'wagtail_lms/css/course.css' %}`
+
+## [0.8.1] - 2026-02-19
+
+### Fixed
+
+- **`CourseEnrollment.completed_at` now set on SCORM course completion** ([#60](https://github.com/dr-rompecabezas/wagtail-lms/issues/60))
+  - When `cmi.core.lesson_status` is set to `"completed"` or `"passed"`, the linked `CourseEnrollment.completed_at` is updated atomically in the same transaction
+  - Uses a queryset `.update()` with `completed_at__isnull=True` to be idempotent — existing timestamps are never overwritten
+  - Downstream projects relying on `completed_at` for prerequisite checks and dashboard completion tracking will now work correctly without manual admin intervention
+
+- **`WAGTAIL_LMS_AUTO_ENROLL` setting is now wired up** ([#62](https://github.com/dr-rompecabezas/wagtail-lms/issues/62))
+  - Setting was defined in `conf.py` but never read; the SCORM player always auto-enrolled users
+  - Default changed from `False` → `True` to preserve existing behaviour
+  - With `WAGTAIL_LMS_AUTO_ENROLL = False`, unenrolled users who reach the SCORM player are redirected to the course page with an error message instead of being silently enrolled
+
+### Added
+
+- Python 3.14 support; CI matrix rebalanced to two entries per Python version (3.11–3.14)
 
 ## [0.8.0] - 2026-02-16
 
