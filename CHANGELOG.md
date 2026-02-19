@@ -25,6 +25,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **System check `wagtail_lms.W001`** ([#65](https://github.com/dr-rompecabezas/wagtail-lms/issues/65))
   - Raised at startup when a `CoursePage` subclass defines `subpage_types` without `"wagtail_lms.LessonPage"`, preventing the Wagtail editor from silently omitting lessons; see `docs/api.md` for the upgrade guide
 
+- **Course page lists and links to lesson pages**
+  - `CoursePage.get_context()` now includes `lesson_pages` (live `LessonPage` children, ordered by tree position)
+  - `course_page.html` displays a numbered lesson list with direct links when lessons exist; enrolled users see their enrollment date, unenrolled users see an enroll CTA
+  - The "no content" notice now correctly reflects courses that have neither a SCORM package nor any lesson pages
+  - Sidebar shows the lesson count alongside existing SCORM metadata
+
 ### Fixed
 
 - **Security: path-normalization bypass in ZIP extraction and content-directory deletion**

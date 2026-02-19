@@ -147,6 +147,51 @@ class TestCoursePage:
         assert context["enrollment"] is None
         assert context["progress"] is None
 
+    def test_get_context_includes_lesson_pages(self, course_page, user, rf):
+        """lesson_pages in context contains live LessonPage children."""
+        from wagtail_lms.models import LessonPage
+
+        lesson = LessonPage(title="Lesson One", slug="lesson-one", intro="")
+        course_page.add_child(instance=lesson)
+        lesson.save_revision().publish()
+
+        request = rf.get("/")
+        request.user = user
+        context = course_page.get_context(request)
+
+        assert "lesson_pages" in context
+        assert lesson.pk in [p.pk for p in context["lesson_pages"]]
+
+    def test_get_context_excludes_draft_lesson_pages(self, course_page, user, rf):
+        """Draft LessonPage children are not included in lesson_pages."""
+        from wagtail_lms.models import LessonPage
+
+        draft = LessonPage(
+            title="Draft Lesson", slug="draft-lesson", intro="", live=False
+        )
+        course_page.add_child(instance=draft)
+
+        request = rf.get("/")
+        request.user = user
+        context = course_page.get_context(request)
+
+        assert draft.pk not in [p.pk for p in context["lesson_pages"]]
+
+    def test_get_context_lesson_pages_empty_in_preview(
+        self, home_page, scorm_package, rf
+    ):
+        """lesson_pages is empty (not an error) when the page has no pk."""
+        from django.contrib.auth.models import AnonymousUser
+
+        course = CoursePage(title="Preview Course", scorm_package=scorm_package)
+        request = rf.get("/")
+        request.user = AnonymousUser()
+
+        context = course.get_context(request)
+
+        assert "lesson_pages" in context
+        assert len(list(context["lesson_pages"])) == 0
+
 
 @pytest.mark.django_db
 class TestCourseEnrollment:
