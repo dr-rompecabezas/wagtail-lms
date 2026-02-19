@@ -480,6 +480,13 @@ class CoursePage(Page):
             context["enrollment"] = None
             context["progress"] = None
 
+        # Live LessonPage children, ordered by page tree position
+        context["lesson_pages"] = (
+            self.get_children().live().type(LessonPage).order_by("path")
+            if self.pk
+            else self.__class__.objects.none()
+        )
+
         return context
 
 
