@@ -11,6 +11,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Python 3.14 support; CI matrix rebalanced to two entries per Python version (3.11–3.14)
 
+- **H5P activity support with lesson pages** ([#57](https://github.com/dr-rompecabezas/wagtail-lms/issues/57))
+  - `H5PActivity` Wagtail snippet — import `.h5p` packages, auto-extract to Django storage backend, parse `h5p.json` metadata; appears in the snippet chooser for lesson composition
+  - `LessonPage` Wagtail page — long-scroll layout with `StreamField` body (`RichTextBlock` + `H5PActivityBlock`); enforced page hierarchy (`parent_page_types = [CoursePage]`, `subpage_types = []`); enrollment gate in `serve()` redirects unauthenticated users to login and unenrolled users to the parent course
+  - `H5PAttempt` — per-user, per-activity progress record (completion status, success status, raw/min/max/scaled scores); lazily created on the first xAPI event
+  - `H5PXAPIStatement` — raw xAPI statement log with verb→attempt-field mapping
+  - `POST /lms/h5p-xapi/<activity_id>/` — CSRF-protected xAPI ingestion endpoint; maps `completed`, `passed`, `failed`, and `scored` verbs to attempt fields
+  - `GET /lms/h5p-content/<path>` — secure H5P asset serving with path-traversal protection (single-method subclass of `ServeScormContentView`)
+  - `H5PActivityViewSet` (full CRUD) and `H5PAttemptViewSet` (read-only + inspect) added to the `LMSViewSetGroup` Wagtail admin menu
+  - Django admin registrations for `H5PActivity`, `H5PAttempt`, and `H5PXAPIStatement`
+  - **h5p-standalone v3.8.0** (MIT) vendored: `main.bundle.js`, `frame.bundle.js`, `styles/h5p.css`
+  - `h5p-lesson.js` — `IntersectionObserver` lazy loading (300 px look-ahead), per-activity `xAPIObjectIRI` filtering on the shared `H5P.externalDispatcher` to prevent cross-contamination between multiple players, CSRF-safe `fetch` for xAPI posts
+  - 30 new tests covering model extraction, xAPI endpoint (all verbs, lazy attempt creation, score mapping), content serving, enrollment gating, path-traversal protection, and S3-backend compatibility
+  - `signal_handlers.py` refactored: shared `_delete_storage_dir` helper, H5P post-delete file cleanup alongside existing SCORM cleanup
+  - `WAGTAIL_LMS_H5P_UPLOAD_PATH` and `WAGTAIL_LMS_H5P_CONTENT_PATH` configuration settings (defaults: `h5p_packages/` and `h5p_content/`)
+  - Example project updated: migration applied, H5P workflow documented in `README.md`, H5P Activities nav link added to `base.html`
+
+### Fixed
+
+- **Security: `_delete_extracted_content` path-normalization bypass**
+  - `posixpath.normpath("a/..")` resolves to `"."`, which previously passed the traversal check and would have caused the entire base content directory to be wiped
+  - Guard now rejects any post-normalization value that is not a single plain directory name: `""`, `"."`, `".."`, paths containing `/`, and absolute paths
+  - Parametrized test covers all six suspicious variants
+
+- **Example project: broken CSS path since v0.4.0**
+  - `base.html` still referenced `lms/css/course.css` after static assets were moved to `wagtail_lms/css/course.css` in v0.4.0; LMS styles were silently not loading in the example project
+  - Corrected to `{% static 'wagtail_lms/css/course.css' %}`
+
 ## [0.8.0] - 2026-02-16
 
 ### Added
