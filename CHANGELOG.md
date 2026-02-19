@@ -38,7 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Four H5P correctness issues identified in code review**
   - `WAGTAIL_LMS_H5P_UPLOAD_PATH` setting is now honored (`package_file.upload_to` was hardcoded)
-  - `H5PAttempt` now has a DB-level `unique_together` on `(user, activity)` — migration 0003
+  - `H5PAttempt` now has a DB-level `unique_together` on `(user, activity)` — migration 0002
   - `h5p_xapi_view` returns 400 for valid-but-non-object JSON (arrays, strings, numbers) instead of crashing with `AttributeError`
   - Same H5P activity embedded multiple times in a lesson no longer produces duplicate element IDs; `h5p-lesson.js` uses `container.querySelector()` instead of `getElementById`
 

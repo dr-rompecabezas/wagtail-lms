@@ -166,9 +166,12 @@ class TestH5PActivity:
         )
 
     def test_get_content_base_url(self, h5p_activity):
-        """get_content_base_url returns the expected path."""
+        """get_content_base_url returns a URL based on reverse(), not a hardcoded prefix."""
         url = h5p_activity.get_content_base_url()
-        assert url == f"/lms/h5p-content/{h5p_activity.extracted_path}"
+        expected = reverse(
+            "wagtail_lms:serve_h5p_content", args=[h5p_activity.extracted_path]
+        )
+        assert url == expected
 
     def test_get_content_base_url_no_extracted_path(self, db):
         """get_content_base_url returns None when not yet extracted."""
@@ -584,6 +587,50 @@ class TestH5PXAPIView:
             user=enrolled_user, course=course_page_h5p
         )
         assert enrollment.completed_at is None
+
+    def test_completion_without_enrollment_does_not_error(
+        self, client, user, h5p_activity, lesson_page, course_page_h5p
+    ):
+        """completed verb for a non-enrolled user silently matches zero rows — no error."""
+        client.force_login(user)
+        stmt = _xapi_statement("http://adlnet.gov/expapi/verbs/completed", "completed")
+        response = client.post(
+            self._url(h5p_activity.pk),
+            data=json.dumps(stmt),
+            content_type="application/json",
+        )
+        assert response.status_code == 200
+        assert not CourseEnrollment.objects.filter(
+            user=user, course=course_page_h5p
+        ).exists()
+
+    def test_streamfield_body_format_matches_enrollment_lookup(
+        self, lesson_page, h5p_activity
+    ):
+        """Verify that Wagtail stores H5PActivityBlock in a format that the
+        _mark_h5p_enrollment_complete lookup string matches.
+
+        If Wagtail changes its StreamField serialisation (spacing, key order,
+        compression) this test will fail and alert us to update the lookup.
+        """
+        from django.db import connection
+
+        # Read the raw body column value directly from the DB
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT body FROM wagtail_lms_lessonpage WHERE page_ptr_id = %s",
+                [lesson_page.pk],
+            )
+            row = cursor.fetchone()
+        assert row is not None, "LessonPage not found in DB"
+        raw_body = row[0]
+        # The lookup string used by _mark_h5p_enrollment_complete
+        lookup = '"activity": ' + str(h5p_activity.pk) + "}"
+        assert lookup in raw_body, (
+            f"Lookup string {lookup!r} not found in raw StreamField body. "
+            f"The body__icontains lookup in _mark_h5p_enrollment_complete "
+            f"would silently fail. Raw body excerpt: {raw_body[:200]}"
+        )
 
 
 # ---------------------------------------------------------------------------

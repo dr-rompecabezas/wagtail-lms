@@ -41,8 +41,8 @@
 
      When H5P content uses an "iframe" embed type, the frame code forwards
      events to window.parent.H5P.externalDispatcher. We pre-create this
-     object so the forwarding doesn't throw, and so our .on('xAPI', ...)
-     listener registered after .then() continues to work.
+     object so the forwarding doesn't throw, and so our synchronous
+     .on('xAPI', ...) listener continues to work.
      ----------------------------------------------------------------------- */
   function createEventDispatcher() {
     var listeners = {};
@@ -121,38 +121,38 @@
       xAPIObjectIRI: xapiIri,   /* unique per activity — used to filter events */
     };
 
+    /* Register the xAPI listener synchronously — before the async
+       H5PStandalone.H5P() call — so that if two containers with the same
+       xapiIri enter the IntersectionObserver callback in the same batch,
+       the second one sees the guard already set and skips registration.
+       Doing this inside .then() would leave a race window between the two
+       promises resolving, causing duplicate listeners and double POSTs. */
+    if (!registeredXApiIris[xapiIri]) {
+      registeredXApiIris[xapiIri] = true;
+      window.H5P.externalDispatcher.on('xAPI', function (event) {
+        var statement = (event.data && event.data.statement) ? event.data.statement : event;
+        var objectId  = statement.object && statement.object.id;
+
+        /* Only handle events that belong to this activity */
+        if (objectId && objectId !== xapiIri) { return; }
+
+        fetch(xapiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken(),
+          },
+          body: JSON.stringify(statement),
+        }).catch(function (err) {
+          console.warn('h5p-lesson.js: xAPI POST failed for activity', activityId, err);
+        });
+      });
+    }
+
     new H5PStandalone.H5P(playerEl, options)
       .then(function () {
         /* Hide placeholder once player has rendered */
         if (placeholder) { placeholder.style.display = 'none'; }
-
-        /* Listen for xAPI events from this specific activity.
-           The shared dispatcher receives events from all H5P instances;
-           we filter by xAPIObjectIRI to avoid cross-contamination.
-           Guard with registeredXApiIris so that when the same activity
-           snippet appears multiple times on a page only one listener is
-           added — preventing duplicate POSTs for a single xAPI event. */
-        if (!registeredXApiIris[xapiIri]) {
-          registeredXApiIris[xapiIri] = true;
-          window.H5P.externalDispatcher.on('xAPI', function (event) {
-            var statement = (event.data && event.data.statement) ? event.data.statement : event;
-            var objectId  = statement.object && statement.object.id;
-
-            /* Only handle events that belong to this activity */
-            if (objectId && objectId !== xapiIri) { return; }
-
-            fetch(xapiUrl, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCsrfToken(),
-              },
-              body: JSON.stringify(statement),
-            }).catch(function (err) {
-              console.warn('h5p-lesson.js: xAPI POST failed for activity', activityId, err);
-            });
-          });
-        }
       })
       .catch(function (err) {
         console.error('h5p-lesson.js: player init failed for activity', activityId, err);

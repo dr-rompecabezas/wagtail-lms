@@ -457,16 +457,21 @@ class LessonPage(Page):
         if request.user.has_perm("wagtailadmin.access_admin"):
             return super().serve(request)
 
-        # Check enrollment in the parent CoursePage
-        course = self.get_parent().specific
+        # Check enrollment in the parent CoursePage.
+        # Fetch the parent Page once; use page_ptr_id to filter without a
+        # .specific downcast on the hot path (enrolled users get 2 queries
+        # instead of 3).  Only downcast to CoursePage when we need course.url
+        # for the redirect (unenrolled path).
+        parent_page = self.get_parent()
         if not CourseEnrollment.objects.filter(
-            user=request.user, course=course
+            user=request.user,
+            course__page_ptr_id=parent_page.pk,
         ).exists():
             messages.error(
                 request,
                 "You must be enrolled in this course to access this lesson.",
             )
-            return redirect(course.url)
+            return redirect(parent_page.specific.url)
 
         return super().serve(request)
 
