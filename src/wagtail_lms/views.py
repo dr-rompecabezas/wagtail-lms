@@ -521,6 +521,9 @@ def h5p_xapi_view(request, activity_id):
     except json.JSONDecodeError:
         return JsonResponse({"error": "Invalid JSON"}, status=400)
 
+    if not isinstance(statement, dict):
+        return JsonResponse({"error": "Expected a JSON object"}, status=400)
+
     # Lazy-create the attempt on first interaction
     attempt, _ = H5PAttempt.objects.get_or_create(
         user=request.user,

@@ -97,8 +97,8 @@
     var contentUrl  = container.dataset.contentUrl;
     var xapiUrl     = container.dataset.xapiUrl;
     var xapiIri     = container.dataset.xapiIri;
-    var playerEl    = document.getElementById('h5p-container-' + activityId);
-    var placeholder = document.getElementById('h5p-placeholder-' + activityId);
+    var playerEl    = container.querySelector('.lms-h5p-activity__player');
+    var placeholder = container.querySelector('.lms-h5p-activity__placeholder');
 
     if (!playerEl) {
       console.warn('h5p-lesson.js: player element not found for activity', activityId);

@@ -17,10 +17,10 @@
      data-xapi-url="{% url 'wagtail_lms:h5p_xapi' value.activity.pk %}"
      data-xapi-iri="{{ request.scheme }}://{{ request.get_host }}/lms/h5p-activity/{{ value.activity.pk }}/">
 
-  <div class="lms-h5p-activity__placeholder" id="h5p-placeholder-{{ value.activity.pk }}">
+  <div class="lms-h5p-activity__placeholder">
     <p class="lms-h5p-activity__title">{{ value.activity.title }}</p>
     <p class="lms-h5p-activity__loading">{% trans "Loading…" %}</p>
   </div>
 
-  <div class="lms-h5p-activity__player" id="h5p-container-{{ value.activity.pk }}"></div>
+  <div class="lms-h5p-activity__player"></div>
 </div>

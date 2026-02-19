@@ -202,6 +202,10 @@ class SCORMPackage(models.Model):
         return None
 
 
+def _h5p_package_upload_path(instance, filename):
+    return f"{conf.WAGTAIL_LMS_H5P_UPLOAD_PATH}{filename}"
+
+
 @register_snippet
 class H5PActivity(models.Model):
     """Reusable H5P interactive activity, managed as a Wagtail snippet.
@@ -212,7 +216,7 @@ class H5PActivity(models.Model):
 
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
-    package_file = models.FileField(upload_to="h5p_packages/")
+    package_file = models.FileField(upload_to=_h5p_package_upload_path)
     extracted_path = models.CharField(max_length=500, blank=True)
     main_library = models.CharField(max_length=255, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -627,6 +631,7 @@ class H5PAttempt(models.Model):
     class Meta:
         verbose_name = "H5P Attempt"
         verbose_name_plural = "H5P Attempts"
+        unique_together = [("user", "activity")]
 
     def __str__(self):
         return (

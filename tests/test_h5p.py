@@ -326,6 +326,15 @@ class TestH5PXAPIView:
         )
         assert response.status_code == 400
 
+    @pytest.mark.parametrize("payload", ["[]", '"a string"', "42", "true"])
+    def test_non_object_json_returns_400(self, client, user, h5p_activity, payload):
+        """Valid JSON that is not an object must return 400, not 500."""
+        client.force_login(user)
+        response = client.post(
+            self._url(h5p_activity.pk), data=payload, content_type="application/json"
+        )
+        assert response.status_code == 400
+
     def test_creates_attempt_and_statement(self, client, user, h5p_activity):
         """First xAPI POST lazily creates H5PAttempt and H5PXAPIStatement."""
         client.force_login(user)
@@ -359,6 +368,15 @@ class TestH5PXAPIView:
             ).count()
             == 2
         )
+
+    def test_attempt_unique_per_user_activity(self, user, h5p_activity):
+        """DB-level unique constraint prevents duplicate H5PAttempt rows."""
+        from django.db import IntegrityError, transaction
+
+        H5PAttempt.objects.create(user=user, activity=h5p_activity)
+        with pytest.raises(IntegrityError):
+            with transaction.atomic():  # savepoint keeps outer transaction clean
+                H5PAttempt.objects.create(user=user, activity=h5p_activity)
 
     def test_completed_verb_updates_status(self, client, user, h5p_activity):
         client.force_login(user)
