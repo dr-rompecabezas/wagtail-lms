@@ -110,12 +110,14 @@ activities. Learner progress is tracked via xAPI statements.
 
 > **Important: your `.h5p` file must be self-contained (includes library files).**
 > h5p-standalone renders H5P content by loading library JavaScript files bundled
-> inside the package (e.g. `H5P.InteractiveVideo-1.27/`). These are present in
-> packages exported from an H5P editor but **not** in "Reuse" downloads from H5P.org.
+> inside the package (e.g. `H5P.InteractiveVideo-1.27/`).
 >
-> ✅ Works: **Download** from the H5P.org editor on your own authored content
+> ✅ Works: **[Lumi desktop editor](https://lumi.education)** (free, open-source — recommended)
 > ✅ Works: **Export** from Moodle, WordPress, or Drupal with the H5P plugin
-> ❌ Does not work: clicking **Reuse** on an H5P.org example page
+> ✅ Works: **Lumi Cloud** (free tier available at lumi.education)
+> ❌ Does not work: **H5P.org "Reuse" downloads** — these are content-only exports
+>   with no library files. H5P.org does not offer any download option that includes
+>   library files, even for content you authored there.
 
 1. Login to Wagtail Admin: <http://localhost:8000/admin/>
 2. Navigate to **LMS** → **H5P Activities**
@@ -231,10 +233,21 @@ You can find free SCORM test packages here:
 
 ### H5P Activities
 
-You can find free H5P content here:
+You need a **self-contained** `.h5p` file (one that bundles library JavaScript files).
+The easiest way to get one:
 
-- [H5P.org - Example Content](https://h5p.org/content-types-and-applications) — click any activity type, then **Download** to get a `.h5p` file
-- [H5P Hub](https://h5p.org/h5p-hub) — curated content library (requires free account)
+- **[Lumi desktop editor](https://lumi.education)** (recommended) — free, open-source app for
+  Windows, macOS, and Linux. Create or import H5P content and export a self-contained `.h5p`
+  file. Note: a known crash affects some arm64 (Apple Silicon) macOS builds; check the
+  [Lumi releases](https://github.com/Lumieducation/Lumi/releases) page for the latest fix.
+- **[Lumi Cloud](https://lumi.education)** — browser-based alternative (free tier: 15 MB
+  storage; Pro: $10/month, 500 MB).
+- **Moodle / WordPress / Drupal H5P plugin** — use the plugin's export/download feature.
+
+> ⚠️ **H5P.org does not work.** H5P.org is a public demo platform — all content is public,
+> there is no privacy, and its "Reuse" export intentionally strips library files to reduce
+> server load. There is no download option that includes library files, even for content you
+> authored there.
 
 ## Troubleshooting
 
@@ -273,15 +286,23 @@ Check that:
 
 ### H5P Activity Shows "Could not load activity."
 
-This almost always means the `.h5p` file is a **content-only "Reuse" export** that
-does not include library JavaScript files. h5p-standalone needs the library files to
-render the activity. The server log will contain a warning like:
+This almost always means the `.h5p` file is a **content-only export** that does not
+include library JavaScript files. h5p-standalone needs the library files to render the
+activity. The server log will contain a warning like:
 
 ```
 H5P package '...' contains no library files.
 ```
 
-Use a self-contained package instead — see the upload note in the H5P section above.
+Common causes:
+
+- **H5P.org "Reuse" download** — H5P.org intentionally strips library files from all
+  downloads (including content you authored). There is no workaround; H5P.org cannot
+  produce a self-contained package.
+- Any other export that separates content from libraries.
+
+**Solution:** Use a self-contained package. The easiest option is
+[Lumi desktop editor](https://lumi.education) (free) — see the upload note above.
 
 ### H5P Activity Not Rendering
 

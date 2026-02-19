@@ -135,13 +135,13 @@ H5P activities are composed into long-scroll **Lesson Pages** alongside rich tex
 - Valid `.h5p` file (ZIP with an `.h5p` extension) containing `h5p.json` at the root
 - **Must include library JavaScript files** — h5p-standalone renders content using
   library JS bundled inside the package (e.g. `H5P.InteractiveVideo-1.27/`).
-  Packages exported from an H5P editor include these; "Reuse" downloads from H5P.org
-  do not. A warning is logged and "Could not load activity." is shown if files are
-  missing.
+  A warning is logged and "Could not load activity." is shown if files are missing.
 
-  ✅ H5P.org editor → Download your own authored content
+  ✅ [Lumi desktop editor](https://lumi.education) (free, open-source) — recommended
   ✅ Moodle / WordPress / Drupal H5P plugin export
-  ❌ H5P.org "Reuse" download on example pages
+  ✅ Lumi Cloud (free tier available at lumi.education)
+  ❌ H5P.org "Reuse" download — content-only, no library files included
+  ❌ H5P.org does not offer a download-with-libraries option for any content
 
 ### Customizing Templates
 
@@ -208,6 +208,8 @@ DATABASES = {
 
 - Built with [Django](https://djangoproject.com/) and [Wagtail CMS](https://wagtail.org/)
 - SCORM implementation based on ADL specifications
+- H5P support powered by [H5P](https://h5p.org/) and [h5p-standalone](https://github.com/tunapanda/h5p-standalone)
+- [Lumi](https://lumi.education/) — recommended free, open-source H5P editor for creating self-contained packages
 - Inspired by open-source LMS solutions like [Moodle](https://moodle.org/) and [Open edX](https://openedx.org/)
 
 ## License
