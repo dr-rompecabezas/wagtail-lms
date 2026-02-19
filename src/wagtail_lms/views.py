@@ -1,4 +1,3 @@
-import datetime
 import json
 import mimetypes
 import posixpath
@@ -127,7 +126,7 @@ def handle_scorm_initialize():
 
 def handle_scorm_terminate(attempt):
     """Handle SCORM Terminate method"""
-    attempt.last_accessed = datetime.datetime.now()
+    attempt.last_accessed = timezone.now()
     attempt.save()
     return JsonResponse({"result": "true", "errorCode": "0"})
 
