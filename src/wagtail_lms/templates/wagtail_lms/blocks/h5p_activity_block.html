@@ -1,5 +1,5 @@
 {% load i18n wagtailcore_tags %}
-{#
+{% comment %}
   H5P Activity block — rendered inline within a LessonPage StreamField.
 
   Outputs a lightweight placeholder <div>. The h5p-lesson.js IntersectionObserver
@@ -10,7 +10,7 @@
   data-content-url  : Base URL for h5p-standalone's h5pJsonPath option.
   data-xapi-url     : POST endpoint for xAPI statements (CSRF-protected).
   data-xapi-iri     : Unique IRI per activity for filtering shared dispatcher events.
-#}
+{% endcomment %}
 <div class="lms-h5p-activity"
      data-activity-id="{{ value.activity.pk }}"
      data-content-url="{{ value.activity.get_content_base_url }}"

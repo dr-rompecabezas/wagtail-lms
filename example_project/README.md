@@ -108,10 +108,19 @@ activities. Learner progress is tracked via xAPI statements.
 
 #### 1. Upload an H5P Activity
 
+> **Important: your `.h5p` file must be self-contained (includes library files).**
+> h5p-standalone renders H5P content by loading library JavaScript files bundled
+> inside the package (e.g. `H5P.InteractiveVideo-1.27/`). These are present in
+> packages exported from an H5P editor but **not** in "Reuse" downloads from H5P.org.
+>
+> ✅ Works: **Download** from the H5P.org editor on your own authored content
+> ✅ Works: **Export** from Moodle, WordPress, or Drupal with the H5P plugin
+> ❌ Does not work: clicking **Reuse** on an H5P.org example page
+
 1. Login to Wagtail Admin: <http://localhost:8000/admin/>
 2. Navigate to **LMS** → **H5P Activities**
 3. Click **Add H5P Activity**
-4. Enter a title and upload a `.h5p` file
+4. Enter a title and upload a self-contained `.h5p` file
 5. Save — the package is extracted and ready for use in lessons
 
 > Alternatively, upload via Django Admin at **Wagtail Lms** → **H5P
@@ -261,6 +270,18 @@ Check that:
 - The file has a `.h5p` extension (it is a ZIP file internally)
 - It contains `h5p.json` at the root
 - The `example_project/media/` directory exists and has write permissions
+
+### H5P Activity Shows "Could not load activity."
+
+This almost always means the `.h5p` file is a **content-only "Reuse" export** that
+does not include library JavaScript files. h5p-standalone needs the library files to
+render the activity. The server log will contain a warning like:
+
+```
+H5P package '...' contains no library files.
+```
+
+Use a self-contained package instead — see the upload note in the H5P section above.
 
 ### H5P Activity Not Rendering
 

@@ -261,6 +261,7 @@ class H5PActivity(models.Model):
         content_path = conf.WAGTAIL_LMS_H5P_CONTENT_PATH.rstrip("/")
 
         h5p_json_content = None
+        has_library_files = False
 
         # Open file via storage API (works with any backend — no .path needed)
         with self.package_file.open("rb") as package_fh:
@@ -292,12 +293,26 @@ class H5PActivity(models.Model):
                     if member.filename == "h5p.json":
                         h5p_json_content = file_data
 
+                    # Detect library directories (e.g. H5P.InteractiveVideo-1.27/)
+                    if "/" in normalized and not normalized.startswith("content/"):
+                        has_library_files = True
+
                     storage_path = posixpath.join(
                         content_path, unique_dir, member.filename
                     )
                     default_storage.save(storage_path, ContentFile(file_data))
 
         self.extracted_path = unique_dir
+
+        if not has_library_files:
+            logger.warning(
+                "H5P package '%s' contains no library files. "
+                "h5p-standalone requires a self-contained package that includes "
+                "library JS files (e.g. H5P.InteractiveVideo-1.27/). "
+                "Download the .h5p from an H5P editor (H5P.org editor, Moodle, "
+                "WordPress) rather than using an H5P.org 'Reuse' export.",
+                self.package_file.name,
+            )
 
         # Parse h5p.json metadata
         if h5p_json_content is not None:

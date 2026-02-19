@@ -132,8 +132,16 @@ H5P activities are composed into long-scroll **Lesson Pages** alongside rich tex
 
 **H5P package requirements:**
 
-- Valid `.h5p` file (ZIP with an `.h5p` extension)
-- Must contain `h5p.json` at the root
+- Valid `.h5p` file (ZIP with an `.h5p` extension) containing `h5p.json` at the root
+- **Must include library JavaScript files** — h5p-standalone renders content using
+  library JS bundled inside the package (e.g. `H5P.InteractiveVideo-1.27/`).
+  Packages exported from an H5P editor include these; "Reuse" downloads from H5P.org
+  do not. A warning is logged and "Could not load activity." is shown if files are
+  missing.
+
+  ✅ H5P.org editor → Download your own authored content
+  ✅ Moodle / WordPress / Drupal H5P plugin export
+  ❌ H5P.org "Reuse" download on example pages
 
 ### Customizing Templates
 
