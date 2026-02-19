@@ -335,6 +335,25 @@ class TestH5PXAPIView:
         )
         assert response.status_code == 400
 
+    @pytest.mark.parametrize(
+        "payload",
+        [
+            '{"verb": []}',
+            '{"verb": "not-an-object"}',
+            '{"verb": {"id": "http://adlnet.gov/expapi/verbs/completed"}, "result": []}',
+            '{"verb": {"id": "http://adlnet.gov/expapi/verbs/scored"}, "result": "bad"}',
+        ],
+    )
+    def test_malformed_nested_fields_return_400(
+        self, client, user, h5p_activity, payload
+    ):
+        """Non-object verb or result fields return 400 instead of 500."""
+        client.force_login(user)
+        response = client.post(
+            self._url(h5p_activity.pk), data=payload, content_type="application/json"
+        )
+        assert response.status_code == 400
+
     def test_creates_attempt_and_statement(self, client, user, h5p_activity):
         """First xAPI POST lazily creates H5PAttempt and H5PXAPIStatement."""
         client.force_login(user)

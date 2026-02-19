@@ -67,6 +67,13 @@
     window.H5P.externalDispatcher = createEventDispatcher();
   }
 
+  /* Track which xAPI IRIs already have a dispatcher listener registered.
+     When the same H5PActivity snippet is embedded more than once in a
+     lesson, each container is initialised separately but they share the
+     same xapiIri.  Without this guard every block would register its own
+     listener and a single xAPI event would generate duplicate POSTs. */
+  var registeredXApiIris = {};
+
   /* -----------------------------------------------------------------------
      Inject h5p.css once into <head> when the first player initialises.
      ----------------------------------------------------------------------- */
@@ -121,25 +128,31 @@
 
         /* Listen for xAPI events from this specific activity.
            The shared dispatcher receives events from all H5P instances;
-           we filter by xAPIObjectIRI to avoid cross-contamination. */
-        window.H5P.externalDispatcher.on('xAPI', function (event) {
-          var statement = (event.data && event.data.statement) ? event.data.statement : event;
-          var objectId  = statement.object && statement.object.id;
+           we filter by xAPIObjectIRI to avoid cross-contamination.
+           Guard with registeredXApiIris so that when the same activity
+           snippet appears multiple times on a page only one listener is
+           added — preventing duplicate POSTs for a single xAPI event. */
+        if (!registeredXApiIris[xapiIri]) {
+          registeredXApiIris[xapiIri] = true;
+          window.H5P.externalDispatcher.on('xAPI', function (event) {
+            var statement = (event.data && event.data.statement) ? event.data.statement : event;
+            var objectId  = statement.object && statement.object.id;
 
-          /* Only handle events that belong to this activity */
-          if (objectId && objectId !== xapiIri) { return; }
+            /* Only handle events that belong to this activity */
+            if (objectId && objectId !== xapiIri) { return; }
 
-          fetch(xapiUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-CSRFToken': getCsrfToken(),
-            },
-            body: JSON.stringify(statement),
-          }).catch(function (err) {
-            console.warn('h5p-lesson.js: xAPI POST failed for activity', activityId, err);
+            fetch(xapiUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken(),
+              },
+              body: JSON.stringify(statement),
+            }).catch(function (err) {
+              console.warn('h5p-lesson.js: xAPI POST failed for activity', activityId, err);
+            });
           });
-        });
+        }
       })
       .catch(function (err) {
         console.error('h5p-lesson.js: player init failed for activity', activityId, err);

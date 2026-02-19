@@ -13,6 +13,7 @@ from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.db import models
 from django.shortcuts import redirect
+from django.urls import reverse
 from wagtail.admin.panels import FieldPanel, TitleFieldPanel
 from wagtail.blocks import RichTextBlock, StructBlock
 from wagtail.fields import RichTextField, StreamField
@@ -342,9 +343,11 @@ class H5PActivity(models.Model):
         """Get the base URL path for h5p-standalone player initialization.
 
         The player appends /h5p.json, /content/content.json, etc. to this URL.
+        Uses URL reversal so the path respects whatever mount point the project
+        uses for wagtail_lms.urls (e.g. /lms/, /courses/, /).
         """
         if self.extracted_path:
-            return f"/lms/h5p-content/{self.extracted_path}"
+            return reverse("wagtail_lms:serve_h5p_content", args=[self.extracted_path])
         return None
 
 

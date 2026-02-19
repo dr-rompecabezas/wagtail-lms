@@ -584,6 +584,15 @@ def h5p_xapi_view(request, activity_id):
     if not isinstance(statement, dict):
         return JsonResponse({"error": "Expected a JSON object"}, status=400)
 
+    # Reject payloads where optional nested fields are present but not objects;
+    # calling .get() on a list/string would raise AttributeError and 500.
+    verb_field = statement.get("verb")
+    if verb_field is not None and not isinstance(verb_field, dict):
+        return JsonResponse({"error": "verb must be a JSON object"}, status=400)
+    result_field = statement.get("result")
+    if result_field is not None and not isinstance(result_field, dict):
+        return JsonResponse({"error": "result must be a JSON object"}, status=400)
+
     # Lazy-create the attempt on first interaction
     attempt, _ = H5PAttempt.objects.get_or_create(
         user=request.user,
