@@ -107,6 +107,10 @@ class TestFullCourseWorkflow:
         # Verify SCORMData was created
         assert SCORMData.objects.filter(attempt=attempt).count() > 0
 
+        # Verify enrollment is marked complete
+        enrollment = CourseEnrollment.objects.get(user=user, course=course_page)
+        assert enrollment.completed_at is not None
+
     def test_suspend_and_resume(self, client, user, course_page, scorm_package):
         """Test suspending and resuming course progress."""
         client.force_login(user)
