@@ -11,7 +11,7 @@ from django.contrib import messages
 from django.contrib.auth.views import redirect_to_login
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
-from django.db import models
+from django.db import models, transaction
 from django.shortcuts import redirect
 from django.urls import reverse
 from wagtail.admin.panels import FieldPanel, TitleFieldPanel
@@ -244,13 +244,41 @@ class H5PActivity(models.Model):
         return self.title
 
     def save(self, *args, **kwargs):
-        # Save first to ensure file is properly stored
+        # Detect package file replacement on an existing record so we can
+        # re-extract and schedule cleanup of the superseded content.
+        old_package_name = None
+        old_extracted_path = None
+        if self.pk:
+            try:
+                prev = H5PActivity.objects.only("package_file", "extracted_path").get(
+                    pk=self.pk
+                )
+                old_package_name = prev.package_file.name if prev.package_file else None
+                old_extracted_path = prev.extracted_path
+            except H5PActivity.DoesNotExist:
+                pass
+
+        new_package_name = self.package_file.name if self.package_file else None
+        package_replaced = (
+            old_package_name is not None
+            and new_package_name is not None
+            and new_package_name != old_package_name
+        )
+
+        if package_replaced:
+            # Reset derived fields so extract_package() generates a fresh
+            # directory name and reads the new h5p.json metadata.
+            self.extracted_path = ""
+            self.main_library = ""
+            self.h5p_json = {}
+
+        # Save first to ensure the new file is properly stored.
         super().save(*args, **kwargs)
 
-        # Then extract if we have a package file but no extracted path
+        # Extract if we have a package file but no extracted path.
+        # This covers both first-time creation and package replacement.
         if self.package_file and not self.extracted_path:
             self.extract_package()
-            # Save again to store extracted_path and metadata.
             # Strip force_insert / force_update: the row already exists after
             # the first save, so reusing force_insert=True (passed by
             # objects.create()) would attempt a duplicate INSERT and raise
@@ -258,6 +286,42 @@ class H5PActivity(models.Model):
             kwargs.pop("force_insert", None)
             kwargs.pop("force_update", None)
             super().save(*args, **kwargs)
+
+            if package_replaced:
+                self._schedule_replaced_content_cleanup(
+                    old_package_name, old_extracted_path
+                )
+
+    def _schedule_replaced_content_cleanup(self, old_package_name, old_extracted_path):
+        """Schedule deletion of superseded package file and extracted content.
+
+        Called after a successful package replacement save. Runs on transaction
+        commit so a rollback cannot discard the originals prematurely.
+        """
+        from .signal_handlers import _delete_extracted_content
+
+        _old_pkg = old_package_name
+        _old_ext = old_extracted_path
+
+        def _cleanup():
+            if _old_pkg:
+                try:
+                    default_storage.delete(_old_pkg)
+                except Exception:
+                    logger.warning(
+                        "Failed to delete replaced H5P package file: %s", _old_pkg
+                    )
+            if _old_ext:
+                try:
+                    _delete_extracted_content(
+                        _old_ext, conf.WAGTAIL_LMS_H5P_CONTENT_PATH
+                    )
+                except Exception:
+                    logger.warning(
+                        "Failed to delete replaced H5P extracted content: %s", _old_ext
+                    )
+
+        transaction.on_commit(_cleanup)
 
     def extract_package(self):
         """Extract H5P package and parse h5p.json.

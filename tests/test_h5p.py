@@ -261,6 +261,39 @@ class TestH5PActivity:
         base = conf.WAGTAIL_LMS_H5P_CONTENT_PATH.rstrip("/")
         assert default_storage.exists(f"{base}/{activity.extracted_path}/h5p.json")
 
+    def test_package_replacement_re_extracts(
+        self, h5p_activity, settings, tmp_path, db
+    ):
+        """Uploading a new .h5p file to an existing activity re-extracts the content
+        and discards the stale extracted_path and metadata."""
+        settings.MEDIA_ROOT = str(tmp_path / "media")
+
+        old_extracted_path = h5p_activity.extracted_path
+        old_main_library = h5p_activity.main_library
+        assert old_extracted_path
+
+        # Build a second .h5p with a different mainLibrary
+        new_h5p_json = dict(H5P_JSON, mainLibrary="H5P.CoursePresentation")
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr("h5p.json", json.dumps(new_h5p_json))
+            zf.writestr("content/content.json", json.dumps(CONTENT_JSON))
+        buf.seek(0)
+        new_file = SimpleUploadedFile(
+            "updated_activity.h5p", buf.getvalue(), content_type="application/zip"
+        )
+
+        h5p_activity.package_file = new_file
+        h5p_activity.save()
+
+        assert h5p_activity.extracted_path != old_extracted_path
+        assert h5p_activity.main_library == "H5P.CoursePresentation"
+        assert h5p_activity.main_library != old_main_library
+
+        # New content must be present at the new path
+        base = conf.WAGTAIL_LMS_H5P_CONTENT_PATH.rstrip("/")
+        assert default_storage.exists(f"{base}/{h5p_activity.extracted_path}/h5p.json")
+
     def test_str(self, h5p_activity):
         assert str(h5p_activity) == "Test H5P Activity"
 
