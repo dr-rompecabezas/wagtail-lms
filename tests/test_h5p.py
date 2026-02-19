@@ -219,6 +219,45 @@ class TestH5PActivity:
         assert activity.extracted_path
         assert activity.main_library == "H5P.MultiChoice"
 
+    def test_objects_create_does_not_raise(self, h5p_zip_file, settings, tmp_path, db):
+        """H5PActivity.objects.create() passes force_insert=True; the double-save
+        must strip that kwarg before the second save() or it raises IntegrityError."""
+        settings.MEDIA_ROOT = str(tmp_path / "media")
+        # Should not raise IntegrityError
+        activity = H5PActivity.objects.create(
+            title="Created Activity", package_file=h5p_zip_file
+        )
+        assert activity.pk is not None
+        assert activity.extracted_path
+
+    def test_zip_member_normalizing_to_dot_is_skipped(
+        self, settings, tmp_path, caplog, db
+    ):
+        """A ZIP member like 'a/..' normalises to '.' and must be rejected."""
+        import logging
+
+        settings.MEDIA_ROOT = str(tmp_path / "media")
+
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            zf.writestr("h5p.json", json.dumps(H5P_JSON))
+            zf.writestr("content/content.json", json.dumps(CONTENT_JSON))
+            # This member name normalises to "." after posixpath.normpath()
+            zf.writestr("a/..", "sneaky content")
+        buf.seek(0)
+
+        f = SimpleUploadedFile(
+            "dot.h5p", buf.getvalue(), content_type="application/zip"
+        )
+        with caplog.at_level(logging.WARNING, logger="wagtail_lms.models"):
+            activity = H5PActivity(title="Dot ZIP", package_file=f)
+            activity.save()
+
+        assert any("suspicious ZIP member" in r.message for r in caplog.records)
+        # Normal files must still be extracted
+        base = conf.WAGTAIL_LMS_H5P_CONTENT_PATH.rstrip("/")
+        assert default_storage.exists(f"{base}/{activity.extracted_path}/h5p.json")
+
     def test_str(self, h5p_activity):
         assert str(h5p_activity) == "Test H5P Activity"
 
@@ -353,6 +392,46 @@ class TestH5PXAPIView:
             self._url(h5p_activity.pk), data=payload, content_type="application/json"
         )
         assert response.status_code == 400
+
+    def test_null_verb_returns_400(self, client, user, h5p_activity):
+        """'verb': null is not a valid xAPI object and must return 400."""
+        client.force_login(user)
+        response = client.post(
+            self._url(h5p_activity.pk),
+            data='{"verb": null}',
+            content_type="application/json",
+        )
+        assert response.status_code == 400
+
+    @pytest.mark.parametrize(
+        "display_value",
+        [
+            '"a plain string"',
+            "42",
+            "[]",
+        ],
+    )
+    def test_non_dict_verb_display_accepted(
+        self, client, user, h5p_activity, display_value
+    ):
+        """verb.display that is not a dict must not crash (treated as empty)."""
+        client.force_login(user)
+        payload = json.dumps(
+            {
+                "verb": {
+                    "id": "http://adlnet.gov/expapi/verbs/experienced",
+                    "display": json.loads(display_value),
+                }
+            }
+        )
+        response = client.post(
+            self._url(h5p_activity.pk), data=payload, content_type="application/json"
+        )
+        assert response.status_code == 200
+        stmt_obj = H5PXAPIStatement.objects.get(
+            attempt__user=user, attempt__activity=h5p_activity
+        )
+        assert stmt_obj.verb_display == ""
 
     def test_creates_attempt_and_statement(self, client, user, h5p_activity):
         """First xAPI POST lazily creates H5PAttempt and H5PXAPIStatement."""

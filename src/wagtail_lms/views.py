@@ -587,7 +587,8 @@ def h5p_xapi_view(request, activity_id):
     # Reject payloads where optional nested fields are present but not objects;
     # calling .get() on a list/string would raise AttributeError and 500.
     verb_field = statement.get("verb")
-    if verb_field is not None and not isinstance(verb_field, dict):
+    # verb is required and must be a JSON object (null is not acceptable)
+    if not isinstance(verb_field, dict):
         return JsonResponse({"error": "verb must be a JSON object"}, status=400)
     result_field = statement.get("result")
     if result_field is not None and not isinstance(result_field, dict):
@@ -600,10 +601,14 @@ def h5p_xapi_view(request, activity_id):
     )
 
     # Extract verb metadata
-    verb = statement.get("verb", {})
+    verb = verb_field  # already validated as a dict above
     verb_id = verb.get("id", "")
-    verb_display_map = verb.get("display", {})
-    verb_display = next(iter(verb_display_map.values()), "") if verb_display_map else ""
+    # display may be absent or may arrive as a non-dict value from broken
+    # clients; treat anything that is not a plain dict as empty.
+    verb_display_map = verb.get("display")
+    if not isinstance(verb_display_map, dict):
+        verb_display_map = {}
+    verb_display = next(iter(verb_display_map.values()), "")
 
     # Persist the raw statement
     H5PXAPIStatement.objects.create(

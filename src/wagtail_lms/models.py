@@ -92,13 +92,15 @@ class SCORMPackage(models.Model):
                         continue
 
                     # Path traversal security: normalize separators, then
-                    # reject members with ".." segments or absolute paths.
+                    # reject members with ".." segments, absolute paths, or
+                    # names that collapse to "." (e.g. "a/..").
                     # Backslashes are normalized to forward slashes to catch
                     # Windows-style traversal in crafted ZIPs.
                     normalized = member.filename.replace("\\", "/")
                     normalized = posixpath.normpath(normalized)
                     if (
-                        normalized.startswith("/")
+                        normalized == "."
+                        or normalized.startswith("/")
                         or normalized.startswith("..")
                         or "/../" in normalized
                     ):
@@ -248,7 +250,13 @@ class H5PActivity(models.Model):
         # Then extract if we have a package file but no extracted path
         if self.package_file and not self.extracted_path:
             self.extract_package()
-            # Save again to store extracted_path and metadata
+            # Save again to store extracted_path and metadata.
+            # Strip force_insert / force_update: the row already exists after
+            # the first save, so reusing force_insert=True (passed by
+            # objects.create()) would attempt a duplicate INSERT and raise
+            # IntegrityError.
+            kwargs.pop("force_insert", None)
+            kwargs.pop("force_update", None)
             super().save(*args, **kwargs)
 
     def extract_package(self):
@@ -277,13 +285,15 @@ class H5PActivity(models.Model):
                         continue
 
                     # Path traversal security: normalize separators, then
-                    # reject members with ".." segments or absolute paths.
+                    # reject members with ".." segments, absolute paths, or
+                    # names that collapse to "." (e.g. "a/..").
                     # Backslashes are normalized to forward slashes to catch
                     # Windows-style traversal in crafted ZIPs.
                     normalized = member.filename.replace("\\", "/")
                     normalized = posixpath.normpath(normalized)
                     if (
-                        normalized.startswith("/")
+                        normalized == "."
+                        or normalized.startswith("/")
                         or normalized.startswith("..")
                         or "/../" in normalized
                     ):
