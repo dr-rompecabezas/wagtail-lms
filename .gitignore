@@ -210,6 +210,10 @@ example_project/db.sqlite3
 example_project/media/
 example_project/static_collected/
 
+# Test suite - generated files
+media_test/
+static_test/
+
 
 # Accidental media/static in project root (should be in example_project/)
 /media/
