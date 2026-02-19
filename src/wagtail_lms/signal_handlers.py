@@ -50,10 +50,16 @@ def _delete_extracted_content(extracted_path, content_base_path):
         content_base_path: The configured base path (e.g. conf.WAGTAIL_LMS_CONTENT_PATH).
     """
     normalized = posixpath.normpath(extracted_path)
+    # Reject anything that isn't a single, plain directory name:
+    #   - "." / "" — resolves to the base content directory itself
+    #   - starts with ".." — traversal above the base
+    #   - starts with "/" — absolute path
+    #   - contains "/" — nested path (we only store top-level dirs)
     if (
-        normalized.startswith("/")
-        or normalized.startswith("..")
-        or "/../" in normalized
+        not normalized
+        or normalized in (".", "..")
+        or "/" in normalized
+        or normalized.startswith("/")
     ):
         logger.warning(
             "Refusing to delete suspicious extracted_path: %s", extracted_path

@@ -159,10 +159,21 @@ class TestSCORMPackageDeletion:
         dirs, files = default_storage.listdir(prefix)
         assert len(files) == 0
 
-    def test_path_traversal_rejected(self):
-        """extracted_path with traversal segments is refused."""
+    @pytest.mark.parametrize(
+        "bad_path",
+        [
+            "../../etc",  # classic traversal
+            "a/..",  # normalizes to "." — would target the base dir
+            ".",  # explicit dot
+            "",  # empty string
+            "foo/bar",  # nested path (only top-level dirs expected)
+            "/etc",  # absolute path
+        ],
+    )
+    def test_path_traversal_rejected(self, bad_path):
+        """Suspicious extracted_path values are refused without touching storage."""
         with patch("wagtail_lms.signal_handlers.default_storage") as mock_storage:
-            _delete_extracted_content("../../etc", conf.WAGTAIL_LMS_CONTENT_PATH)
+            _delete_extracted_content(bad_path, conf.WAGTAIL_LMS_CONTENT_PATH)
             mock_storage.listdir.assert_not_called()
             mock_storage.delete.assert_not_called()
 
