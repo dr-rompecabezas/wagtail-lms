@@ -46,6 +46,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Example project: broken CSS path since v0.4.0**
   - `base.html` still referenced `lms/css/course.css` after static assets moved to `wagtail_lms/css/course.css` in v0.4.0; LMS styles were silently absent in the example project. Corrected to `{% static 'wagtail_lms/css/course.css' %}`.
 
+### Known Limitations (0.9.0)
+
+- Activities that report `consumed` rather than `completed` (e.g. `H5P.Accordion`) do not persist state — they have no meaningful resume position, so resetting on reload is the correct behaviour ([#70](https://github.com/dr-rompecabezas/wagtail-lms/issues/70))
+- A course enrollment is currently marked complete when any single activity reports `completed` or `passed`; more comprehensive completion rules are planned ([#69](https://github.com/dr-rompecabezas/wagtail-lms/issues/69))
+- Resume state has been verified with `H5P.QuestionSet`; other activity types have not yet been systematically tested ([#71](https://github.com/dr-rompecabezas/wagtail-lms/issues/71))
+
 ## [0.8.1] - 2026-02-19
 
 ### Added
