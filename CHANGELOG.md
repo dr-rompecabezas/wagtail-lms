@@ -35,7 +35,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `CoursePage.get_context()` now emits `completed_lesson_ids` (a `set` of lesson PKs) so the template can render per-lesson progress indicators in a single extra query
   - `course_page.html` lesson items gain `lms-lesson-list__item--completed` CSS class and a checkmark (`✓`) when the lesson has a completion record
   - `LessonCompletionViewSet` (read-only) added to the `LMSViewSetGroup` Wagtail admin menu; Django admin registration included
-  - `consumed` verb (`http://activitystrea.ms/schema/1.0/consume`) — emitted by informational H5P types such as `H5P.Accordion` and `H5P.Column` that have no meaningful "completed" state — is now treated as completion-equivalent, so these activities no longer block lesson or course completion (closes [#70](https://github.com/dr-rompecabezas/wagtail-lms/issues/70))
+  - Comprehensive xAPI verb coverage — all verbs that signal a learner has fully interacted with an activity now trigger lesson/course completion:
+    - `completed`, `passed` — unchanged behaviour
+    - `answered` (top-level only) — primary terminal verb for standalone question types (MultiChoice, TrueFalse, Blanks, DragDrop, MarkTheWords, FindHotspot, Summary, ArithmeticQuiz, SpeakTheWords, Flashcards, Crossword, Essay); child-question `answered` statements from inside containers (QuestionSet, InteractiveVideo, etc.) are filtered out via `context.contextActivities.parent` so they don't prematurely complete a lesson
+    - `mastered` — emitted by H5P.Essay on a perfect score; treated as `completed + passed`
+    - `failed` — completion and success are now tracked orthogonally; a learner who submits and fails has still finished the activity and must not be blocked from progressing
+    - `consumed` (`http://activitystrea.ms/schema/1.0/consume`) — emitted by informational types (H5P.Accordion, H5P.Column) that have no pass/fail state (closes [#70](https://github.com/dr-rompecabezas/wagtail-lms/issues/70))
 
 - **System check `wagtail_lms.W001`** ([#65](https://github.com/dr-rompecabezas/wagtail-lms/issues/65))
   - Raised at startup when a `CoursePage` subclass defines `subpage_types` without `"wagtail_lms.LessonPage"`, preventing the Wagtail editor from silently omitting lessons; see `docs/api.md` for the upgrade guide

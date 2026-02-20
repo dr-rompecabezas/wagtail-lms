@@ -843,12 +843,63 @@ class TestH5PXAPIView:
         )
         assert enrollment.completed_at is not None
 
-    def test_failed_verb_does_not_set_enrollment_completed_at(
+    def test_failed_verb_triggers_enrollment_completion(
         self, client, enrolled_user, h5p_activity, lesson_page, course_page_h5p
     ):
-        """failed xAPI verb does not set CourseEnrollment.completed_at."""
+        """failed verb sets completion_status=completed and triggers enrollment completion.
+
+        Completion and success are orthogonal: a learner who submits and receives a
+        failing score has still fully interacted with the activity and must not be
+        blocked from progressing through the course.
+        """
         client.force_login(enrolled_user)
         stmt = _xapi_statement("http://adlnet.gov/expapi/verbs/failed", "failed")
+        client.post(
+            self._url(h5p_activity.pk),
+            data=json.dumps(stmt),
+            content_type="application/json",
+        )
+        attempt = H5PAttempt.objects.get(user=enrolled_user, activity=h5p_activity)
+        assert attempt.completion_status == "completed"
+        assert attempt.success_status == "failed"
+        enrollment = CourseEnrollment.objects.get(
+            user=enrolled_user, course=course_page_h5p
+        )
+        assert enrollment.completed_at is not None
+
+    def test_mastered_verb_sets_both_statuses(self, client, user, h5p_activity):
+        """mastered (H5P.Essay perfect score) sets completion_status=completed and success_status=passed."""
+        client.force_login(user)
+        stmt = _xapi_statement("http://adlnet.gov/expapi/verbs/mastered", "mastered")
+        client.post(
+            self._url(h5p_activity.pk),
+            data=json.dumps(stmt),
+            content_type="application/json",
+        )
+        attempt = H5PAttempt.objects.get(user=user, activity=h5p_activity)
+        assert attempt.completion_status == "completed"
+        assert attempt.success_status == "passed"
+
+    def test_answered_verb_sets_completion_for_standalone_activity(
+        self, client, user, h5p_activity
+    ):
+        """answered without a parent context is a top-level statement — sets completion_status."""
+        client.force_login(user)
+        stmt = _xapi_statement("http://adlnet.gov/expapi/verbs/answered", "answered")
+        client.post(
+            self._url(h5p_activity.pk),
+            data=json.dumps(stmt),
+            content_type="application/json",
+        )
+        attempt = H5PAttempt.objects.get(user=user, activity=h5p_activity)
+        assert attempt.completion_status == "completed"
+
+    def test_answered_verb_triggers_enrollment_completion(
+        self, client, enrolled_user, h5p_activity, lesson_page, course_page_h5p
+    ):
+        """answered (standalone) propagates through lesson → course completion."""
+        client.force_login(enrolled_user)
+        stmt = _xapi_statement("http://adlnet.gov/expapi/verbs/answered", "answered")
         client.post(
             self._url(h5p_activity.pk),
             data=json.dumps(stmt),
@@ -857,7 +908,43 @@ class TestH5PXAPIView:
         enrollment = CourseEnrollment.objects.get(
             user=enrolled_user, course=course_page_h5p
         )
-        assert enrollment.completed_at is None
+        assert enrollment.completed_at is not None
+
+    def test_answered_from_subquestion_does_not_trigger_completion(
+        self, client, enrolled_user, h5p_activity, lesson_page, course_page_h5p
+    ):
+        """answered with context.contextActivities.parent is a sub-question statement
+        and must not set completion_status or trigger lesson/course completion."""
+        client.force_login(enrolled_user)
+        # Simulate a child question answered statement (e.g. from inside a QuestionSet)
+        stmt = {
+            "actor": {"mbox": "mailto:learner@example.com"},
+            "verb": {
+                "id": "http://adlnet.gov/expapi/verbs/answered",
+                "display": {"en-US": "answered"},
+            },
+            "object": {
+                "id": "http://example.com/activity/subq/1",
+                "objectType": "Activity",
+            },
+            "context": {
+                "contextActivities": {
+                    "parent": [
+                        {"id": "http://example.com/activity", "objectType": "Activity"}
+                    ]
+                }
+            },
+        }
+        client.post(
+            self._url(h5p_activity.pk),
+            data=json.dumps(stmt),
+            content_type="application/json",
+        )
+        attempt = H5PAttempt.objects.get(user=enrolled_user, activity=h5p_activity)
+        assert attempt.completion_status == "not_attempted"
+        assert not LessonCompletion.objects.filter(
+            user=enrolled_user, lesson=lesson_page
+        ).exists()
 
     def test_partial_completion_does_not_mark_course_complete(
         self,

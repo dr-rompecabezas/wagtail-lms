@@ -568,6 +568,14 @@ _H5P_MAX_USER_DATA_BYTES = 65_536
 _XAPI_COMPLETED = "http://adlnet.gov/expapi/verbs/completed"
 _XAPI_PASSED = "http://adlnet.gov/expapi/verbs/passed"
 _XAPI_FAILED = "http://adlnet.gov/expapi/verbs/failed"
+# Emitted by standalone question types (MultiChoice, TrueFalse, Blanks, DragDrop,
+# MarkTheWords, FindHotspot, Summary, ArithmeticQuiz, SpeakTheWords, Flashcards,
+# Crossword, Essay) as their primary terminal verb.  Also emitted by child questions
+# inside containers (QuestionSet, InteractiveVideo) — those must NOT trigger
+# completion; see _is_top_level_statement() below.
+_XAPI_ANSWERED = "http://adlnet.gov/expapi/verbs/answered"
+# Emitted by H5P.Essay when score == maxScore (alongside answered + passed).
+_XAPI_MASTERED = "http://adlnet.gov/expapi/verbs/mastered"
 # Activity Streams verb used by informational H5P types (H5P.Accordion, H5P.Column, …)
 # that have no meaningful "completed" state — treated as completion-equivalent so they
 # don't block lesson/course completion indefinitely.
@@ -576,9 +584,37 @@ _XAPI_SCORE_VERBS = {
     _XAPI_COMPLETED,
     _XAPI_PASSED,
     _XAPI_FAILED,
-    "http://adlnet.gov/expapi/verbs/answered",
+    _XAPI_ANSWERED,
+    _XAPI_MASTERED,
     "http://adlnet.gov/expapi/verbs/scored",
 }
+
+
+def _is_top_level_statement(statement):
+    """Return True when the statement comes from the top-level H5P activity.
+
+    H5P containers (QuestionSet, InteractiveVideo, CoursePresentation, …) set
+    context.contextActivities.parent to the container IRI on every child-question
+    statement.  Our JS routing forwards those child statements because they match
+    the container through the parent-context fallback in statementMatchesActivity().
+    Without this guard, answering a single sub-question would prematurely trigger
+    lesson/course completion instead of waiting for the container's own `completed`.
+
+    Top-level statements from standalone activities have no parent context, so this
+    function returns True for them and the caller can safely trigger completion.
+    """
+    context = statement.get("context", {})
+    if not isinstance(context, dict):
+        return True
+    context_activities = context.get("contextActivities", {})
+    if not isinstance(context_activities, dict):
+        return True
+    parent = context_activities.get("parent")
+    if not parent:
+        return True
+    if isinstance(parent, list):
+        return len(parent) == 0
+    return False  # parent is a non-empty object or non-empty list
 
 
 def _apply_xapi_score(attempt, result):
@@ -610,9 +646,18 @@ def _update_h5p_attempt(attempt, statement, verb_id):
 
     Maps xAPI verbs to completion/success status and extracts score data
     from the result object when present.
+
+    Completion and success are treated as orthogonal (following xAPI semantics):
+    - completion_status="completed" means the learner finished the activity
+    - success_status="passed"/"failed" captures outcome independently
+
+    answered is only treated as a terminal verb for standalone (top-level)
+    activities; child-question answered statements inside containers are
+    ignored for completion purposes — the container emits its own completed.
     """
     modified = False
     result = statement.get("result", {})
+    is_top_level = _is_top_level_statement(statement)
 
     if verb_id == _XAPI_COMPLETED:
         attempt.completion_status = "completed"
@@ -621,10 +666,18 @@ def _update_h5p_attempt(attempt, statement, verb_id):
         attempt.completion_status = "completed"
         attempt.success_status = "passed"
         modified = True
+    elif verb_id == _XAPI_MASTERED:
+        attempt.completion_status = "completed"
+        attempt.success_status = "passed"
+        modified = True
     elif verb_id == _XAPI_FAILED:
+        attempt.completion_status = "completed"
         attempt.success_status = "failed"
         modified = True
     elif verb_id == _XAPI_CONSUMED:
+        attempt.completion_status = "completed"
+        modified = True
+    elif verb_id == _XAPI_ANSWERED and is_top_level:
         attempt.completion_status = "completed"
         modified = True
 
@@ -634,7 +687,16 @@ def _update_h5p_attempt(attempt, statement, verb_id):
     if modified:
         attempt.save()
 
-    if verb_id in (_XAPI_COMPLETED, _XAPI_PASSED, _XAPI_CONSUMED):
+    _unconditional_completion_verbs = {
+        _XAPI_COMPLETED,
+        _XAPI_PASSED,
+        _XAPI_MASTERED,
+        _XAPI_FAILED,
+        _XAPI_CONSUMED,
+    }
+    if verb_id in _unconditional_completion_verbs or (
+        verb_id == _XAPI_ANSWERED and is_top_level
+    ):
         _mark_h5p_enrollment_complete(attempt)
 
 
