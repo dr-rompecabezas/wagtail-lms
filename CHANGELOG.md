@@ -29,6 +29,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - State is pre-fetched before H5P Standalone initialises and passed as `contentUserData` so learners resume where they left off without an extra round-trip after load
   - Verified with `H5P.QuestionSet`; Django admin registration included
 
+- **Per-lesson completion tracking** (closes [#69](https://github.com/dr-rompecabezas/wagtail-lms/issues/69))
+  - `LessonCompletion` model — records when a user has completed every H5P activity in a `LessonPage`; `unique_together = ("user", "lesson")` prevents duplicate rows; idempotent via `get_or_create`
+  - Course enrollment is now marked complete only when every live lesson in the course has a `LessonCompletion` record, replacing the previous single-activity trigger
+  - `CoursePage.get_context()` now emits `completed_lesson_ids` (a `set` of lesson PKs) so the template can render per-lesson progress indicators in a single extra query
+  - `course_page.html` lesson items gain `lms-lesson-list__item--completed` CSS class and a checkmark (`✓`) when the lesson has a completion record
+  - `LessonCompletionViewSet` (read-only) added to the `LMSViewSetGroup` Wagtail admin menu; Django admin registration included
+
 - **System check `wagtail_lms.W001`** ([#65](https://github.com/dr-rompecabezas/wagtail-lms/issues/65))
   - Raised at startup when a `CoursePage` subclass defines `subpage_types` without `"wagtail_lms.LessonPage"`, preventing the Wagtail editor from silently omitting lessons; see `docs/api.md` for the upgrade guide
 
@@ -49,7 +56,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Known Limitations (0.9.0)
 
 - Activities that report `consumed` rather than `completed` (e.g. `H5P.Accordion`) do not persist state — they have no meaningful resume position, so resetting on reload is the correct behaviour ([#70](https://github.com/dr-rompecabezas/wagtail-lms/issues/70))
-- A course enrollment is currently marked complete when any single activity reports `completed` or `passed`; more comprehensive completion rules are planned ([#69](https://github.com/dr-rompecabezas/wagtail-lms/issues/69))
 - Resume state has been verified with `H5P.QuestionSet`; other activity types have not yet been systematically tested ([#71](https://github.com/dr-rompecabezas/wagtail-lms/issues/71))
 
 ## [0.8.1] - 2026-02-19
