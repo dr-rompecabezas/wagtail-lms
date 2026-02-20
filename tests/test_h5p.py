@@ -736,6 +736,7 @@ class TestH5PContentUserDataView:
         response = client.get(self._url(h5p_activity.pk))
         assert response.status_code == 200
         assert response.json() == {"success": True, "data": False}
+        assert not H5PAttempt.objects.filter(user=user, activity=h5p_activity).exists()
 
     def test_post_then_get_round_trip(self, client, user, h5p_activity):
         client.force_login(user)

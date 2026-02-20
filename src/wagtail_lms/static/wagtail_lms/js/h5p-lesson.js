@@ -32,6 +32,14 @@
   var H5P_STANDALONE_API = window.H5PStandalone;
   var H5P_INIT_TIMEOUT_MS = 20000;
   var h5pLazyDisabled = window.location.search.indexOf('h5pLazy=0') !== -1;
+  var h5pDebugEnabled = window.location.search.indexOf('h5pDebug=1') !== -1;
+
+  function debugLog() {
+    if (!h5pDebugEnabled) { return; }
+    var args = Array.prototype.slice.call(arguments);
+    args.unshift('h5p-lesson.js:');
+    console.log.apply(console, args);
+  }
 
   /* -----------------------------------------------------------------------
      CSRF token — read from the hidden input Django injects via {% csrf_token %}.
@@ -46,10 +54,114 @@
     return;
   }
 
+  function toAbsoluteUrl(url) {
+    if (!url) { return ''; }
+    if (/^https?:\/\//i.test(url)) { return url; }
+    if (url.charAt(0) === '/') { return window.location.origin + url; }
+    return window.location.origin + '/' + url;
+  }
+
+  function statementMatchesActivity(statement, xapiIri, contentUrl) {
+    if (!statement) { return true; }
+
+    var objectId = statement.object && statement.object.id;
+    var contentAbs = toAbsoluteUrl(contentUrl);
+
+    if (!objectId) { return true; }
+
+    if (xapiIri && objectId === xapiIri) { return true; }
+
+    /* Some content types append anchors/query/path segments to object.id. */
+    if (xapiIri && (
+      objectId.indexOf(xapiIri + '#') === 0 ||
+      objectId.indexOf(xapiIri + '?') === 0 ||
+      objectId.indexOf(xapiIri + '/') === 0
+    )) {
+      return true;
+    }
+
+    /* Many H5P libraries emit object.id based on content URL instead of our IRI. */
+    if (contentAbs && (
+      objectId === contentAbs ||
+      objectId.indexOf(contentAbs + '#') === 0 ||
+      objectId.indexOf(contentAbs + '?') === 0 ||
+      objectId.indexOf(contentAbs + '/') === 0
+    )) {
+      return true;
+    }
+
+    /* Fallback: accept if xapiIri is listed in context activities. */
+    var context = statement.context && statement.context.contextActivities;
+    if (context && xapiIri) {
+      var buckets = ['parent', 'grouping', 'category'];
+      for (var i = 0; i < buckets.length; i++) {
+        var key = buckets[i];
+        var raw = context[key];
+        if (!raw) { continue; }
+        var arr = Array.isArray(raw) ? raw : [raw];
+        for (var j = 0; j < arr.length; j++) {
+          if (arr[j] && arr[j].id === xapiIri) {
+            return true;
+          }
+        }
+      }
+    }
+
+    return false;
+  }
+
   function setPlaceholderMessage(placeholder, message) {
     if (!placeholder) { return; }
     var loadingEl = placeholder.querySelector('.lms-h5p-activity__loading');
     if (loadingEl) { loadingEl.textContent = message; }
+  }
+
+  function buildUserDataUrl(userDataTemplate, dataType, subContentId) {
+    if (!userDataTemplate) { return ''; }
+    return userDataTemplate
+      .replace(':dataType', encodeURIComponent(dataType))
+      .replace(':subContentId', encodeURIComponent(String(subContentId)));
+  }
+
+  function fetchPreloadedUserState(activityId, userDataTemplate) {
+    if (!userDataTemplate) { return Promise.resolve(null); }
+    var stateUrl = buildUserDataUrl(userDataTemplate, 'state', 0);
+    if (!stateUrl) { return Promise.resolve(null); }
+
+    return fetch(stateUrl, { method: 'GET' })
+      .then(function (response) {
+        if (!response.ok) {
+          debugLog('resume preload GET non-OK', {
+            activityId: activityId,
+            status: response.status
+          });
+          return null;
+        }
+        return response.json();
+      })
+      .then(function (payload) {
+        if (!payload || payload.success !== true || payload.data === false || !payload.data) {
+          debugLog('resume preload empty state', { activityId: activityId });
+          return null;
+        }
+        debugLog('resume preload state found', {
+          activityId: activityId,
+          bytes: String(payload.data).length
+        });
+        return {
+          0: {
+            state: payload.data
+          }
+        };
+      })
+      .catch(function (err) {
+        console.warn(
+          'h5p-lesson.js: failed to preload resume state for activity',
+          activityId,
+          err
+        );
+        return null;
+      });
   }
 
   function promiseWithTimeout(promise, timeoutMs, timeoutErrorFactory) {
@@ -90,11 +202,33 @@
         if (!listeners[name]) { listeners[name] = []; }
         listeners[name].push(fn);
       },
-      trigger: function (event) {
-        var name = (typeof event === 'string') ? event : event.type;
+      off: function (name, fn) {
+        if (!listeners[name]) { return; }
+        if (!fn) {
+          listeners[name] = [];
+          return;
+        }
+        listeners[name] = listeners[name].filter(function (f) { return f !== fn; });
+      },
+      trigger: function (event, data) {
+        var evt;
+        if (typeof event === 'string') {
+          evt = { type: event };
+          if (typeof data !== 'undefined') {
+            evt.data = data;
+          }
+        } else if (event && typeof event === 'object') {
+          evt = event;
+          if (typeof data !== 'undefined' && typeof evt.data === 'undefined') {
+            evt.data = data;
+          }
+        } else {
+          evt = { type: '' };
+        }
+        var name = evt.type || ((typeof event === 'string') ? event : '');
         var fns = (listeners[name] || []).concat(listeners['*'] || []);
         for (var i = 0; i < fns.length; i++) {
-          fns[i].call(this, event);
+          fns[i].call(this, evt);
         }
       }
     };
@@ -106,12 +240,11 @@
     window.H5P.externalDispatcher = createEventDispatcher();
   }
 
-  /* Track which xAPI IRIs already have a dispatcher listener registered.
-     When the same H5PActivity snippet is embedded more than once in a
-     lesson, each container is initialised separately but they share the
-     same xapiIri.  Without this guard every block would register its own
-     listener and a single xAPI event would generate duplicate POSTs. */
-  var registeredXApiIris = {};
+  /* Per-activity xAPI routing table. Keyed by xapiIri so duplicated snippet
+     embeds don't trigger duplicate POSTs. */
+  var xapiSubscriptions = {};
+  var activeExternalDispatcher = null;
+  var externalDispatcherHookInstalled = false;
 
   /* -----------------------------------------------------------------------
      Sequential initialisation queue.
@@ -129,6 +262,119 @@
      ----------------------------------------------------------------------- */
   var h5pInitQueue  = [];
   var h5pInitBusy   = false;
+
+  function postXApiStatement(subscription, statement) {
+    fetch(subscription.xapiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCsrfToken(),
+      },
+      body: JSON.stringify(statement),
+    }).then(function (response) {
+      debugLog('xAPI POST response', {
+        activityId: subscription.activityId,
+        status: response.status
+      });
+      if (!response.ok) {
+        console.warn(
+          'h5p-lesson.js: xAPI POST returned non-OK status for activity',
+          subscription.activityId,
+          response.status
+        );
+      }
+    }).catch(function (err) {
+      console.warn(
+        'h5p-lesson.js: xAPI POST failed for activity',
+        subscription.activityId,
+        err
+      );
+    });
+  }
+
+  function handleExternalXApiEvent(event) {
+    var statement = (event && event.data && event.data.statement) ? event.data.statement : event;
+    var objectId = statement && statement.object && statement.object.id;
+    var verbId = statement && statement.verb && statement.verb.id;
+    debugLog('received xAPI event', { verbId: verbId, objectId: objectId });
+
+    var keys = Object.keys(xapiSubscriptions);
+    if (!keys.length) {
+      debugLog('received xAPI event but no subscriptions are registered yet');
+    }
+    for (var i = 0; i < keys.length; i++) {
+      var subscription = xapiSubscriptions[keys[i]];
+      if (!subscription) { continue; }
+      var isMatch = statementMatchesActivity(
+        statement,
+        subscription.xapiIri,
+        subscription.contentUrl
+      );
+      if (!isMatch) {
+        debugLog('xAPI event filtered out for activity', subscription.activityId);
+        continue;
+      }
+      debugLog('posting xAPI for activity', subscription.activityId);
+      postXApiStatement(subscription, statement);
+    }
+  }
+
+  function ensureExternalDispatcherListener() {
+    var dispatcher = window.H5P && window.H5P.externalDispatcher;
+    if (!dispatcher || typeof dispatcher.on !== 'function') {
+      debugLog('externalDispatcher unavailable for xAPI listener');
+      return;
+    }
+    if (dispatcher === activeExternalDispatcher) { return; }
+    if (activeExternalDispatcher && typeof activeExternalDispatcher.off === 'function') {
+      activeExternalDispatcher.off('xAPI', handleExternalXApiEvent);
+    }
+    activeExternalDispatcher = dispatcher;
+    activeExternalDispatcher.on('xAPI', handleExternalXApiEvent);
+    debugLog('attached xAPI listener to externalDispatcher');
+  }
+
+  function installExternalDispatcherHook() {
+    if (externalDispatcherHookInstalled) { return; }
+    if (!window.H5P) { return; }
+
+    var descriptor;
+    try {
+      descriptor = Object.getOwnPropertyDescriptor(window.H5P, 'externalDispatcher');
+    } catch (err) {
+      debugLog('could not inspect externalDispatcher descriptor', err);
+    }
+
+    if (descriptor && descriptor.configurable === false) {
+      debugLog('externalDispatcher property is not configurable; fallback to manual reattach');
+      ensureExternalDispatcherListener();
+      return;
+    }
+
+    var currentDispatcher = window.H5P.externalDispatcher;
+    try {
+      Object.defineProperty(window.H5P, 'externalDispatcher', {
+        configurable: true,
+        enumerable: true,
+        get: function () {
+          return currentDispatcher;
+        },
+        set: function (value) {
+          currentDispatcher = value;
+          debugLog('externalDispatcher replaced; reattaching xAPI listener');
+          ensureExternalDispatcherListener();
+        }
+      });
+      externalDispatcherHookInstalled = true;
+      debugLog('installed externalDispatcher hook');
+      ensureExternalDispatcherListener();
+    } catch (err) {
+      debugLog('failed to install externalDispatcher hook', err);
+      ensureExternalDispatcherListener();
+    }
+  }
+
+  installExternalDispatcherHook();
 
   function processH5PQueue() {
     if (h5pInitBusy || h5pInitQueue.length === 0) { return; }
@@ -185,24 +431,19 @@
     var xapiIri = container.dataset.xapiIri;
     var xapiUrl = container.dataset.xapiUrl;
     var activityId = container.dataset.activityId;
-    if (!registeredXApiIris[xapiIri]) {
-      registeredXApiIris[xapiIri] = true;
-      window.H5P.externalDispatcher.on('xAPI', function (event) {
-        var statement = (event.data && event.data.statement) ? event.data.statement : event;
-        var objectId  = statement.object && statement.object.id;
-        if (objectId && objectId !== xapiIri) { return; }
-        fetch(xapiUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': getCsrfToken(),
-          },
-          body: JSON.stringify(statement),
-        }).catch(function (err) {
-          console.warn('h5p-lesson.js: xAPI POST failed for activity', activityId, err);
-        });
-      });
-    }
+    debugLog('initActivity', {
+      activityId: activityId,
+      xapiIri: xapiIri,
+      xapiUrl: xapiUrl,
+      contentUrl: container.dataset.contentUrl
+    });
+    xapiSubscriptions[xapiIri] = {
+      xapiIri: xapiIri,
+      xapiUrl: xapiUrl,
+      contentUrl: container.dataset.contentUrl,
+      activityId: activityId
+    };
+    ensureExternalDispatcherListener();
 
     h5pInitQueue.push(container);
     processH5PQueue();
@@ -224,43 +465,50 @@
 
     ensureH5PCss();
 
-    var options = {
-      h5pJsonPath:   contentUrl,
-      frameJs:       FRAME_JS,
-      frameCss:      FRAME_CSS,
-      xAPIObjectIRI: xapiIri,
-    };
-    if (userDataUrl) {
-      options.user = { name: USER_NAME };
-      options.saveFreq = 5;
-      options.ajax = {
-        contentUserDataUrl: userDataUrl,
+    return fetchPreloadedUserState(activityId, userDataUrl).then(function (preloadedState) {
+      var options = {
+        h5pJsonPath:   contentUrl,
+        frameJs:       FRAME_JS,
+        frameCss:      FRAME_CSS,
+        xAPIObjectIRI: xapiIri,
       };
-    }
+      if (userDataUrl) {
+        options.user = { name: USER_NAME };
+        options.saveFreq = 5;
+        options.ajax = {
+          contentUserDataUrl: userDataUrl,
+        };
+        if (preloadedState) {
+          options.contentUserData = preloadedState;
+        }
+      }
 
-    /* frame.bundle.js overwrites window.H5PStandalone with undefined.
-       Keep the original API alive and restore global if needed. */
-    if (!window.H5PStandalone) {
-      window.H5PStandalone = H5P_STANDALONE_API;
-    }
+      /* frame.bundle.js overwrites window.H5PStandalone with undefined.
+         Keep the original API alive and restore global if needed. */
+      if (!window.H5PStandalone) {
+        window.H5PStandalone = H5P_STANDALONE_API;
+      }
+      ensureExternalDispatcherListener();
 
-    var initPromise;
-    try {
-      initPromise = new H5P_STANDALONE_API.H5P(playerEl, options);
-    } catch (err) {
-      initPromise = Promise.reject(err);
-    }
+      var initPromise;
+      try {
+        initPromise = new H5P_STANDALONE_API.H5P(playerEl, options);
+      } catch (err) {
+        initPromise = Promise.reject(err);
+      }
 
-    return promiseWithTimeout(initPromise, H5P_INIT_TIMEOUT_MS, function () {
-      return new Error('Timed out after ' + H5P_INIT_TIMEOUT_MS + 'ms');
-    })
-      .then(function () {
-        if (placeholder) { placeholder.style.display = 'none'; }
+      return promiseWithTimeout(initPromise, H5P_INIT_TIMEOUT_MS, function () {
+        return new Error('Timed out after ' + H5P_INIT_TIMEOUT_MS + 'ms');
       })
-      .catch(function (err) {
-        console.error('h5p-lesson.js: player init failed for activity', activityId, err);
-        setPlaceholderMessage(placeholder, 'Could not load activity.');
-      });
+        .then(function () {
+          ensureExternalDispatcherListener();
+          if (placeholder) { placeholder.style.display = 'none'; }
+        })
+        .catch(function (err) {
+          console.error('h5p-lesson.js: player init failed for activity', activityId, err);
+          setPlaceholderMessage(placeholder, 'Could not load activity.');
+        });
+    });
   }
 
   /* -----------------------------------------------------------------------
