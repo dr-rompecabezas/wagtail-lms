@@ -10,7 +10,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied, SuspiciousOperation
 from django.core.files.storage import default_storage
-from django.db import OperationalError, transaction
+from django.db import OperationalError, connection, transaction
 from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -602,6 +602,17 @@ _XAPI_SCORE_VERBS = {
     "http://adlnet.gov/expapi/verbs/scored",
 }
 
+# Portable PositiveIntegerField ceiling across fixed-width SQL backends.
+_POSITIVE_INTEGER_DB_SAFE_MAX = 2_147_483_647
+
+
+def _max_sub_content_id():
+    """Return the largest safe subContentId for PositiveIntegerField writes."""
+    _, db_max = connection.ops.integer_field_range("PositiveIntegerField")
+    if db_max is not None:
+        return db_max
+    return _POSITIVE_INTEGER_DB_SAFE_MAX
+
 
 def _is_top_level_statement(statement):
     """Return True when the statement comes from the top-level H5P activity.
@@ -743,6 +754,14 @@ def _parse_h5p_user_data_params(request):
             ),
         )
     if sub_content_id < 0:
+        return (
+            None,
+            None,
+            JsonResponse(
+                {"success": False, "message": "Invalid subContentId"}, status=400
+            ),
+        )
+    if sub_content_id > _max_sub_content_id():
         return (
             None,
             None,

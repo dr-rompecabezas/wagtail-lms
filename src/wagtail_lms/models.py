@@ -551,6 +551,9 @@ class H5PActivity(models.Model):
                     storage_path = posixpath.join(
                         content_path, unique_dir, member.filename
                     )
+                    # Replacements can re-use the same extracted path. Delete first
+                    # so storages that auto-rename on collisions keep canonical names.
+                    default_storage.delete(storage_path)
                     default_storage.save(storage_path, ContentFile(file_data))
                     extracted_file_paths.add(storage_path)
 

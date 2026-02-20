@@ -397,6 +397,17 @@ class TestH5PActivity:
         assert activity.main_library == "H5P.CoursePresentation"
         assert not default_storage.exists(obsolete_path)
 
+        h5p_json_path = f"{base}/{old_extracted_path}/h5p.json"
+        with default_storage.open(h5p_json_path, "rb") as stored_h5p_json:
+            extracted_h5p_json = json.loads(stored_h5p_json.read().decode("utf-8"))
+        assert extracted_h5p_json.get("mainLibrary") == "H5P.CoursePresentation"
+
+        extraction_root = f"{base}/{old_extracted_path}"
+        _, root_files = default_storage.listdir(extraction_root)
+        assert set(root_files) == {"h5p.json"}
+        _, content_files = default_storage.listdir(f"{extraction_root}/content")
+        assert set(content_files) == {"content.json"}
+
     def test_same_path_replacement_extract_failure_preserves_existing_content(
         self, settings, tmp_path, db
     ):
@@ -1326,6 +1337,7 @@ class TestH5PContentUserDataView:
             ("", "Missing dataType"),
             ("?dataType=state&subContentId=-1", "Invalid subContentId"),
             ("?dataType=state&subContentId=abc", "Invalid subContentId"),
+            ("?dataType=state&subContentId=9999999999999", "Invalid subContentId"),
         ],
     )
     def test_invalid_query_params_return_400(
