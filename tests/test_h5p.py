@@ -140,6 +140,27 @@ def lesson_page(course_page_h5p, h5p_activity):
 
 
 @pytest.fixture
+def text_only_lesson_page(course_page_h5p):
+    """LessonPage child of course_page_h5p with only non-H5P blocks."""
+    lesson = LessonPage(
+        title="Text Lesson",
+        slug="text-lesson",
+        intro="<p>Text-only lesson.</p>",
+        body=json.dumps(
+            [
+                {
+                    "type": "paragraph",
+                    "value": "<p>Only text content here.</p>",
+                }
+            ]
+        ),
+    )
+    course_page_h5p.add_child(instance=lesson)
+    lesson.save_revision().publish()
+    return lesson
+
+
+@pytest.fixture
 def enrolled_user(user, course_page_h5p):
     """Regular user enrolled in course_page_h5p."""
     CourseEnrollment.objects.get_or_create(user=user, course=course_page_h5p)
@@ -376,6 +397,54 @@ class TestH5PActivity:
         assert activity.main_library == "H5P.CoursePresentation"
         assert not default_storage.exists(obsolete_path)
 
+    def test_same_path_replacement_extract_failure_preserves_existing_content(
+        self, settings, tmp_path, db
+    ):
+        """A failed same-path replacement must not delete existing extracted files."""
+        settings.MEDIA_ROOT = str(tmp_path / "media")
+
+        initial_buf = io.BytesIO()
+        with zipfile.ZipFile(initial_buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr("h5p.json", json.dumps(H5P_JSON))
+            zf.writestr("content/content.json", json.dumps(CONTENT_JSON))
+            zf.writestr("content/keep.txt", "keep me")
+        initial_buf.seek(0)
+
+        activity = H5PActivity(
+            title="Same Name Failure Replacement",
+            package_file=SimpleUploadedFile(
+                "same_name_fail.h5p",
+                initial_buf.getvalue(),
+                content_type="application/zip",
+            ),
+        )
+        activity.save()
+
+        base = conf.WAGTAIL_LMS_H5P_CONTENT_PATH.rstrip("/")
+        old_extracted_path = activity.extracted_path
+        old_main_library = activity.main_library
+        old_h5p_json = dict(activity.h5p_json)
+        kept_path = f"{base}/{old_extracted_path}/content/keep.txt"
+        assert default_storage.exists(kept_path)
+
+        # Simulate overwrite-style storage that reuses the same package key.
+        default_storage.delete(activity.package_file.name)
+
+        activity.package_file = SimpleUploadedFile(
+            "same_name_fail.h5p",
+            b"not-a-zip",
+            content_type="application/zip",
+        )
+
+        with pytest.raises(zipfile.BadZipFile):
+            activity.save()
+
+        activity.refresh_from_db()
+        assert activity.extracted_path == old_extracted_path
+        assert activity.main_library == old_main_library
+        assert activity.h5p_json == old_h5p_json
+        assert default_storage.exists(kept_path)
+
     def test_schedule_replaced_content_cleanup_deletes_old_package_and_content(
         self, h5p_activity, monkeypatch
     ):
@@ -577,6 +646,28 @@ class TestLessonPageAccess:
         response = client.get(lesson_page.url)
         # The paragraph block text should appear
         assert b"introductory text" in response.content
+
+    def test_lesson_with_h5p_blocks_loads_h5p_scripts(
+        self, client, enrolled_user, lesson_page
+    ):
+        """Lessons with H5P blocks include player bundles."""
+        client.force_login(enrolled_user)
+        response = client.get(lesson_page.url)
+        assert response.status_code == 200
+        assert b"wagtail_lms/vendor/h5p-standalone/main.bundle.js" in response.content
+        assert b"wagtail_lms/js/h5p-lesson.js" in response.content
+
+    def test_lesson_without_h5p_blocks_skips_h5p_scripts(
+        self, client, enrolled_user, text_only_lesson_page
+    ):
+        """Text-only lessons should not load H5P player bundles."""
+        client.force_login(enrolled_user)
+        response = client.get(text_only_lesson_page.url)
+        assert response.status_code == 200
+        assert (
+            b"wagtail_lms/vendor/h5p-standalone/main.bundle.js" not in response.content
+        )
+        assert b"wagtail_lms/js/h5p-lesson.js" not in response.content
 
     def test_page_hierarchy_enforced(self, home_page):
         """LessonPage cannot be created directly under a non-CoursePage parent."""

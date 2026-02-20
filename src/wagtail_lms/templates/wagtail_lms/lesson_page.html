@@ -47,19 +47,21 @@
 
 </div>
 
-{# CSRF token for h5p-lesson.js xAPI fetch calls #}
-{% csrf_token %}
+{% if page.has_h5p_activity_blocks %}
+  {# CSRF token for h5p-lesson.js xAPI fetch calls #}
+  {% csrf_token %}
 
-{# h5p-standalone player — loaded once, shared by all activities on the page #}
-<script
-  src="{% static 'wagtail_lms/vendor/h5p-standalone/main.bundle.js' %}"
-  data-frame-js="{% static 'wagtail_lms/vendor/h5p-standalone/frame.bundle.js' %}"
-  data-frame-css="{% static 'wagtail_lms/vendor/h5p-standalone/styles/h5p.css' %}"
-  data-h5p-css="{% static 'wagtail_lms/vendor/h5p-standalone/styles/h5p.css' %}"
-  data-user-name="{{ request.user.get_username }}"
-  id="h5p-standalone-script">
-</script>
-<script src="{% static 'wagtail_lms/js/h5p-lesson.js' %}"></script>
+  {# h5p-standalone player — loaded once, shared by all activities on the page #}
+  <script
+    src="{% static 'wagtail_lms/vendor/h5p-standalone/main.bundle.js' %}"
+    data-frame-js="{% static 'wagtail_lms/vendor/h5p-standalone/frame.bundle.js' %}"
+    data-frame-css="{% static 'wagtail_lms/vendor/h5p-standalone/styles/h5p.css' %}"
+    data-h5p-css="{% static 'wagtail_lms/vendor/h5p-standalone/styles/h5p.css' %}"
+    data-user-name="{{ request.user.get_username }}"
+    id="h5p-standalone-script">
+  </script>
+  <script src="{% static 'wagtail_lms/js/h5p-lesson.js' %}"></script>
+{% endif %}
 
 <style>
 /* -----------------------------------------------------------------------

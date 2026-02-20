@@ -250,33 +250,41 @@ class H5PActivity(models.Model):
         # re-extract and schedule cleanup of the superseded content.
         old_package_name, old_extracted_path = self._get_previous_package_state()
         package_replaced = self._is_package_replaced(old_package_name)
-
-        if package_replaced:
-            # Reset derived fields so extract_package() generates a fresh
-            # directory name and reads the new h5p.json metadata.
-            self.extracted_path = ""
-            self.main_library = ""
-            self.h5p_json = {}
+        should_extract = bool(
+            self.package_file and (package_replaced or not self.extracted_path)
+        )
 
         # Save first to ensure the new file is properly stored.
         super().save(*args, **kwargs)
 
-        # Extract if we have a package file but no extracted path.
+        # Extract when creating for the first time or when replacing package file.
         # This covers both first-time creation and package replacement.
-        if self.package_file and not self.extracted_path:
-            if package_replaced and old_extracted_path:
-                # Same-basename replacements can map to the same extraction
-                # directory; clear old files first so removed members do not
-                # linger and get served as stale content.
-                self._cleanup_same_path_before_reextract(old_extracted_path)
+        if should_extract:
+            if package_replaced:
+                # Reset derived fields only in memory so failed extraction does
+                # not persist blank metadata/extraction path.
+                self.extracted_path = ""
+                self.main_library = ""
+                self.h5p_json = {}
 
-            self.extract_package()
+            same_path_existing_files = (
+                self._get_same_path_replacement_existing_files(old_extracted_path)
+                if package_replaced
+                else None
+            )
+
+            extracted_file_paths = self.extract_package()
             # Strip force_insert / force_update: the row already exists after
             # the first save, so reusing force_insert=True (passed by
             # objects.create()) would attempt a duplicate INSERT and raise
             # IntegrityError.
             post_extract_kwargs = self._get_post_extract_save_kwargs(kwargs)
             super().save(*args, **post_extract_kwargs)
+
+            if same_path_existing_files is not None:
+                self._cleanup_stale_same_path_files_after_reextract(
+                    same_path_existing_files, extracted_file_paths
+                )
 
             if package_replaced:
                 self._schedule_replaced_content_cleanup(
@@ -314,27 +322,59 @@ class H5PActivity(models.Model):
         new_package_name = self.package_file.name
         return new_package_name is not None and new_package_name != old_package_name
 
-    def _cleanup_same_path_before_reextract(self, old_extracted_path):
-        """Delete old extracted files when replacement reuses the same directory."""
+    def _get_same_path_replacement_existing_files(self, old_extracted_path):
+        """Return existing extracted files for same-path replacement cleanup."""
         if not old_extracted_path:
-            return
+            return None
 
         new_extracted_path = self._get_extraction_dir_name()
         if not new_extracted_path or new_extracted_path != old_extracted_path:
-            return
+            return None
 
-        from .signal_handlers import _delete_extracted_content
-
-        try:
-            _delete_extracted_content(
-                old_extracted_path, conf.WAGTAIL_LMS_H5P_CONTENT_PATH
-            )
-        except Exception:
+        content_path = conf.WAGTAIL_LMS_H5P_CONTENT_PATH.rstrip("/")
+        extraction_root = posixpath.join(content_path, old_extracted_path)
+        existing_files = self._list_storage_files(extraction_root)
+        if existing_files is None:
             logger.warning(
-                "Failed to delete old H5P extracted content before "
-                "re-extracting replacement: %s",
+                "Failed to list old H5P extracted content before re-extracting "
+                "replacement: %s",
                 old_extracted_path,
             )
+        return existing_files
+
+    def _list_storage_files(self, storage_path):
+        """Return recursive file paths under storage_path, or None on failure."""
+        try:
+            dirs, files = default_storage.listdir(storage_path)
+        except FileNotFoundError:
+            return set()
+        except Exception:
+            return None
+
+        collected = {posixpath.join(storage_path, filename) for filename in files}
+        for dirname in dirs:
+            nested = self._list_storage_files(posixpath.join(storage_path, dirname))
+            if nested is None:
+                return None
+            collected.update(nested)
+        return collected
+
+    def _cleanup_stale_same_path_files_after_reextract(
+        self, old_file_paths, extracted_file_paths
+    ):
+        """Delete files that existed before replacement but not in the new package."""
+        if not old_file_paths:
+            return
+
+        stale_paths = old_file_paths - (extracted_file_paths or set())
+        for stale_path in stale_paths:
+            try:
+                default_storage.delete(stale_path)
+            except Exception:
+                logger.warning(
+                    "Failed to delete stale H5P extracted file after replacement: %s",
+                    stale_path,
+                )
 
     def _get_post_extract_save_kwargs(self, kwargs):
         """Return save kwargs for persisting extracted metadata fields."""
@@ -453,7 +493,7 @@ class H5PActivity(models.Model):
         storage backend (local filesystem, S3, etc.).
         """
         if not self.package_file:
-            return
+            return set()
 
         # Create extraction directory with a deterministic path using package ID
         unique_dir = self._get_extraction_dir_name()
@@ -461,6 +501,7 @@ class H5PActivity(models.Model):
 
         h5p_json_content = None
         has_library_files = False
+        extracted_file_paths = set()
 
         # Open file via storage API (works with any backend — no .path needed)
         with self.package_file.open("rb") as package_fh:
@@ -511,6 +552,7 @@ class H5PActivity(models.Model):
                         content_path, unique_dir, member.filename
                     )
                     default_storage.save(storage_path, ContentFile(file_data))
+                    extracted_file_paths.add(storage_path)
 
         self.extracted_path = unique_dir
 
@@ -527,6 +569,8 @@ class H5PActivity(models.Model):
         # Parse h5p.json metadata
         if h5p_json_content is not None:
             self.parse_h5p_json(h5p_json_content)
+
+        return extracted_file_paths
 
     def parse_h5p_json(self, content):
         """Parse h5p.json to extract package metadata.
@@ -656,6 +700,10 @@ class LessonPage(Page):
         FieldPanel("intro"),
         FieldPanel("body"),
     ]
+
+    @property
+    def has_h5p_activity_blocks(self):
+        return any(block.block_type == "h5p_activity" for block in self.body)
 
     def serve(self, request):
         """Gate lesson access to authenticated, enrolled users.
