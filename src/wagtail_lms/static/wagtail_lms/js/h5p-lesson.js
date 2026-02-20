@@ -75,6 +75,36 @@
   var registeredXApiIris = {};
 
   /* -----------------------------------------------------------------------
+     Sequential initialisation queue.
+
+     H5PStandalone.H5P() modifies shared global state (window.H5P,
+     window.H5PIntegration, the preventInit flag, H5P.init()) in ways that
+     are not safe when two instances initialise concurrently.  On a first
+     page load the network fetches for activity 1 can still be in flight
+     when the user scrolls activity 2 into view, causing the second promise
+     to hang indefinitely.
+
+     Solution: enqueue containers as the IntersectionObserver fires and run
+     one H5P initialisation at a time.  The observer still fires lazily —
+     we just defer the actual init until the previous one settles.
+     ----------------------------------------------------------------------- */
+  var h5pInitQueue  = [];
+  var h5pInitBusy   = false;
+
+  function processH5PQueue() {
+    if (h5pInitBusy || h5pInitQueue.length === 0) { return; }
+    h5pInitBusy = true;
+    var container = h5pInitQueue.shift();
+    runInitActivity(container).then(function () {
+      h5pInitBusy = false;
+      processH5PQueue();
+    }).catch(function () {
+      h5pInitBusy = false;
+      processH5PQueue();
+    });
+  }
+
+  /* -----------------------------------------------------------------------
      Inject h5p.css once into <head> when the first player initialises.
      ----------------------------------------------------------------------- */
   var h5pCssInjected = false;
@@ -88,7 +118,13 @@
   }
 
   /* -----------------------------------------------------------------------
-     Initialise a single H5P activity container.
+     H5P activity initialisation.
+
+     initActivity()    — called by IntersectionObserver; registers the xAPI
+                         listener and enqueues the container.
+     runInitActivity() — dequeued by processH5PQueue() and runs one at a
+                         time; returns a Promise so the next item only starts
+                         after the current one settles.
 
      Each container carries:
        data-activity-id  Django H5PActivity PK
@@ -100,42 +136,19 @@
     if (container.dataset.initialized) { return; }
     container.dataset.initialized = 'true';
 
-    var activityId  = container.dataset.activityId;
-    var contentUrl  = container.dataset.contentUrl;
-    var xapiUrl     = container.dataset.xapiUrl;
-    var xapiIri     = container.dataset.xapiIri;
-    var playerEl    = container.querySelector('.lms-h5p-activity__player');
-    var placeholder = container.querySelector('.lms-h5p-activity__placeholder');
-
-    if (!playerEl) {
-      console.warn('h5p-lesson.js: player element not found for activity', activityId);
-      return;
-    }
-
-    ensureH5PCss();
-
-    var options = {
-      h5pJsonPath:  contentUrl,
-      frameJs:      FRAME_JS,
-      frameCss:     FRAME_CSS,
-      xAPIObjectIRI: xapiIri,   /* unique per activity — used to filter events */
-    };
-
-    /* Register the xAPI listener synchronously — before the async
-       H5PStandalone.H5P() call — so that if two containers with the same
-       xapiIri enter the IntersectionObserver callback in the same batch,
-       the second one sees the guard already set and skips registration.
-       Doing this inside .then() would leave a race window between the two
-       promises resolving, causing duplicate listeners and double POSTs. */
+    /* Register the xAPI listener synchronously — before entering the queue
+       — so that if two containers with the same xapiIri enter the observer
+       callback in the same batch, the second one sees the guard already set
+       and skips registration. */
+    var xapiIri = container.dataset.xapiIri;
+    var xapiUrl = container.dataset.xapiUrl;
+    var activityId = container.dataset.activityId;
     if (!registeredXApiIris[xapiIri]) {
       registeredXApiIris[xapiIri] = true;
       window.H5P.externalDispatcher.on('xAPI', function (event) {
         var statement = (event.data && event.data.statement) ? event.data.statement : event;
         var objectId  = statement.object && statement.object.id;
-
-        /* Only handle events that belong to this activity */
         if (objectId && objectId !== xapiIri) { return; }
-
         fetch(xapiUrl, {
           method: 'POST',
           headers: {
@@ -149,9 +162,34 @@
       });
     }
 
-    new H5PStandalone.H5P(playerEl, options)
+    h5pInitQueue.push(container);
+    processH5PQueue();
+  }
+
+  /* Perform the actual H5PStandalone initialisation; returns a Promise. */
+  function runInitActivity(container) {
+    var activityId  = container.dataset.activityId;
+    var contentUrl  = container.dataset.contentUrl;
+    var xapiIri     = container.dataset.xapiIri;
+    var playerEl    = container.querySelector('.lms-h5p-activity__player');
+    var placeholder = container.querySelector('.lms-h5p-activity__placeholder');
+
+    if (!playerEl) {
+      console.warn('h5p-lesson.js: player element not found for activity', activityId);
+      return Promise.resolve();
+    }
+
+    ensureH5PCss();
+
+    var options = {
+      h5pJsonPath:   contentUrl,
+      frameJs:       FRAME_JS,
+      frameCss:      FRAME_CSS,
+      xAPIObjectIRI: xapiIri,
+    };
+
+    return new H5PStandalone.H5P(playerEl, options)
       .then(function () {
-        /* Hide placeholder once player has rendered */
         if (placeholder) { placeholder.style.display = 'none'; }
       })
       .catch(function (err) {
