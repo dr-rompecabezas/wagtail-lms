@@ -30,8 +30,9 @@
                     <h3>Course Lessons</h3>
                     <ol class="lms-lesson-list">
                         {% for lesson in lesson_pages %}
-                            <li class="lms-lesson-list__item">
+                            <li class="lms-lesson-list__item{% if lesson.pk in completed_lesson_ids %} lms-lesson-list__item--completed{% endif %}">
                                 <a href="{% pageurl lesson %}" class="lms-lesson-list__link">{{ lesson.title }}</a>
+                                {% if lesson.pk in completed_lesson_ids %}<span class="lms-lesson-list__checkmark" aria-label="Completed">&#10003;</span>{% endif %}
                             </li>
                         {% endfor %}
                     </ol>

@@ -19,6 +19,7 @@ from wagtail_lms.models import (
     H5PAttempt,
     H5PContentUserData,
     H5PXAPIStatement,
+    LessonCompletion,
     LessonPage,
 )
 
@@ -952,3 +953,115 @@ class TestServeH5PContentView:
         response = client.get(url)
         assert response["X-Frame-Options"] == "SAMEORIGIN"
         assert "frame-ancestors" in response["Content-Security-Policy"]
+
+
+# ---------------------------------------------------------------------------
+# LessonCompletion tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestLessonCompletion:
+    """Per-lesson completion tracking via LessonCompletion model."""
+
+    def test_completing_activity_creates_lesson_completion(
+        self, client, enrolled_user, h5p_activity, lesson_page, course_page_h5p
+    ):
+        """Completing all activities in a lesson creates a LessonCompletion record."""
+        client.force_login(enrolled_user)
+        stmt = _xapi_statement("http://adlnet.gov/expapi/verbs/completed", "completed")
+        client.post(
+            reverse("wagtail_lms:h5p_xapi", args=[h5p_activity.pk]),
+            data=json.dumps(stmt),
+            content_type="application/json",
+        )
+        assert LessonCompletion.objects.filter(
+            user=enrolled_user, lesson=lesson_page
+        ).exists()
+
+    def test_partial_activity_completion_does_not_create_lesson_completion(
+        self, client, enrolled_user, course_page_h5p, settings, tmp_path
+    ):
+        """Completing only one of two activities in a lesson must not create LessonCompletion."""
+        settings.MEDIA_ROOT = str(tmp_path / "media")
+
+        activity_a = H5PActivity(
+            title="Activity A", package_file=_make_h5p_zip_file("a.h5p")
+        )
+        activity_a.save()
+        activity_b = H5PActivity(
+            title="Activity B", package_file=_make_h5p_zip_file("b.h5p")
+        )
+        activity_b.save()
+
+        lesson = LessonPage(
+            title="Two-Activity Lesson",
+            slug="two-activity-lesson",
+            body=json.dumps(
+                [
+                    {"type": "h5p_activity", "value": {"activity": activity_a.pk}},
+                    {"type": "h5p_activity", "value": {"activity": activity_b.pk}},
+                ]
+            ),
+        )
+        course_page_h5p.add_child(instance=lesson)
+        lesson.save_revision().publish()
+
+        client.force_login(enrolled_user)
+        stmt = _xapi_statement("http://adlnet.gov/expapi/verbs/completed", "completed")
+        client.post(
+            reverse("wagtail_lms:h5p_xapi", args=[activity_a.pk]),
+            data=json.dumps(stmt),
+            content_type="application/json",
+        )
+        assert not LessonCompletion.objects.filter(
+            user=enrolled_user, lesson=lesson
+        ).exists()
+
+        # Completing the second activity should now mark the lesson complete.
+        client.post(
+            reverse("wagtail_lms:h5p_xapi", args=[activity_b.pk]),
+            data=json.dumps(stmt),
+            content_type="application/json",
+        )
+        assert LessonCompletion.objects.filter(
+            user=enrolled_user, lesson=lesson
+        ).exists()
+
+    def test_course_page_shows_completed_lesson(
+        self, client, enrolled_user, lesson_page, course_page_h5p
+    ):
+        """CoursePage template shows completion indicator for completed lessons."""
+        LessonCompletion.objects.create(user=enrolled_user, lesson=lesson_page)
+
+        client.force_login(enrolled_user)
+        response = client.get(course_page_h5p.url)
+        assert response.status_code == 200
+        assert b"lms-lesson-list__item--completed" in response.content
+
+    def test_course_page_no_completion_marker_for_incomplete_lesson(
+        self, client, enrolled_user, lesson_page, course_page_h5p
+    ):
+        """Lessons without a LessonCompletion record show no completion marker."""
+        client.force_login(enrolled_user)
+        response = client.get(course_page_h5p.url)
+        assert response.status_code == 200
+        assert b"lms-lesson-list__item--completed" not in response.content
+
+    def test_completion_is_idempotent(
+        self, client, enrolled_user, h5p_activity, lesson_page, course_page_h5p
+    ):
+        """Receiving a second completed verb for the same activity must not create a
+        duplicate LessonCompletion (get_or_create guard)."""
+        client.force_login(enrolled_user)
+        stmt = _xapi_statement("http://adlnet.gov/expapi/verbs/completed", "completed")
+        url = reverse("wagtail_lms:h5p_xapi", args=[h5p_activity.pk])
+        client.post(url, data=json.dumps(stmt), content_type="application/json")
+        client.post(url, data=json.dumps(stmt), content_type="application/json")
+
+        assert (
+            LessonCompletion.objects.filter(
+                user=enrolled_user, lesson=lesson_page
+            ).count()
+            == 1
+        )

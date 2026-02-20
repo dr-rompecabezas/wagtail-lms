@@ -556,6 +556,17 @@ class CoursePage(Page):
             else self.__class__.objects.none()
         )
 
+        # Per-lesson completion set for H5P courses (empty for SCORM / preview)
+        if request.user.is_authenticated and self.pk and context["lesson_pages"]:
+            context["completed_lesson_ids"] = set(
+                LessonCompletion.objects.filter(
+                    user=request.user,
+                    lesson_id__in=context["lesson_pages"].values_list("pk", flat=True),
+                ).values_list("lesson_id", flat=True)
+            )
+        else:
+            context["completed_lesson_ids"] = set()
+
         return context
 
 
@@ -652,6 +663,34 @@ class CourseEnrollment(models.Model):
             return None
         else:
             return attempt
+
+
+class LessonCompletion(models.Model):
+    """Track per-lesson completion for H5P-powered lessons.
+
+    Created when all H5P activities in a LessonPage have been completed by the
+    user. Acts as the middle layer between CourseEnrollment and H5PAttempt,
+    enabling course completion to be determined by a simple all-lessons-complete
+    query rather than iterating StreamField blocks on every xAPI event.
+    """
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    lesson = models.ForeignKey(LessonPage, on_delete=models.CASCADE)
+    completed_at = models.DateTimeField(auto_now_add=True)
+
+    panels = [
+        FieldPanel("user", read_only=True),
+        FieldPanel("lesson", read_only=True),
+        FieldPanel("completed_at", read_only=True),
+    ]
+
+    class Meta:
+        unique_together = ("user", "lesson")
+        verbose_name = "Lesson Completion"
+        verbose_name_plural = "Lesson Completions"
+
+    def __str__(self):
+        return f"{self.user.username} - {self.lesson.title}"
 
 
 class SCORMAttempt(models.Model):

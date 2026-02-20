@@ -6,6 +6,7 @@ from .models import (
     H5PAttempt,
     H5PContentUserData,
     H5PXAPIStatement,
+    LessonCompletion,
     SCORMAttempt,
     SCORMData,
     SCORMPackage,
@@ -99,3 +100,10 @@ class H5PContentUserDataAdmin(admin.ModelAdmin):
     list_display = ("attempt", "data_type", "sub_content_id", "updated_at")
     list_filter = ("data_type", "updated_at")
     search_fields = ("attempt__user__username", "attempt__activity__title", "data_type")
+
+
+@admin.register(LessonCompletion)
+class LessonCompletionAdmin(admin.ModelAdmin):
+    list_display = ("user", "lesson", "completed_at")
+    list_filter = ("completed_at",)
+    search_fields = ("user__username", "lesson__title")

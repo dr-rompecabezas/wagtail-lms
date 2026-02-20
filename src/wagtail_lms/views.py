@@ -26,6 +26,7 @@ from .models import (
     H5PAttempt,
     H5PContentUserData,
     H5PXAPIStatement,
+    LessonCompletion,
     LessonPage,
     SCORMAttempt,
     SCORMData,
@@ -89,16 +90,83 @@ def _mark_enrollment_complete(attempt):
     ).update(completed_at=timezone.now())
 
 
+def _collect_lesson_activity_ids(lesson_obj):
+    """Return the set of H5PActivity PKs referenced by a LessonPage's StreamField body.
+
+    Iterating a StreamValue yields BoundBlock objects; SnippetChooserBlock
+    resolves each activity FK to an instance (or None if deleted).
+    """
+    activity_ids = set()
+    for bound_block in lesson_obj.body:
+        if bound_block.block_type == "h5p_activity":
+            activity_instance = bound_block.value.get("activity")
+            if activity_instance is not None:
+                activity_ids.add(activity_instance.pk)
+    return activity_ids
+
+
+def _try_complete_lesson(attempt, lesson_obj):
+    """Mark a lesson complete if every H5P activity in it has been completed.
+
+    Returns the LessonCompletion instance (new or pre-existing) when all
+    activities are done, or None when at least one activity is still incomplete.
+    The get_or_create makes repeated calls idempotent.
+    """
+    activity_ids = _collect_lesson_activity_ids(lesson_obj)
+    if not activity_ids:
+        return None
+
+    completed_ids = set(
+        H5PAttempt.objects.filter(
+            user=attempt.user,
+            activity_id__in=activity_ids,
+            completion_status="completed",
+        ).values_list("activity_id", flat=True)
+    )
+
+    if completed_ids >= activity_ids:
+        completion, _ = LessonCompletion.objects.get_or_create(
+            user=attempt.user,
+            lesson=lesson_obj,
+        )
+        return completion
+    return None
+
+
+def _try_complete_course(attempt, course):
+    """Mark the CourseEnrollment complete if every live lesson in the course is complete.
+
+    Queries LessonCompletion records for all live lessons. Updates completed_at
+    only when all lessons have a completion record. The completed_at__isnull=True
+    guard makes repeated calls a no-op.
+    """
+    lesson_ids = set(
+        LessonPage.objects.child_of(course).live().values_list("pk", flat=True)
+    )
+    if not lesson_ids:
+        return
+
+    completed_lesson_ids = set(
+        LessonCompletion.objects.filter(
+            user=attempt.user,
+            lesson_id__in=lesson_ids,
+        ).values_list("lesson_id", flat=True)
+    )
+
+    if completed_lesson_ids >= lesson_ids:
+        CourseEnrollment.objects.filter(
+            user=attempt.user,
+            course=course,
+            completed_at__isnull=True,
+        ).update(completed_at=timezone.now())
+
+
 def _mark_h5p_enrollment_complete(attempt):
-    """Set completed_at on CourseEnrollment when ALL H5P activities in the course complete.
+    """Orchestrate per-lesson and course-level completion checks.
 
-    Resolves attempt → activity → live LessonPages (via StreamField body) →
-    parent CoursePage → all live lessons → all activity PKs → verifies every
-    one has a completed attempt for this user before setting completed_at.
-
-    Uses text-based body scanning (consistent with the icontains lookup already
-    used here) to collect all activity PKs without instantiating StreamValue
-    objects. The completed_at__isnull=True guard makes repeated calls a no-op.
+    Finds lessons containing the completed activity, marks each as complete
+    if all its activities are done, then propagates to course completion when
+    all lessons in the course are complete.
     """
     lookup = '"activity": ' + str(attempt.activity_id) + "}"
     lesson_pages = LessonPage.objects.filter(live=True, body__icontains=lookup)
@@ -106,35 +174,8 @@ def _mark_h5p_enrollment_complete(attempt):
         parent = lesson.get_parent().specific
         if not isinstance(parent, CoursePage):
             continue
-
-        # Collect every H5P activity PK referenced in any live lesson of this course.
-        # Iterating a StreamValue yields BoundBlock objects; SnippetChooserBlock
-        # resolves each activity FK to an instance (or None if deleted).
-        all_activity_ids = set()
-        for lesson_obj in LessonPage.objects.child_of(parent).live():
-            for bound_block in lesson_obj.body:
-                if bound_block.block_type == "h5p_activity":
-                    activity_instance = bound_block.value.get("activity")
-                    if activity_instance is not None:
-                        all_activity_ids.add(activity_instance.pk)
-
-        if not all_activity_ids:
-            continue
-
-        # Only mark complete when the user has a completed attempt for every activity.
-        completed_ids = set(
-            H5PAttempt.objects.filter(
-                user=attempt.user,
-                activity_id__in=all_activity_ids,
-                completion_status="completed",
-            ).values_list("activity_id", flat=True)
-        )
-        if completed_ids >= all_activity_ids:
-            CourseEnrollment.objects.filter(
-                user=attempt.user,
-                course=parent,
-                completed_at__isnull=True,
-            ).update(completed_at=timezone.now())
+        if _try_complete_lesson(attempt, lesson):
+            _try_complete_course(attempt, parent)
 
 
 @login_required
