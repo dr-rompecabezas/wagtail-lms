@@ -137,11 +137,11 @@ H5P activities are composed into long-scroll **Lesson Pages** alongside rich tex
   library JS bundled inside the package (e.g. `H5P.InteractiveVideo-1.27/`).
   A warning is logged and "Could not load activity." is shown if files are missing.
 
-  ✅ [Lumi desktop editor](https://lumi.education) (free, open-source) — recommended
-  ✅ Moodle / WordPress / Drupal H5P plugin export
-  ✅ Lumi Cloud (free tier available at lumi.education)
-  ❌ H5P.org "Reuse" download — content-only, no library files included
-  ❌ H5P.org does not offer a download-with-libraries option for any content
+  - ✅ [Lumi desktop editor](https://lumi.education) (free, open-source) — recommended
+  - ✅ Moodle / WordPress / Drupal H5P plugin export
+  - ✅ Lumi Cloud (free tier available at lumi.education)
+  - ❌ H5P.org "Reuse" download — content-only, no library files included
+  - ❌ H5P.org does not offer a download-with-libraries option for any content
 
 ### Customizing Templates
 
