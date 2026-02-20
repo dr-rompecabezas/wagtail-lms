@@ -10,7 +10,7 @@ WAGTAIL_LMS_CONTENT_PATH = getattr(
     settings, "WAGTAIL_LMS_CONTENT_PATH", "scorm_content/"
 )
 
-WAGTAIL_LMS_AUTO_ENROLL = getattr(settings, "WAGTAIL_LMS_AUTO_ENROLL", True)
+WAGTAIL_LMS_AUTO_ENROLL = getattr(settings, "WAGTAIL_LMS_AUTO_ENROLL", False)
 
 WAGTAIL_LMS_CACHE_CONTROL = getattr(
     settings,

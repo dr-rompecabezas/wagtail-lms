@@ -26,8 +26,9 @@ class TestSCORMPlayerView:
         assert response.status_code == 302
         assert "/admin/login/" in response.url or "/accounts/login/" in response.url
 
-    def test_scorm_player_authenticated(self, client, user, course_page):
-        """Test SCORM player with authenticated user."""
+    def test_scorm_player_authenticated_enrolled(self, client, user, course_page):
+        """Test SCORM player with authenticated enrolled user."""
+        CourseEnrollment.objects.create(user=user, course=course_page)
         client.force_login(user)
         url = reverse("wagtail_lms:scorm_player", args=[course_page.id])
         response = client.get(url)
@@ -35,8 +36,13 @@ class TestSCORMPlayerView:
         # The player displays the course title, not the SCORM package title
         assert b"Test Course" in response.content
 
-    def test_scorm_player_creates_enrollment(self, client, user, course_page):
-        """Test that accessing player creates enrollment."""
+    def test_scorm_player_creates_enrollment_when_auto_enroll_enabled(
+        self, client, user, course_page, monkeypatch
+    ):
+        """Test that auto-enroll creates enrollment when explicitly enabled."""
+        from wagtail_lms import conf
+
+        monkeypatch.setattr(conf, "WAGTAIL_LMS_AUTO_ENROLL", True)
         client.force_login(user)
         assert (
             CourseEnrollment.objects.filter(user=user, course=course_page).count() == 0
@@ -53,6 +59,7 @@ class TestSCORMPlayerView:
         self, client, user, course_page, scorm_package
     ):
         """Test that accessing player creates SCORM attempt."""
+        CourseEnrollment.objects.create(user=user, course=course_page)
         client.force_login(user)
         assert (
             SCORMAttempt.objects.filter(user=user, scorm_package=scorm_package).count()
@@ -81,12 +88,7 @@ class TestSCORMPlayerView:
         # Should redirect with error message
         assert response.status_code == 302
 
-    def test_scorm_player_auto_enroll_false_redirects_unenrolled(
-        self, client, user, course_page, monkeypatch
-    ):
-        from wagtail_lms import conf
-
-        monkeypatch.setattr(conf, "WAGTAIL_LMS_AUTO_ENROLL", False)
+    def test_scorm_player_default_redirects_unenrolled(self, client, user, course_page):
         client.force_login(user)
         url = reverse("wagtail_lms:scorm_player", args=[course_page.id])
         response = client.get(url)

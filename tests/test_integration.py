@@ -114,10 +114,12 @@ class TestFullCourseWorkflow:
     def test_suspend_and_resume(self, client, user, course_page, scorm_package):
         """Test suspending and resuming course progress."""
         client.force_login(user)
+        CourseEnrollment.objects.create(user=user, course=course_page)
 
         # Start course
         player_url = reverse("wagtail_lms:scorm_player", args=[course_page.id])
-        client.get(player_url)
+        response = client.get(player_url)
+        assert response.status_code == 200
 
         attempt = SCORMAttempt.objects.get(user=user, scorm_package=scorm_package)
         api_url = reverse("wagtail_lms:scorm_api", args=[attempt.id])
@@ -188,11 +190,14 @@ class TestFullCourseWorkflow:
         user2 = django_user_model.objects.create_user(
             username="student2", password="pass"
         )
+        CourseEnrollment.objects.create(user=user1, course=course_page)
+        CourseEnrollment.objects.create(user=user2, course=course_page)
 
         # User 1: Start and complete
         client.force_login(user1)
         player_url = reverse("wagtail_lms:scorm_player", args=[course_page.id])
-        client.get(player_url)
+        response = client.get(player_url)
+        assert response.status_code == 200
 
         attempt1 = SCORMAttempt.objects.get(user=user1, scorm_package=scorm_package)
         api_url1 = reverse("wagtail_lms:scorm_api", args=[attempt1.id])
@@ -210,7 +215,8 @@ class TestFullCourseWorkflow:
 
         # User 2: Start but not complete
         client.force_login(user2)
-        client.get(player_url)
+        response = client.get(player_url)
+        assert response.status_code == 200
 
         attempt2 = SCORMAttempt.objects.get(user=user2, scorm_package=scorm_package)
         api_url2 = reverse("wagtail_lms:scorm_api", args=[attempt2.id])
