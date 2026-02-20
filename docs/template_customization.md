@@ -114,6 +114,15 @@ TEMPLATES = [{
 
 ## Template Reference
 
+### H5P Lesson Integration Notes
+
+If you customize `lesson_page.html`, keep the H5P scripts in this order:
+
+1. `main.bundle.js` (with `id="h5p-standalone-script"` and its data attributes)
+2. `h5p-lesson.js`
+
+Do not include `frame.bundle.js` as a standalone `<script>` tag. It is loaded by `main.bundle.js` at runtime. Loaded directly, it can overwrite `window.H5PStandalone`, which breaks initialization of later H5P activities on the same page.
+
 ### Available LMS CSS Classes
 
 **Layout:**

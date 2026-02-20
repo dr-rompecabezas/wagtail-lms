@@ -27,6 +27,9 @@
   var FRAME_JS  = loaderScript.dataset.frameJs;
   var FRAME_CSS = loaderScript.dataset.frameCss;
   var H5P_CSS   = loaderScript.dataset.h5pCss;
+  var H5P_STANDALONE_API = window.H5PStandalone;
+  var H5P_INIT_TIMEOUT_MS = 20000;
+  var h5pLazyDisabled = window.location.search.indexOf('h5pLazy=0') !== -1;
 
   /* -----------------------------------------------------------------------
      CSRF token — read from the hidden input Django injects via {% csrf_token %}.
@@ -34,6 +37,40 @@
   function getCsrfToken() {
     var input = document.querySelector('[name=csrfmiddlewaretoken]');
     return input ? input.value : '';
+  }
+
+  if (!H5P_STANDALONE_API || typeof H5P_STANDALONE_API.H5P !== 'function') {
+    console.error('h5p-lesson.js: H5PStandalone API unavailable at script startup.');
+    return;
+  }
+
+  function setPlaceholderMessage(placeholder, message) {
+    if (!placeholder) { return; }
+    var loadingEl = placeholder.querySelector('.lms-h5p-activity__loading');
+    if (loadingEl) { loadingEl.textContent = message; }
+  }
+
+  function promiseWithTimeout(promise, timeoutMs, timeoutErrorFactory) {
+    return new Promise(function (resolve, reject) {
+      var settled = false;
+      var timer = window.setTimeout(function () {
+        if (settled) { return; }
+        settled = true;
+        reject(timeoutErrorFactory());
+      }, timeoutMs);
+
+      Promise.resolve(promise).then(function (value) {
+        if (settled) { return; }
+        settled = true;
+        window.clearTimeout(timer);
+        resolve(value);
+      }).catch(function (err) {
+        if (settled) { return; }
+        settled = true;
+        window.clearTimeout(timer);
+        reject(err);
+      });
+    });
   }
 
   /* -----------------------------------------------------------------------
@@ -95,10 +132,12 @@
     if (h5pInitBusy || h5pInitQueue.length === 0) { return; }
     h5pInitBusy = true;
     var container = h5pInitQueue.shift();
-    runInitActivity(container).then(function () {
-      h5pInitBusy = false;
-      processH5PQueue();
-    }).catch(function () {
+    var activityId = container.dataset.activityId;
+    Promise.resolve().then(function () {
+      return runInitActivity(container);
+    }).catch(function (err) {
+      console.error('h5p-lesson.js: queue item failed for activity', activityId, err);
+    }).then(function () {
       h5pInitBusy = false;
       processH5PQueue();
     });
@@ -188,16 +227,28 @@
       xAPIObjectIRI: xapiIri,
     };
 
-    return new H5PStandalone.H5P(playerEl, options)
+    /* frame.bundle.js overwrites window.H5PStandalone with undefined.
+       Keep the original API alive and restore global if needed. */
+    if (!window.H5PStandalone) {
+      window.H5PStandalone = H5P_STANDALONE_API;
+    }
+
+    var initPromise;
+    try {
+      initPromise = new H5P_STANDALONE_API.H5P(playerEl, options);
+    } catch (err) {
+      initPromise = Promise.reject(err);
+    }
+
+    return promiseWithTimeout(initPromise, H5P_INIT_TIMEOUT_MS, function () {
+      return new Error('Timed out after ' + H5P_INIT_TIMEOUT_MS + 'ms');
+    })
       .then(function () {
         if (placeholder) { placeholder.style.display = 'none'; }
       })
       .catch(function (err) {
         console.error('h5p-lesson.js: player init failed for activity', activityId, err);
-        if (placeholder) {
-          placeholder.querySelector('.lms-h5p-activity__loading').textContent =
-            'Could not load activity.';
-        }
+        setPlaceholderMessage(placeholder, 'Could not load activity.');
       });
   }
 
@@ -210,6 +261,11 @@
   var containers = document.querySelectorAll('.lms-h5p-activity');
 
   if (!containers.length) { return; }
+
+  if (h5pLazyDisabled) {
+    containers.forEach(initActivity);
+    return;
+  }
 
   if ('IntersectionObserver' in window) {
     var observer = new IntersectionObserver(function (entries) {
