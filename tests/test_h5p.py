@@ -294,6 +294,32 @@ class TestH5PActivity:
         base = conf.WAGTAIL_LMS_H5P_CONTENT_PATH.rstrip("/")
         assert default_storage.exists(f"{base}/{h5p_activity.extracted_path}/h5p.json")
 
+    def test_clean_raises_on_corrupted_zip(self, settings, tmp_path, db):
+        """clean() raises ValidationError when ZIP CRC check fails."""
+        from django.core.exceptions import ValidationError
+
+        settings.MEDIA_ROOT = str(tmp_path / "media")
+
+        # Build a valid ZIP, then corrupt one file's data in-place
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr("h5p.json", json.dumps(H5P_JSON))
+            zf.writestr("content/content.json", json.dumps(CONTENT_JSON))
+        raw = bytearray(buf.getvalue())
+        # Flip some bytes in the middle to corrupt the CRC
+        mid = len(raw) // 2
+        raw[mid] ^= 0xFF
+        raw[mid + 1] ^= 0xFF
+        corrupted = SimpleUploadedFile(
+            "corrupted.h5p", bytes(raw), content_type="application/zip"
+        )
+
+        activity = H5PActivity(title="Corrupt", package_file=corrupted)
+        with pytest.raises(ValidationError) as exc_info:
+            activity.clean()
+        errors = exc_info.value.message_dict
+        assert "package_file" in errors
+
     def test_str(self, h5p_activity):
         assert str(h5p_activity) == "Test H5P Activity"
 

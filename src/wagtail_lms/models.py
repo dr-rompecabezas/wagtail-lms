@@ -9,6 +9,7 @@ import zipfile
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.views import redirect_to_login
+from django.core.exceptions import ValidationError
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.db import models, transaction
@@ -323,6 +324,36 @@ class H5PActivity(models.Model):
 
         transaction.on_commit(_cleanup)
 
+    def clean(self):
+        """Validate the uploaded .h5p package before saving.
+
+        Checks ZIP integrity (CRC) so a corrupted upload surfaces as a
+        user-visible form validation error rather than an unhandled 500.
+        """
+        if self.package_file:
+            try:
+                with self.package_file.open("rb") as fh:
+                    with zipfile.ZipFile(fh, "r") as zf:
+                        bad_file = zf.testzip()
+                if bad_file is not None:
+                    raise ValidationError(
+                        {
+                            "package_file": (
+                                f"The uploaded file is corrupted "
+                                f"(CRC error in '{bad_file}'). "
+                                "Please re-download and try again."
+                            )
+                        }
+                    )
+            except zipfile.BadZipFile as exc:
+                raise ValidationError(
+                    {
+                        "package_file": (
+                            f"The uploaded file is not a valid ZIP archive: {exc}"
+                        )
+                    }
+                ) from exc
+
     def extract_package(self):
         """Extract H5P package and parse h5p.json.
 
@@ -366,7 +397,16 @@ class H5PActivity(models.Model):
                         )
                         continue
 
-                    file_data = zip_ref.read(member.filename)
+                    try:
+                        file_data = zip_ref.read(member.filename)
+                    except zipfile.BadZipFile:
+                        logger.exception(
+                            "CRC error reading '%s' from H5P package '%s'. "
+                            "Upload a valid .h5p file.",
+                            member.filename,
+                            self.package_file.name,
+                        )
+                        raise
 
                     # Capture h5p.json in-memory for immediate parsing
                     if member.filename == "h5p.json":
