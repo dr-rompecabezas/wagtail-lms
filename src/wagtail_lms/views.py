@@ -24,6 +24,7 @@ from .models import (
     CoursePage,
     H5PActivity,
     H5PAttempt,
+    H5PContentUserData,
     H5PXAPIStatement,
     LessonPage,
     SCORMAttempt,
@@ -558,6 +559,84 @@ def _update_h5p_attempt(attempt, statement, verb_id):
 
     if verb_id in (_XAPI_COMPLETED, _XAPI_PASSED):
         _mark_h5p_enrollment_complete(attempt)
+
+
+@csrf_exempt
+@login_required
+def h5p_content_user_data_view(request, activity_id):
+    """Store/load H5P content user data for resume/progress state.
+
+    Expected query params:
+      - dataType (string)
+      - subContentId (int, optional; defaults to 0)
+
+    GET returns:
+      {"success": true, "data": <string|false>}
+
+    POST expects form data:
+      - data: string payload (H5P sends "0" when clearing)
+    """
+    if request.method not in ("GET", "POST"):
+        return JsonResponse(
+            {"success": False, "message": "Method not allowed"}, status=405
+        )
+
+    data_type = request.GET.get("dataType", "").strip()
+    if not data_type:
+        return JsonResponse(
+            {"success": False, "message": "Missing dataType"}, status=400
+        )
+    if len(data_type) > 255:
+        return JsonResponse(
+            {"success": False, "message": "dataType too long"}, status=400
+        )
+
+    sub_content_raw = request.GET.get("subContentId", "0")
+    try:
+        sub_content_id = int(sub_content_raw)
+    except (TypeError, ValueError):
+        return JsonResponse(
+            {"success": False, "message": "Invalid subContentId"}, status=400
+        )
+    if sub_content_id < 0:
+        return JsonResponse(
+            {"success": False, "message": "Invalid subContentId"}, status=400
+        )
+
+    activity = get_object_or_404(H5PActivity, id=activity_id)
+    attempt, _ = H5PAttempt.objects.get_or_create(user=request.user, activity=activity)
+
+    if request.method == "GET":
+        user_data = H5PContentUserData.objects.filter(
+            attempt=attempt,
+            data_type=data_type,
+            sub_content_id=sub_content_id,
+        ).first()
+        if not user_data:
+            return JsonResponse({"success": True, "data": False})
+        return JsonResponse({"success": True, "data": user_data.value})
+
+    raw_data = request.POST.get("data")
+    if raw_data is None:
+        return JsonResponse({"success": False, "message": "Missing data"}, status=400)
+
+    # H5P sends data=0 when clearing/resetting a dataType value.
+    if raw_data == "0":
+        H5PContentUserData.objects.filter(
+            attempt=attempt,
+            data_type=data_type,
+            sub_content_id=sub_content_id,
+        ).delete()
+    else:
+        H5PContentUserData.objects.update_or_create(
+            attempt=attempt,
+            data_type=data_type,
+            sub_content_id=sub_content_id,
+            defaults={"value": raw_data},
+        )
+    attempt.save(update_fields=["last_accessed"])
+
+    return JsonResponse({"success": True})
 
 
 @login_required

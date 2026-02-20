@@ -4,6 +4,7 @@ from .models import (
     CourseEnrollment,
     H5PActivity,
     H5PAttempt,
+    H5PContentUserData,
     H5PXAPIStatement,
     SCORMAttempt,
     SCORMData,
@@ -91,3 +92,10 @@ class H5PXAPIStatementAdmin(admin.ModelAdmin):
     list_display = ("attempt", "verb_display", "timestamp")
     list_filter = ("timestamp",)
     search_fields = ("attempt__user__username", "verb", "verb_display")
+
+
+@admin.register(H5PContentUserData)
+class H5PContentUserDataAdmin(admin.ModelAdmin):
+    list_display = ("attempt", "data_type", "sub_content_id", "updated_at")
+    list_filter = ("data_type", "updated_at")
+    search_fields = ("attempt__user__username", "attempt__activity__title", "data_type")

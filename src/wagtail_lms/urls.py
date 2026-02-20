@@ -23,6 +23,11 @@ urlpatterns = [
         name="h5p_xapi",
     ),
     path(
+        "h5p-content-user-data/<int:activity_id>/",
+        views.h5p_content_user_data_view,
+        name="h5p_content_user_data",
+    ),
+    path(
         "h5p-content/<path:content_path>",
         views.ServeH5PContentView.as_view(),
         name="serve_h5p_content",

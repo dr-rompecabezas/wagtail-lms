@@ -11,6 +11,7 @@
  *   data-frame-js   path to frame.bundle.js
  *   data-frame-css  path to h5p.css (used by the H5P frame)
  *   data-h5p-css    path to h5p.css (injected into <head> once)
+ *   data-user-name  current learner display name for H5P user-data API
  */
 (function () {
   'use strict';
@@ -27,6 +28,7 @@
   var FRAME_JS  = loaderScript.dataset.frameJs;
   var FRAME_CSS = loaderScript.dataset.frameCss;
   var H5P_CSS   = loaderScript.dataset.h5pCss;
+  var USER_NAME = loaderScript.dataset.userName || 'Learner';
   var H5P_STANDALONE_API = window.H5PStandalone;
   var H5P_INIT_TIMEOUT_MS = 20000;
   var h5pLazyDisabled = window.location.search.indexOf('h5pLazy=0') !== -1;
@@ -170,6 +172,7 @@
        data-content-url  base URL for h5p-standalone (h5pJsonPath)
        data-xapi-url     POST endpoint for xAPI statements
        data-xapi-iri     unique IRI used to filter shared dispatcher events
+       data-user-data-url endpoint for H5P resume/progress state
      ----------------------------------------------------------------------- */
   function initActivity(container) {
     if (container.dataset.initialized) { return; }
@@ -210,6 +213,7 @@
     var activityId  = container.dataset.activityId;
     var contentUrl  = container.dataset.contentUrl;
     var xapiIri     = container.dataset.xapiIri;
+    var userDataUrl = container.dataset.userDataUrl;
     var playerEl    = container.querySelector('.lms-h5p-activity__player');
     var placeholder = container.querySelector('.lms-h5p-activity__placeholder');
 
@@ -226,6 +230,13 @@
       frameCss:      FRAME_CSS,
       xAPIObjectIRI: xapiIri,
     };
+    if (userDataUrl) {
+      options.user = { name: USER_NAME };
+      options.saveFreq = 5;
+      options.ajax = {
+        contentUserDataUrl: userDataUrl,
+      };
+    }
 
     /* frame.bundle.js overwrites window.H5PStandalone with undefined.
        Keep the original API alive and restore global if needed. */

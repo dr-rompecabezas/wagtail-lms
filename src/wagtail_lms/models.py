@@ -802,3 +802,32 @@ class H5PXAPIStatement(models.Model):
 
     def __str__(self):
         return f"{self.attempt} - {self.verb_display or self.verb}"
+
+
+class H5PContentUserData(models.Model):
+    """Persist H5P content user data used for resume/progress state.
+
+    Mirrors the H5P "content user data" concept keyed by:
+      - attempt (user + activity)
+      - data_type (e.g. "state")
+      - sub_content_id (nested content part, usually 0)
+    """
+
+    attempt = models.ForeignKey(
+        H5PAttempt,
+        on_delete=models.CASCADE,
+        related_name="content_user_data",
+    )
+    data_type = models.CharField(max_length=255)
+    sub_content_id = models.PositiveIntegerField(default=0)
+    value = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "H5P Content User Data"
+        verbose_name_plural = "H5P Content User Data"
+        unique_together = [("attempt", "data_type", "sub_content_id")]
+
+    def __str__(self):
+        return f"{self.attempt} - {self.data_type}[{self.sub_content_id}]"

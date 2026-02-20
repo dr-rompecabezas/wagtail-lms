@@ -16,6 +16,7 @@
 | Method | URL | Description |
 |--------|-----|-------------|
 | `POST` | `/lms/h5p-xapi/{activity_id}/` | Ingest an xAPI statement for an H5P activity |
+| `GET`, `POST` | `/lms/h5p-content-user-data/{activity_id}/` | Load/save H5P runtime state for resume/progress |
 | `GET` | `/lms/h5p-content/{path}` | Secure H5P asset serving |
 
 ---
@@ -84,6 +85,30 @@ and append a new `H5PXAPIStatement` record.
 
 ---
 
+## H5P Content User Data Endpoint
+
+`GET|POST /lms/h5p-content-user-data/{activity_id}/?dataType=<type>&subContentId=<id>`
+
+- **Auth:** Login required.
+- **CSRF:** Exempt (H5P runtime submits form-encoded AJAX internally).
+
+**GET behavior**
+
+- Returns saved value for `(user, activity_id, dataType, subContentId)`.
+- Response shape: `{"success": true, "data": "<string>"}`.
+- If no value exists: `{"success": true, "data": false}`.
+
+**POST behavior**
+
+- Form field `data` stores the value.
+- Special case: `data=0` clears the stored value for that key.
+- Response shape: `{"success": true}`.
+
+This endpoint powers H5P resume/progress state and is wired via
+`h5p-lesson.js` (`options.ajax.contentUserDataUrl` + `options.saveFreq`).
+
+---
+
 ## Models
 
 ### SCORM
@@ -101,6 +126,7 @@ and append a new `H5PXAPIStatement` record.
 | `H5PActivity` | Uploaded `.h5p` package (Wagtail snippet); auto-extracted on save |
 | `H5PAttempt` | Per-user, per-activity progress (completion, success, scores) |
 | `H5PXAPIStatement` | Raw xAPI statement log for an attempt |
+| `H5PContentUserData` | Per-user/activity runtime state used by H5P resume/progress |
 
 ### Course
 

@@ -3,6 +3,7 @@
 import io
 import json
 import zipfile
+from urllib.parse import quote
 
 import pytest
 from django.core.files.storage import default_storage
@@ -16,6 +17,7 @@ from wagtail_lms.models import (
     CoursePage,
     H5PActivity,
     H5PAttempt,
+    H5PContentUserData,
     H5PXAPIStatement,
     LessonPage,
 )
@@ -715,6 +717,103 @@ class TestH5PXAPIView:
             f"The body__icontains lookup in _mark_h5p_enrollment_complete "
             f"would silently fail. Raw body excerpt: {raw_body[:200]}"
         )
+
+
+@pytest.mark.django_db
+class TestH5PContentUserDataView:
+    def _url(self, activity_id, data_type="state", sub_content_id=0):
+        base = reverse("wagtail_lms:h5p_content_user_data", args=[activity_id])
+        return (
+            f"{base}?dataType={quote(data_type, safe='')}&subContentId={sub_content_id}"
+        )
+
+    def test_requires_login(self, client, h5p_activity):
+        response = client.get(self._url(h5p_activity.pk))
+        assert response.status_code == 302
+
+    def test_get_empty_returns_success_false_data(self, client, user, h5p_activity):
+        client.force_login(user)
+        response = client.get(self._url(h5p_activity.pk))
+        assert response.status_code == 200
+        assert response.json() == {"success": True, "data": False}
+
+    def test_post_then_get_round_trip(self, client, user, h5p_activity):
+        client.force_login(user)
+        url = self._url(h5p_activity.pk, data_type="state", sub_content_id=0)
+        payload = json.dumps({"progress": 0.5, "answers": [1, 0, 1]})
+
+        post_resp = client.post(url, data={"data": payload})
+        assert post_resp.status_code == 200
+        assert post_resp.json() == {"success": True}
+
+        get_resp = client.get(url)
+        assert get_resp.status_code == 200
+        assert get_resp.json() == {"success": True, "data": payload}
+
+        attempt = H5PAttempt.objects.get(user=user, activity=h5p_activity)
+        row = H5PContentUserData.objects.get(
+            attempt=attempt, data_type="state", sub_content_id=0
+        )
+        assert row.value == payload
+
+    def test_post_data_zero_resets_value(self, client, user, h5p_activity):
+        client.force_login(user)
+        url = self._url(h5p_activity.pk)
+        client.post(url, data={"data": '{"progress":1}'})
+        attempt = H5PAttempt.objects.get(user=user, activity=h5p_activity)
+        assert H5PContentUserData.objects.filter(attempt=attempt).count() == 1
+
+        reset_resp = client.post(url, data={"data": "0"})
+        assert reset_resp.status_code == 200
+        assert reset_resp.json() == {"success": True}
+        assert H5PContentUserData.objects.filter(attempt=attempt).count() == 0
+
+    def test_post_lazily_creates_attempt(self, client, user, h5p_activity):
+        client.force_login(user)
+        assert not H5PAttempt.objects.filter(user=user, activity=h5p_activity).exists()
+        response = client.post(self._url(h5p_activity.pk), data={"data": '{"x":1}'})
+        assert response.status_code == 200
+        assert H5PAttempt.objects.filter(user=user, activity=h5p_activity).count() == 1
+
+    @pytest.mark.parametrize(
+        "query,expected_message",
+        [
+            ("", "Missing dataType"),
+            ("?dataType=state&subContentId=-1", "Invalid subContentId"),
+            ("?dataType=state&subContentId=abc", "Invalid subContentId"),
+        ],
+    )
+    def test_invalid_query_params_return_400(
+        self, client, user, h5p_activity, query, expected_message
+    ):
+        client.force_login(user)
+        base = reverse("wagtail_lms:h5p_content_user_data", args=[h5p_activity.pk])
+        response = client.get(base + query)
+        assert response.status_code == 400
+        data = response.json()
+        assert data["success"] is False
+        assert data["message"] == expected_message
+
+    def test_missing_post_data_returns_400(self, client, user, h5p_activity):
+        client.force_login(user)
+        response = client.post(self._url(h5p_activity.pk), data={})
+        assert response.status_code == 400
+        assert response.json()["message"] == "Missing data"
+
+    def test_lesson_html_includes_user_data_endpoint(
+        self, client, enrolled_user, lesson_page, h5p_activity
+    ):
+        client.force_login(enrolled_user)
+        response = client.get(lesson_page.url)
+        assert response.status_code == 200
+        expected_path = reverse(
+            "wagtail_lms:h5p_content_user_data", args=[h5p_activity.pk]
+        )
+        content = response.content.decode("utf-8")
+        assert 'data-user-data-url="' in content
+        assert expected_path in content
+        assert "dataType=:dataType" in content
+        assert "subContentId=:subContentId" in content
 
 
 # ---------------------------------------------------------------------------

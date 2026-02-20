@@ -10,11 +10,13 @@
   data-content-url  : Base URL for h5p-standalone's h5pJsonPath option.
   data-xapi-url     : POST endpoint for xAPI statements (CSRF-protected).
   data-xapi-iri     : Unique IRI per activity for filtering shared dispatcher events.
+  data-user-data-url: H5P content-user-data endpoint (resume/progress state).
 {% endcomment %}
 <div class="lms-h5p-activity"
      data-activity-id="{{ value.activity.pk }}"
      data-content-url="{{ value.activity.get_content_base_url }}"
      data-xapi-url="{% url 'wagtail_lms:h5p_xapi' value.activity.pk %}"
+     data-user-data-url="{% url 'wagtail_lms:h5p_content_user_data' value.activity.pk %}?dataType=:dataType&subContentId=:subContentId"
      data-xapi-iri="{{ request.scheme }}://{{ request.get_host }}{% url 'wagtail_lms:h5p_xapi' value.activity.pk %}">
 
   <div class="lms-h5p-activity__placeholder">
