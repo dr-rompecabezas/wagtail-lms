@@ -1168,6 +1168,71 @@ class TestH5PXAPIView:
         assert not CourseEnrollment.objects.filter(
             user=user, course=course_page_h5p
         ).exists()
+        assert not LessonCompletion.objects.filter(
+            user=user, lesson=lesson_page
+        ).exists()
+
+    def test_pre_enrollment_events_do_not_precreate_lesson_completions(
+        self,
+        client,
+        user,
+        h5p_activity,
+        lesson_page,
+        course_page_h5p,
+        settings,
+        tmp_path,
+    ):
+        """Forged xAPI before enrollment must not pre-create completion records."""
+        settings.MEDIA_ROOT = str(tmp_path / "media")
+
+        activity2 = H5PActivity(
+            title="Activity Two",
+            description="",
+            package_file=_make_h5p_zip_file("activity2.h5p"),
+        )
+        activity2.save()
+        lesson2 = LessonPage(
+            title="Lesson Two",
+            slug="lesson-two-preenroll",
+            body=json.dumps(
+                [{"type": "h5p_activity", "value": {"activity": activity2.pk}}]
+            ),
+        )
+        course_page_h5p.add_child(instance=lesson2)
+        lesson2.save_revision().publish()
+
+        client.force_login(user)
+        stmt = _xapi_statement("http://adlnet.gov/expapi/verbs/completed", "completed")
+
+        # User forges completion events while not enrolled.
+        client.post(
+            self._url(h5p_activity.pk),
+            data=json.dumps(stmt),
+            content_type="application/json",
+        )
+        client.post(
+            self._url(activity2.pk),
+            data=json.dumps(stmt),
+            content_type="application/json",
+        )
+
+        assert not LessonCompletion.objects.filter(
+            user=user, lesson=lesson_page
+        ).exists()
+        assert not LessonCompletion.objects.filter(user=user, lesson=lesson2).exists()
+
+        enrollment = CourseEnrollment.objects.create(user=user, course=course_page_h5p)
+
+        # After enrollment, a single new event must not complete the full course.
+        client.post(
+            self._url(h5p_activity.pk),
+            data=json.dumps(stmt),
+            content_type="application/json",
+        )
+        enrollment.refresh_from_db()
+        assert enrollment.completed_at is None
+        assert LessonCompletion.objects.filter(user=user, lesson=lesson_page).exists()
+        assert not LessonCompletion.objects.filter(user=user, lesson=lesson2).exists()
 
     def test_streamfield_body_format_matches_enrollment_lookup(
         self, lesson_page, h5p_activity

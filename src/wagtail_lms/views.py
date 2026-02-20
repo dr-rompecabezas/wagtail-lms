@@ -170,12 +170,25 @@ def _mark_h5p_enrollment_complete(attempt):
     Finds lessons containing the completed activity, marks each as complete
     if all its activities are done, then propagates to course completion when
     all lessons in the course are complete.
+
+    Enrollment is required: completion records must only be created for courses
+    the learner is enrolled in.
     """
+    enrolled_course_ids = set(
+        CourseEnrollment.objects.filter(user=attempt.user).values_list(
+            "course_id", flat=True
+        )
+    )
+    if not enrolled_course_ids:
+        return
+
     lookup = '"activity": ' + str(attempt.activity_id) + "}"
     lesson_pages = LessonPage.objects.filter(live=True, body__icontains=lookup)
     for lesson in lesson_pages:
         parent = lesson.get_parent().specific
         if not isinstance(parent, CoursePage):
+            continue
+        if parent.pk not in enrolled_course_ids:
             continue
         if _try_complete_lesson(attempt, lesson):
             _try_complete_course(attempt, parent)
