@@ -12,6 +12,7 @@
   data-xapi-iri     : Unique IRI per activity for filtering shared dispatcher events.
   data-user-data-url: H5P content-user-data endpoint (resume/progress state).
 {% endcomment %}
+{% if value.activity %}
 <div class="lms-h5p-activity"
      data-activity-id="{{ value.activity.pk }}"
      data-content-url="{{ value.activity.get_content_base_url }}"
@@ -26,3 +27,4 @@
 
   <div class="lms-h5p-activity__player"></div>
 </div>
+{% endif %}

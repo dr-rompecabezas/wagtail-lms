@@ -291,19 +291,35 @@ class H5PActivity(models.Model):
 
             if package_replaced:
                 self._schedule_replaced_content_cleanup(
-                    old_package_name, old_extracted_path
+                    old_package_name,
+                    old_extracted_path,
+                    self.package_file.name,
+                    self.extracted_path,
                 )
 
-    def _schedule_replaced_content_cleanup(self, old_package_name, old_extracted_path):
+    def _schedule_replaced_content_cleanup(
+        self,
+        old_package_name,
+        old_extracted_path,
+        new_package_name,
+        new_extracted_path,
+    ):
         """Schedule deletion of superseded package file and extracted content.
 
         Called after a successful package replacement save. Runs on transaction
         commit so a rollback cannot discard the originals prematurely.
+
+        Paths that coincide with the newly saved files are skipped — this
+        guards against storage backends that reuse the same key (e.g. S3 with
+        overwrite enabled, or custom upload_to functions that produce the same
+        basename for different uploads).
         """
         from .signal_handlers import _delete_extracted_content
 
-        _old_pkg = old_package_name
-        _old_ext = old_extracted_path
+        _old_pkg = old_package_name if old_package_name != new_package_name else None
+        _old_ext = (
+            old_extracted_path if old_extracted_path != new_extracted_path else None
+        )
 
         def _cleanup():
             if _old_pkg:
