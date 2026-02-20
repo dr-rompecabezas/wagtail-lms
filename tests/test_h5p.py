@@ -40,17 +40,20 @@ H5P_JSON = {
 CONTENT_JSON = {"media": {"type": {"params": {}}, "disableImageZooming": False}}
 
 
-@pytest.fixture
-def h5p_zip_file():
-    """In-memory .h5p ZIP with h5p.json and content/content.json."""
+def _make_h5p_zip_file(name="test_activity.h5p"):
+    """Return a fresh SimpleUploadedFile containing a minimal .h5p ZIP."""
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         zf.writestr("h5p.json", json.dumps(H5P_JSON))
         zf.writestr("content/content.json", json.dumps(CONTENT_JSON))
     buf.seek(0)
-    return SimpleUploadedFile(
-        "test_activity.h5p", buf.getvalue(), content_type="application/zip"
-    )
+    return SimpleUploadedFile(name, buf.getvalue(), content_type="application/zip")
+
+
+@pytest.fixture
+def h5p_zip_file():
+    """In-memory .h5p ZIP with h5p.json and content/content.json."""
+    return _make_h5p_zip_file()
 
 
 @pytest.fixture
@@ -673,6 +676,56 @@ class TestH5PXAPIView:
             user=enrolled_user, course=course_page_h5p
         )
         assert enrollment.completed_at is None
+
+    def test_partial_completion_does_not_mark_course_complete(
+        self,
+        client,
+        enrolled_user,
+        h5p_activity,
+        lesson_page,
+        course_page_h5p,
+        settings,
+        tmp_path,
+    ):
+        """Completing only one of two activities must not set completed_at."""
+        # Add a second activity in a second lesson on the same course.
+        activity2 = H5PActivity(
+            title="Activity Two",
+            description="",
+            package_file=_make_h5p_zip_file("activity2.h5p"),
+        )
+        activity2.save()
+        lesson2 = LessonPage(
+            title="Lesson Two",
+            slug="lesson-two",
+            body=json.dumps(
+                [{"type": "h5p_activity", "value": {"activity": activity2.pk}}]
+            ),
+        )
+        course_page_h5p.add_child(instance=lesson2)
+        lesson2.save_revision().publish()
+
+        client.force_login(enrolled_user)
+        stmt = _xapi_statement("http://adlnet.gov/expapi/verbs/completed", "completed")
+        client.post(
+            self._url(h5p_activity.pk),
+            data=json.dumps(stmt),
+            content_type="application/json",
+        )
+
+        enrollment = CourseEnrollment.objects.get(
+            user=enrolled_user, course=course_page_h5p
+        )
+        assert enrollment.completed_at is None
+
+        # Completing the second activity should now trigger course completion.
+        client.post(
+            self._url(activity2.pk),
+            data=json.dumps(stmt),
+            content_type="application/json",
+        )
+        enrollment.refresh_from_db()
+        assert enrollment.completed_at is not None
 
     def test_completion_without_enrollment_does_not_error(
         self, client, user, h5p_activity, lesson_page, course_page_h5p

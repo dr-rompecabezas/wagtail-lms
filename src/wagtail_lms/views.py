@@ -90,24 +90,46 @@ def _mark_enrollment_complete(attempt):
 
 
 def _mark_h5p_enrollment_complete(attempt):
-    """Set completed_at on CourseEnrollment when an H5P activity completes.
+    """Set completed_at on CourseEnrollment when ALL H5P activities in the course complete.
 
     Resolves attempt → activity → live LessonPages (via StreamField body) →
-    parent CoursePage → CourseEnrollment for this user. Walks the Wagtail page
-    tree rather than storing a redundant FK. The completed_at__isnull=True
-    guard makes this a no-op if completion was already recorded.
+    parent CoursePage → all live lessons → all activity PKs → verifies every
+    one has a completed attempt for this user before setting completed_at.
 
-    Uses icontains (text substring) rather than the JSONField __contains
-    operator because Wagtail's StreamField is stored as a serialised text
-    column on SQLite.  H5PActivityBlock has a single field so the stored
-    value is always '"activity": <pk>}'; the closing '}' prevents a PK of 5
-    from matching an activity with PK 50.
+    Uses text-based body scanning (consistent with the icontains lookup already
+    used here) to collect all activity PKs without instantiating StreamValue
+    objects. The completed_at__isnull=True guard makes repeated calls a no-op.
     """
     lookup = '"activity": ' + str(attempt.activity_id) + "}"
     lesson_pages = LessonPage.objects.filter(live=True, body__icontains=lookup)
     for lesson in lesson_pages:
         parent = lesson.get_parent().specific
-        if isinstance(parent, CoursePage):
+        if not isinstance(parent, CoursePage):
+            continue
+
+        # Collect every H5P activity PK referenced in any live lesson of this course.
+        # Iterating a StreamValue yields BoundBlock objects; SnippetChooserBlock
+        # resolves each activity FK to an instance (or None if deleted).
+        all_activity_ids = set()
+        for lesson_obj in LessonPage.objects.child_of(parent).live():
+            for bound_block in lesson_obj.body:
+                if bound_block.block_type == "h5p_activity":
+                    activity_instance = bound_block.value.get("activity")
+                    if activity_instance is not None:
+                        all_activity_ids.add(activity_instance.pk)
+
+        if not all_activity_ids:
+            continue
+
+        # Only mark complete when the user has a completed attempt for every activity.
+        completed_ids = set(
+            H5PAttempt.objects.filter(
+                user=attempt.user,
+                activity_id__in=all_activity_ids,
+                completion_status="completed",
+            ).values_list("activity_id", flat=True)
+        )
+        if completed_ids >= all_activity_ids:
             CourseEnrollment.objects.filter(
                 user=attempt.user,
                 course=parent,
