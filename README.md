@@ -85,7 +85,7 @@ WAGTAIL_LMS_SCORM_UPLOAD_PATH = 'scorm_packages/'
 # Extracted SCORM content directory
 WAGTAIL_LMS_CONTENT_PATH = 'scorm_content/'
 
-# Auto-enroll users when they visit a course
+# Default: require enrollment before SCORM player access
 WAGTAIL_LMS_AUTO_ENROLL = False
 
 # Cache-Control rules for SCORM assets (exact MIME, wildcard, and default)
