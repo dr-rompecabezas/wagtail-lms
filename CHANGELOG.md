@@ -64,6 +64,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Activities that emit only `consumed` (e.g. `H5P.Accordion`) do not persist resume state — they have no meaningful resume position, so resetting on reload is the correct behaviour
 - Resume state has been verified with `H5P.QuestionSet`; other activity types have not yet been systematically tested ([#71](https://github.com/dr-rompecabezas/wagtail-lms/issues/71))
 
+### Changed
+
+- **Default `WAGTAIL_LMS_AUTO_ENROLL` reverted to `False`**
+  - v0.8.1 changed the default to `True`; upcoming v0.9.0 returns to `False` so explicit enrollment is the default behavior
+  - Set `WAGTAIL_LMS_AUTO_ENROLL = True` to keep the v0.8.1 auto-enrollment flow
+
 ## [0.8.1] - 2026-02-19
 
 ### Added
