@@ -300,6 +300,82 @@ class TestH5PActivity:
         base = conf.WAGTAIL_LMS_H5P_CONTENT_PATH.rstrip("/")
         assert default_storage.exists(f"{base}/{h5p_activity.extracted_path}/h5p.json")
 
+    def test_package_replacement_with_update_fields_persists_extracted_metadata(
+        self, h5p_activity, settings, tmp_path, db
+    ):
+        """Derived extraction fields must be persisted when save(update_fields=...) is used."""
+        settings.MEDIA_ROOT = str(tmp_path / "media")
+        old_extracted_path = h5p_activity.extracted_path
+
+        new_h5p_json = dict(H5P_JSON, mainLibrary="H5P.CoursePresentation")
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr("h5p.json", json.dumps(new_h5p_json))
+            zf.writestr("content/content.json", json.dumps(CONTENT_JSON))
+        buf.seek(0)
+
+        h5p_activity.package_file = SimpleUploadedFile(
+            "update_fields_replacement.h5p",
+            buf.getvalue(),
+            content_type="application/zip",
+        )
+        h5p_activity.save(update_fields=["package_file"])
+        h5p_activity.refresh_from_db()
+
+        assert h5p_activity.extracted_path != old_extracted_path
+        assert h5p_activity.main_library == "H5P.CoursePresentation"
+        assert h5p_activity.h5p_json.get("mainLibrary") == "H5P.CoursePresentation"
+
+    def test_same_path_replacement_clears_stale_extracted_files(
+        self, settings, tmp_path, db
+    ):
+        """Replacing a package into the same extracted path must remove stale files."""
+        settings.MEDIA_ROOT = str(tmp_path / "media")
+
+        initial_buf = io.BytesIO()
+        with zipfile.ZipFile(initial_buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr("h5p.json", json.dumps(H5P_JSON))
+            zf.writestr("content/content.json", json.dumps(CONTENT_JSON))
+            zf.writestr("content/obsolete.txt", "old file")
+        initial_buf.seek(0)
+
+        activity = H5PActivity(
+            title="Same Name Replacement",
+            package_file=SimpleUploadedFile(
+                "same_name.h5p",
+                initial_buf.getvalue(),
+                content_type="application/zip",
+            ),
+        )
+        activity.save()
+
+        base = conf.WAGTAIL_LMS_H5P_CONTENT_PATH.rstrip("/")
+        old_extracted_path = activity.extracted_path
+        obsolete_path = f"{base}/{old_extracted_path}/content/obsolete.txt"
+        assert default_storage.exists(obsolete_path)
+
+        # Simulate overwrite-style storage that reuses the same package key.
+        default_storage.delete(activity.package_file.name)
+
+        replacement_h5p_json = dict(H5P_JSON, mainLibrary="H5P.CoursePresentation")
+        replacement_buf = io.BytesIO()
+        with zipfile.ZipFile(replacement_buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr("h5p.json", json.dumps(replacement_h5p_json))
+            zf.writestr("content/content.json", json.dumps(CONTENT_JSON))
+        replacement_buf.seek(0)
+
+        activity.package_file = SimpleUploadedFile(
+            "same_name.h5p",
+            replacement_buf.getvalue(),
+            content_type="application/zip",
+        )
+        activity.save()
+        activity.refresh_from_db()
+
+        assert activity.extracted_path == old_extracted_path
+        assert activity.main_library == "H5P.CoursePresentation"
+        assert not default_storage.exists(obsolete_path)
+
     def test_clean_raises_on_corrupted_zip(self, settings, tmp_path, db):
         """clean() raises ValidationError when ZIP CRC check fails."""
         from django.core.exceptions import ValidationError
@@ -727,6 +803,39 @@ class TestH5PXAPIView:
         )
         enrollment.refresh_from_db()
         assert enrollment.completed_at is not None
+
+    def test_text_only_lessons_do_not_block_course_completion(
+        self,
+        client,
+        enrolled_user,
+        h5p_activity,
+        lesson_page,
+        course_page_h5p,
+    ):
+        """Lessons without H5P blocks are informational and must not gate completion."""
+        text_only_lesson = LessonPage(
+            title="Reading Lesson",
+            slug="reading-lesson",
+            body=json.dumps([{"type": "paragraph", "value": "<p>Read this</p>"}]),
+        )
+        course_page_h5p.add_child(instance=text_only_lesson)
+        text_only_lesson.save_revision().publish()
+
+        client.force_login(enrolled_user)
+        stmt = _xapi_statement("http://adlnet.gov/expapi/verbs/completed", "completed")
+        client.post(
+            self._url(h5p_activity.pk),
+            data=json.dumps(stmt),
+            content_type="application/json",
+        )
+
+        enrollment = CourseEnrollment.objects.get(
+            user=enrolled_user, course=course_page_h5p
+        )
+        assert enrollment.completed_at is not None
+        assert not LessonCompletion.objects.filter(
+            user=enrolled_user, lesson=text_only_lesson
+        ).exists()
 
     def test_consumed_verb_sets_completion_status(self, client, user, h5p_activity):
         """consumed verb (H5P.Accordion etc.) sets completion_status to completed."""

@@ -248,24 +248,8 @@ class H5PActivity(models.Model):
     def save(self, *args, **kwargs):
         # Detect package file replacement on an existing record so we can
         # re-extract and schedule cleanup of the superseded content.
-        old_package_name = None
-        old_extracted_path = None
-        if self.pk:
-            try:
-                prev = H5PActivity.objects.only("package_file", "extracted_path").get(
-                    pk=self.pk
-                )
-                old_package_name = prev.package_file.name if prev.package_file else None
-                old_extracted_path = prev.extracted_path
-            except H5PActivity.DoesNotExist:
-                pass
-
-        new_package_name = self.package_file.name if self.package_file else None
-        package_replaced = (
-            old_package_name is not None
-            and new_package_name is not None
-            and new_package_name != old_package_name
-        )
+        old_package_name, old_extracted_path = self._get_previous_package_state()
+        package_replaced = self._is_package_replaced(old_package_name)
 
         if package_replaced:
             # Reset derived fields so extract_package() generates a fresh
@@ -280,14 +264,19 @@ class H5PActivity(models.Model):
         # Extract if we have a package file but no extracted path.
         # This covers both first-time creation and package replacement.
         if self.package_file and not self.extracted_path:
+            if package_replaced and old_extracted_path:
+                # Same-basename replacements can map to the same extraction
+                # directory; clear old files first so removed members do not
+                # linger and get served as stale content.
+                self._cleanup_same_path_before_reextract(old_extracted_path)
+
             self.extract_package()
             # Strip force_insert / force_update: the row already exists after
             # the first save, so reusing force_insert=True (passed by
             # objects.create()) would attempt a duplicate INSERT and raise
             # IntegrityError.
-            kwargs.pop("force_insert", None)
-            kwargs.pop("force_update", None)
-            super().save(*args, **kwargs)
+            post_extract_kwargs = self._get_post_extract_save_kwargs(kwargs)
+            super().save(*args, **post_extract_kwargs)
 
             if package_replaced:
                 self._schedule_replaced_content_cleanup(
@@ -296,6 +285,80 @@ class H5PActivity(models.Model):
                     self.package_file.name,
                     self.extracted_path,
                 )
+
+    def _get_previous_package_state(self):
+        """Return previous package file name and extracted path for this record."""
+        if not self.pk:
+            return None, None
+
+        try:
+            prev = H5PActivity.objects.only("package_file", "extracted_path").get(
+                pk=self.pk
+            )
+        except H5PActivity.DoesNotExist:
+            return None, None
+
+        old_package_name = prev.package_file.name if prev.package_file else None
+        return old_package_name, prev.extracted_path
+
+    def _is_package_replaced(self, old_package_name):
+        """Return True when a new package upload replaces an existing one."""
+        if old_package_name is None or not self.package_file:
+            return False
+
+        # FieldFile._committed=False means a new upload was assigned, including
+        # overwrite-style storages that keep the same key/name.
+        if not getattr(self.package_file, "_committed", True):
+            return True
+
+        new_package_name = self.package_file.name
+        return new_package_name is not None and new_package_name != old_package_name
+
+    def _cleanup_same_path_before_reextract(self, old_extracted_path):
+        """Delete old extracted files when replacement reuses the same directory."""
+        if not old_extracted_path:
+            return
+
+        new_extracted_path = self._get_extraction_dir_name()
+        if not new_extracted_path or new_extracted_path != old_extracted_path:
+            return
+
+        from .signal_handlers import _delete_extracted_content
+
+        try:
+            _delete_extracted_content(
+                old_extracted_path, conf.WAGTAIL_LMS_H5P_CONTENT_PATH
+            )
+        except Exception:
+            logger.warning(
+                "Failed to delete old H5P extracted content before "
+                "re-extracting replacement: %s",
+                old_extracted_path,
+            )
+
+    def _get_post_extract_save_kwargs(self, kwargs):
+        """Return save kwargs for persisting extracted metadata fields."""
+        post_extract_kwargs = kwargs.copy()
+        post_extract_kwargs.pop("force_insert", None)
+        post_extract_kwargs.pop("force_update", None)
+
+        update_fields = post_extract_kwargs.get("update_fields")
+        if update_fields is not None:
+            persisted_fields = set(update_fields)
+            persisted_fields.update(
+                {"extracted_path", "main_library", "h5p_json", "title"}
+            )
+            post_extract_kwargs["update_fields"] = list(persisted_fields)
+
+        return post_extract_kwargs
+
+    def _get_extraction_dir_name(self):
+        """Return the deterministic extracted directory name for this package."""
+        if not self.package_file or not self.pk:
+            return ""
+
+        package_name = os.path.splitext(os.path.basename(self.package_file.name))[0]
+        return f"h5p_{self.pk}_{package_name}"
 
     def _schedule_replaced_content_cleanup(
         self,
@@ -392,9 +455,8 @@ class H5PActivity(models.Model):
         if not self.package_file:
             return
 
-        # Create extraction directory with unique path using package ID
-        package_name = os.path.splitext(os.path.basename(self.package_file.name))[0]
-        unique_dir = f"h5p_{self.id}_{package_name}"
+        # Create extraction directory with a deterministic path using package ID
+        unique_dir = self._get_extraction_dir_name()
         content_path = conf.WAGTAIL_LMS_H5P_CONTENT_PATH.rstrip("/")
 
         h5p_json_content = None

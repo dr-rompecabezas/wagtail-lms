@@ -134,26 +134,29 @@ def _try_complete_lesson(attempt, lesson_obj):
 
 
 def _try_complete_course(attempt, course):
-    """Mark the CourseEnrollment complete if every live lesson in the course is complete.
+    """Mark enrollment complete when all H5P-bearing lessons are complete.
 
-    Queries LessonCompletion records for all live lessons. Updates completed_at
-    only when all lessons have a completion record. The completed_at__isnull=True
-    guard makes repeated calls a no-op.
+    Lessons without any H5PActivity blocks are informational-only and do not
+    produce LessonCompletion records, so they must not gate course completion.
+    Updates completed_at only when all trackable lessons are complete. The
+    completed_at__isnull=True guard makes repeated calls a no-op.
     """
-    lesson_ids = set(
-        LessonPage.objects.child_of(course).live().values_list("pk", flat=True)
-    )
-    if not lesson_ids:
+    trackable_lesson_ids = {
+        lesson.pk
+        for lesson in LessonPage.objects.child_of(course).live()
+        if _collect_lesson_activity_ids(lesson)
+    }
+    if not trackable_lesson_ids:
         return
 
     completed_lesson_ids = set(
         LessonCompletion.objects.filter(
             user=attempt.user,
-            lesson_id__in=lesson_ids,
+            lesson_id__in=trackable_lesson_ids,
         ).values_list("lesson_id", flat=True)
     )
 
-    if completed_lesson_ids >= lesson_ids:
+    if completed_lesson_ids >= trackable_lesson_ids:
         CourseEnrollment.objects.filter(
             user=attempt.user,
             course=course,
