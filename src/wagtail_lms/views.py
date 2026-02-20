@@ -494,6 +494,10 @@ class ServeH5PContentView(ServeScormContentView):
 # H5P xAPI endpoint
 # ---------------------------------------------------------------------------
 
+# Maximum byte length accepted for a single H5P content-user-data value (64 KB).
+# H5P resume state is serialised JSON; typical payloads are well under 10 KB.
+_H5P_MAX_USER_DATA_BYTES = 65_536
+
 # xAPI verb IRIs that trigger attempt field updates
 _XAPI_COMPLETED = "http://adlnet.gov/expapi/verbs/completed"
 _XAPI_PASSED = "http://adlnet.gov/expapi/verbs/passed"
@@ -675,6 +679,9 @@ def h5p_content_user_data_view(request, activity_id):
     raw_data = request.POST.get("data")
     if raw_data is None:
         return JsonResponse({"success": False, "message": "Missing data"}, status=400)
+
+    if raw_data != "0" and len(raw_data.encode("utf-8")) > _H5P_MAX_USER_DATA_BYTES:
+        return JsonResponse({"success": False, "message": "data too large"}, status=413)
 
     _store_h5p_user_data(request.user, activity, data_type, sub_content_id, raw_data)
 

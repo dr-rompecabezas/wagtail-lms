@@ -801,6 +801,13 @@ class TestH5PContentUserDataView:
         assert response.status_code == 400
         assert response.json()["message"] == "Missing data"
 
+    def test_oversized_post_data_returns_413(self, client, user, h5p_activity):
+        client.force_login(user)
+        oversized = "x" * (65_536 + 1)
+        response = client.post(self._url(h5p_activity.pk), data={"data": oversized})
+        assert response.status_code == 413
+        assert response.json() == {"success": False, "message": "data too large"}
+
     def test_lesson_html_includes_user_data_endpoint(
         self, client, enrolled_user, lesson_page, h5p_activity
     ):
