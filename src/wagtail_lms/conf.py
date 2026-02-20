@@ -27,3 +27,11 @@ WAGTAIL_LMS_CACHE_CONTROL = getattr(
 )
 
 WAGTAIL_LMS_REDIRECT_MEDIA = getattr(settings, "WAGTAIL_LMS_REDIRECT_MEDIA", False)
+
+WAGTAIL_LMS_H5P_UPLOAD_PATH = getattr(
+    settings, "WAGTAIL_LMS_H5P_UPLOAD_PATH", "h5p_packages/"
+)
+
+WAGTAIL_LMS_H5P_CONTENT_PATH = getattr(
+    settings, "WAGTAIL_LMS_H5P_CONTENT_PATH", "h5p_content/"
+)

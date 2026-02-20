@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{#
+  Wagtail LMS Lesson Page Template
+
+  STYLING: This template uses CSS classes from 'wagtail_lms/css/course.css'.
+  Include the stylesheet in your base template's <head> section:
+
+    {% load static wagtailcore_tags %}
+    <link rel="stylesheet" href="{% static 'wagtail_lms/css/course.css' %}">
+
+  Alternatively, override this template with your own (Bootstrap, Tailwind, etc.).
+  See docs: https://github.com/dr-rompecabezas/wagtail-lms/blob/main/docs/template_customization.md
+#}
+{% load static wagtailcore_tags %}
+
+{% block title %}{{ page.title }}{% endblock %}
+
+{% block content %}
+<div class="lms-lesson">
+
+  <header class="lms-lesson__header">
+    <nav class="lms-lesson__nav">
+      {% with course=page.get_parent.specific %}
+        <a href="{{ course.url }}" class="lms-button lms-button--secondary">
+          &larr; {{ course.title }}
+        </a>
+      {% endwith %}
+    </nav>
+    <h1 class="lms-lesson__title">{{ page.title }}</h1>
+  </header>
+
+  <article class="lms-lesson__body">
+
+    {% if page.intro %}
+      <div class="lms-lesson__intro">
+        {{ page.intro|richtext }}
+      </div>
+    {% endif %}
+
+    {% for block in page.body %}
+      <div class="lms-lesson__block lms-lesson__block--{{ block.block_type }}">
+        {% include_block block %}
+      </div>
+    {% endfor %}
+
+  </article>
+
+</div>
+
+{% if page.has_h5p_activity_blocks %}
+  {# CSRF token for h5p-lesson.js xAPI fetch calls #}
+  {% csrf_token %}
+
+  {# h5p-standalone player — loaded once, shared by all activities on the page #}
+  <script
+    src="{% static 'wagtail_lms/vendor/h5p-standalone/main.bundle.js' %}"
+    data-frame-js="{% static 'wagtail_lms/vendor/h5p-standalone/frame.bundle.js' %}"
+    data-frame-css="{% static 'wagtail_lms/vendor/h5p-standalone/styles/h5p.css' %}"
+    data-h5p-css="{% static 'wagtail_lms/vendor/h5p-standalone/styles/h5p.css' %}"
+    data-user-name="{{ request.user.get_username }}"
+    id="h5p-standalone-script">
+  </script>
+  <script src="{% static 'wagtail_lms/js/h5p-lesson.js' %}"></script>
+{% endif %}
+
+<style>
+/* -----------------------------------------------------------------------
+   Lesson page layout — minimal, override in your own stylesheet.
+   ----------------------------------------------------------------------- */
+.lms-lesson {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 4rem;
+}
+
+.lms-lesson__header {
+  margin-bottom: 2rem;
+}
+
+.lms-lesson__nav {
+  margin-bottom: 1rem;
+}
+
+.lms-lesson__title {
+  font-size: 2rem;
+  margin: 0;
+}
+
+.lms-lesson__intro {
+  font-size: 1.1rem;
+  color: #555;
+  margin-bottom: 2rem;
+}
+
+.lms-lesson__block {
+  margin-bottom: 2.5rem;
+}
+
+/* H5P activity block */
+.lms-h5p-activity {
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.lms-h5p-activity__placeholder {
+  padding: 2rem;
+  text-align: center;
+  background: #f9f9f9;
+  color: #888;
+}
+
+.lms-h5p-activity__title {
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+  color: #333;
+}
+
+.lms-h5p-activity__loading {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.lms-h5p-activity__player {
+  /* Player div — h5p-standalone sizes itself; no fixed height needed */
+}
+</style>
+{% endblock %}

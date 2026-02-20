@@ -19,7 +19,18 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
 
 from . import conf
-from .models import CourseEnrollment, CoursePage, SCORMAttempt, SCORMData
+from .models import (
+    CourseEnrollment,
+    CoursePage,
+    H5PActivity,
+    H5PAttempt,
+    H5PContentUserData,
+    H5PXAPIStatement,
+    LessonCompletion,
+    LessonPage,
+    SCORMAttempt,
+    SCORMData,
+)
 
 
 def retry_on_db_lock(max_attempts=3, delay=0.1, backoff=2):
@@ -77,6 +88,110 @@ def _mark_enrollment_complete(attempt):
         course__scorm_package=attempt.scorm_package,
         completed_at__isnull=True,
     ).update(completed_at=timezone.now())
+
+
+def _collect_lesson_activity_ids(lesson_obj):
+    """Return the set of H5PActivity PKs referenced by a LessonPage's StreamField body.
+
+    Iterating a StreamValue yields BoundBlock objects; SnippetChooserBlock
+    resolves each activity FK to an instance (or None if deleted).
+    """
+    activity_ids = set()
+    for bound_block in lesson_obj.body:
+        if bound_block.block_type == "h5p_activity":
+            activity_instance = bound_block.value.get("activity")
+            if activity_instance is not None:
+                activity_ids.add(activity_instance.pk)
+    return activity_ids
+
+
+def _try_complete_lesson(attempt, lesson_obj):
+    """Mark a lesson complete if every H5P activity in it has been completed.
+
+    Returns the LessonCompletion instance (new or pre-existing) when all
+    activities are done, or None when at least one activity is still incomplete.
+    The get_or_create makes repeated calls idempotent.
+    """
+    activity_ids = _collect_lesson_activity_ids(lesson_obj)
+    if not activity_ids:
+        return None
+
+    completed_ids = set(
+        H5PAttempt.objects.filter(
+            user=attempt.user,
+            activity_id__in=activity_ids,
+            completion_status="completed",
+        ).values_list("activity_id", flat=True)
+    )
+
+    if completed_ids >= activity_ids:
+        completion, _ = LessonCompletion.objects.get_or_create(
+            user=attempt.user,
+            lesson=lesson_obj,
+        )
+        return completion
+    return None
+
+
+def _try_complete_course(attempt, course):
+    """Mark enrollment complete when all H5P-bearing lessons are complete.
+
+    Lessons without any H5PActivity blocks are informational-only and do not
+    produce LessonCompletion records, so they must not gate course completion.
+    Updates completed_at only when all trackable lessons are complete. The
+    completed_at__isnull=True guard makes repeated calls a no-op.
+    """
+    trackable_lesson_ids = {
+        lesson.pk
+        for lesson in LessonPage.objects.child_of(course).live()
+        if _collect_lesson_activity_ids(lesson)
+    }
+    if not trackable_lesson_ids:
+        return
+
+    completed_lesson_ids = set(
+        LessonCompletion.objects.filter(
+            user=attempt.user,
+            lesson_id__in=trackable_lesson_ids,
+        ).values_list("lesson_id", flat=True)
+    )
+
+    if completed_lesson_ids >= trackable_lesson_ids:
+        CourseEnrollment.objects.filter(
+            user=attempt.user,
+            course=course,
+            completed_at__isnull=True,
+        ).update(completed_at=timezone.now())
+
+
+def _mark_h5p_enrollment_complete(attempt):
+    """Orchestrate per-lesson and course-level completion checks.
+
+    Finds lessons containing the completed activity, marks each as complete
+    if all its activities are done, then propagates to course completion when
+    all lessons in the course are complete.
+
+    Enrollment is required: completion records must only be created for courses
+    the learner is enrolled in.
+    """
+    enrolled_course_ids = set(
+        CourseEnrollment.objects.filter(user=attempt.user).values_list(
+            "course_id", flat=True
+        )
+    )
+    if not enrolled_course_ids:
+        return
+
+    lookup = '"activity": ' + str(attempt.activity_id) + "}"
+    lesson_pages = LessonPage.objects.filter(live=True, body__icontains=lookup)
+    for lesson in lesson_pages:
+        parent = lesson.get_parent().specific
+        if not isinstance(parent, CoursePage):
+            continue
+        if parent.pk not in enrolled_course_ids:
+            continue
+        if _try_complete_lesson(attempt, lesson):
+            _try_complete_course(attempt, parent)
 
 
 @login_required
@@ -439,3 +554,358 @@ class ServeScormContentView(LoginRequiredMixin, View):
         self.apply_security_headers(response)
         self.apply_cache_header(response, content_type)
         return response
+
+
+class ServeH5PContentView(ServeScormContentView):
+    """Serve H5P content files with secure path validation.
+
+    Subclasses ServeScormContentView and overrides only the storage path
+    resolution to use the H5P content directory instead of SCORM.
+    All security checks, caching, and redirect logic are inherited.
+    """
+
+    def get_storage_path(self, normalized_content_path):
+        content_base = conf.WAGTAIL_LMS_H5P_CONTENT_PATH.rstrip("/")
+        return posixpath.join(content_base, normalized_content_path)
+
+
+# ---------------------------------------------------------------------------
+# H5P xAPI endpoint
+# ---------------------------------------------------------------------------
+
+# Maximum byte length accepted for a single H5P content-user-data value (64 KB).
+# H5P resume state is serialised JSON; typical payloads are well under 10 KB.
+_H5P_MAX_USER_DATA_BYTES = 65_536
+
+# xAPI verb IRIs that trigger attempt field updates
+_XAPI_COMPLETED = "http://adlnet.gov/expapi/verbs/completed"
+_XAPI_PASSED = "http://adlnet.gov/expapi/verbs/passed"
+_XAPI_FAILED = "http://adlnet.gov/expapi/verbs/failed"
+# Emitted by standalone question types (MultiChoice, TrueFalse, Blanks, DragDrop,
+# MarkTheWords, FindHotspot, Summary, ArithmeticQuiz, SpeakTheWords, Flashcards,
+# Crossword, Essay) as their primary terminal verb.  Also emitted by child questions
+# inside containers (QuestionSet, InteractiveVideo) — those must NOT trigger
+# completion; see _is_top_level_statement() below.
+_XAPI_ANSWERED = "http://adlnet.gov/expapi/verbs/answered"
+# Emitted by H5P.Essay when score == maxScore (alongside answered + passed).
+_XAPI_MASTERED = "http://adlnet.gov/expapi/verbs/mastered"
+# Activity Streams verb used by informational H5P types (H5P.Accordion, H5P.Column, …)
+# that have no meaningful "completed" state — treated as completion-equivalent so they
+# don't block lesson/course completion indefinitely.
+_XAPI_CONSUMED = "http://activitystrea.ms/schema/1.0/consume"
+_XAPI_SCORE_VERBS = {
+    _XAPI_COMPLETED,
+    _XAPI_PASSED,
+    _XAPI_FAILED,
+    _XAPI_ANSWERED,
+    _XAPI_MASTERED,
+    "http://adlnet.gov/expapi/verbs/scored",
+}
+
+# PositiveIntegerField portable max safe across Django-supported databases.
+_POSITIVE_INTEGER_DB_SAFE_MAX = 2_147_483_647
+
+
+def _is_top_level_statement(statement):
+    """Return True when the statement comes from the top-level H5P activity.
+
+    H5P containers (QuestionSet, InteractiveVideo, CoursePresentation, …) set
+    context.contextActivities.parent to the container IRI on every child-question
+    statement.  Our JS routing forwards those child statements because they match
+    the container through the parent-context fallback in statementMatchesActivity().
+    Without this guard, answering a single sub-question would prematurely trigger
+    lesson/course completion instead of waiting for the container's own `completed`.
+
+    Top-level statements from standalone activities have no parent context, so this
+    function returns True for them and the caller can safely trigger completion.
+    """
+    context = statement.get("context", {})
+    if not isinstance(context, dict):
+        return True
+    context_activities = context.get("contextActivities", {})
+    if not isinstance(context_activities, dict):
+        return True
+    parent = context_activities.get("parent")
+    if not parent:
+        return True
+    if isinstance(parent, list):
+        return len(parent) == 0
+    return False  # parent is a non-empty object or non-empty list
+
+
+def _apply_xapi_score(attempt, result):
+    """Extract score fields from an xAPI result object onto the attempt.
+
+    Returns True if any field was updated, False otherwise.
+    """
+    modified = False
+    score = result.get("score", {})
+    if not isinstance(score, dict):
+        return modified
+    for field, key in (
+        ("score_raw", "raw"),
+        ("score_max", "max"),
+        ("score_min", "min"),
+        ("score_scaled", "scaled"),
+    ):
+        if key in score:
+            try:
+                setattr(attempt, field, float(score[key]))
+                modified = True
+            except (ValueError, TypeError):
+                pass
+    return modified
+
+
+def _update_h5p_attempt(attempt, statement, verb_id):
+    """Update H5PAttempt fields from an xAPI statement.
+
+    Maps xAPI verbs to completion/success status and extracts score data
+    from the result object when present.
+
+    Completion and success are treated as orthogonal (following xAPI semantics):
+    - completion_status="completed" means the learner finished the activity
+    - success_status="passed"/"failed" captures outcome independently
+
+    answered is only treated as a terminal verb for standalone (top-level)
+    activities; child-question answered statements inside containers are
+    ignored for completion purposes — the container emits its own completed.
+    """
+    modified = False
+    result = statement.get("result", {})
+    is_top_level = _is_top_level_statement(statement)
+
+    if verb_id == _XAPI_COMPLETED:
+        attempt.completion_status = "completed"
+        modified = True
+    elif verb_id == _XAPI_PASSED:
+        attempt.completion_status = "completed"
+        attempt.success_status = "passed"
+        modified = True
+    elif verb_id == _XAPI_MASTERED:
+        attempt.completion_status = "completed"
+        attempt.success_status = "passed"
+        modified = True
+    elif verb_id == _XAPI_FAILED:
+        attempt.completion_status = "completed"
+        attempt.success_status = "failed"
+        modified = True
+    elif verb_id == _XAPI_CONSUMED:
+        attempt.completion_status = "completed"
+        modified = True
+    elif verb_id == _XAPI_ANSWERED and is_top_level:
+        attempt.completion_status = "completed"
+        modified = True
+
+    if verb_id in _XAPI_SCORE_VERBS:
+        modified = _apply_xapi_score(attempt, result) or modified
+
+    if modified:
+        attempt.save()
+
+    _unconditional_completion_verbs = {
+        _XAPI_COMPLETED,
+        _XAPI_PASSED,
+        _XAPI_MASTERED,
+        _XAPI_FAILED,
+        _XAPI_CONSUMED,
+    }
+    if verb_id in _unconditional_completion_verbs or (
+        verb_id == _XAPI_ANSWERED and is_top_level
+    ):
+        _mark_h5p_enrollment_complete(attempt)
+
+
+def _parse_h5p_user_data_params(request):
+    """Parse and validate query params for H5P content user data endpoint."""
+    data_type = request.GET.get("dataType", "").strip()
+    if not data_type:
+        return (
+            None,
+            None,
+            JsonResponse({"success": False, "message": "Missing dataType"}, status=400),
+        )
+    if len(data_type) > 255:
+        return (
+            None,
+            None,
+            JsonResponse(
+                {"success": False, "message": "dataType too long"}, status=400
+            ),
+        )
+
+    sub_content_raw = request.GET.get("subContentId", "0")
+    try:
+        sub_content_id = int(sub_content_raw)
+    except (TypeError, ValueError):
+        return (
+            None,
+            None,
+            JsonResponse(
+                {"success": False, "message": "Invalid subContentId"}, status=400
+            ),
+        )
+    if sub_content_id < 0:
+        return (
+            None,
+            None,
+            JsonResponse(
+                {"success": False, "message": "Invalid subContentId"}, status=400
+            ),
+        )
+    if sub_content_id > _POSITIVE_INTEGER_DB_SAFE_MAX:
+        return (
+            None,
+            None,
+            JsonResponse(
+                {"success": False, "message": "Invalid subContentId"}, status=400
+            ),
+        )
+
+    return data_type, sub_content_id, None
+
+
+def _h5p_user_data_get_response(user, activity, data_type, sub_content_id):
+    """Return stored H5P user-data payload for a user+activity (or false)."""
+    attempt = H5PAttempt.objects.filter(user=user, activity=activity).first()
+    if not attempt:
+        return JsonResponse({"success": True, "data": False})
+
+    user_data = H5PContentUserData.objects.filter(
+        attempt=attempt,
+        data_type=data_type,
+        sub_content_id=sub_content_id,
+    ).first()
+    if not user_data:
+        return JsonResponse({"success": True, "data": False})
+
+    return JsonResponse({"success": True, "data": user_data.value})
+
+
+def _store_h5p_user_data(user, activity, data_type, sub_content_id, raw_data):
+    """Create/update/delete persisted H5P user-data payload for resume state."""
+    attempt, _ = H5PAttempt.objects.get_or_create(user=user, activity=activity)
+
+    # H5P sends data=0 when clearing/resetting a dataType value.
+    if raw_data == "0":
+        H5PContentUserData.objects.filter(
+            attempt=attempt,
+            data_type=data_type,
+            sub_content_id=sub_content_id,
+        ).delete()
+    else:
+        H5PContentUserData.objects.update_or_create(
+            attempt=attempt,
+            data_type=data_type,
+            sub_content_id=sub_content_id,
+            defaults={"value": raw_data},
+        )
+
+    attempt.save(update_fields=["last_accessed"])
+
+
+@csrf_exempt
+@login_required
+def h5p_content_user_data_view(request, activity_id):
+    """Store/load H5P content user data for resume/progress state.
+
+    Expected query params:
+      - dataType (string)
+      - subContentId (int, optional; defaults to 0)
+
+    GET returns:
+      {"success": true, "data": <string|false>}
+
+    POST expects form data:
+      - data: string payload (H5P sends "0" when clearing)
+    """
+    if request.method not in ("GET", "POST"):
+        return JsonResponse(
+            {"success": False, "message": "Method not allowed"}, status=405
+        )
+
+    data_type, sub_content_id, error_response = _parse_h5p_user_data_params(request)
+    if error_response is not None:
+        return error_response
+
+    activity = get_object_or_404(H5PActivity, id=activity_id)
+
+    if request.method == "GET":
+        return _h5p_user_data_get_response(
+            request.user, activity, data_type, sub_content_id
+        )
+
+    raw_data = request.POST.get("data")
+    if raw_data is None:
+        return JsonResponse({"success": False, "message": "Missing data"}, status=400)
+
+    if raw_data != "0" and len(raw_data.encode("utf-8")) > _H5P_MAX_USER_DATA_BYTES:
+        return JsonResponse({"success": False, "message": "data too large"}, status=413)
+
+    _store_h5p_user_data(request.user, activity, data_type, sub_content_id, raw_data)
+
+    return JsonResponse({"success": True})
+
+
+@login_required
+def h5p_xapi_view(request, activity_id):
+    """Receive and store an xAPI statement from an H5P activity.
+
+    Called by the lesson page JavaScript whenever H5P emits an xAPI event.
+    Creates an H5PAttempt on the first interaction (lazy creation), stores
+    the raw statement, and updates the attempt's progress fields.
+
+    CSRF protection is active because the POST originates from our own
+    page JavaScript, not from inside an iframe we don't control.
+    """
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    activity = get_object_or_404(H5PActivity, id=activity_id)
+
+    try:
+        statement = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    if not isinstance(statement, dict):
+        return JsonResponse({"error": "Expected a JSON object"}, status=400)
+
+    # Reject payloads where optional nested fields are present but not objects;
+    # calling .get() on a list/string would raise AttributeError and 500.
+    verb_field = statement.get("verb")
+    # verb is required and must be a JSON object (null is not acceptable)
+    if not isinstance(verb_field, dict):
+        return JsonResponse({"error": "verb must be a JSON object"}, status=400)
+    result_field = statement.get("result")
+    if result_field is not None and not isinstance(result_field, dict):
+        return JsonResponse({"error": "result must be a JSON object"}, status=400)
+
+    # Lazy-create the attempt on first interaction
+    attempt, _ = H5PAttempt.objects.get_or_create(
+        user=request.user,
+        activity=activity,
+    )
+
+    # Extract verb metadata
+    verb = verb_field  # already validated as a dict above
+    verb_id = verb.get("id", "")
+    # display may be absent or may arrive as a non-dict value from broken
+    # clients; treat anything that is not a plain dict as empty.
+    verb_display_map = verb.get("display")
+    if not isinstance(verb_display_map, dict):
+        verb_display_map = {}
+    verb_display = next(iter(verb_display_map.values()), "")
+
+    # Persist the raw statement
+    H5PXAPIStatement.objects.create(
+        attempt=attempt,
+        verb=verb_id,
+        verb_display=verb_display,
+        statement=statement,
+    )
+
+    # Update attempt progress fields
+    _update_h5p_attempt(attempt, statement, verb_id)
+
+    return JsonResponse({"status": "ok"})

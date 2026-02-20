@@ -25,6 +25,43 @@
                 </div>
             {% endif %}
 
+            {% if lesson_pages %}
+                <div class="lms-course__info">
+                    <h3>Course Lessons</h3>
+                    <ol class="lms-lesson-list">
+                        {% for lesson in lesson_pages %}
+                            <li class="lms-lesson-list__item{% if lesson.pk in completed_lesson_ids %} lms-lesson-list__item--completed{% endif %}">
+                                <a href="{% pageurl lesson %}" class="lms-lesson-list__link">{{ lesson.title }}</a>
+                                {% if lesson.pk in completed_lesson_ids %}<span class="lms-lesson-list__checkmark" aria-label="Completed">&#10003;</span>{% endif %}
+                            </li>
+                        {% endfor %}
+                    </ol>
+                </div>
+
+                {% if user.is_authenticated %}
+                    {% if enrollment %}
+                        <div class="lms-enrollment">
+                            <div class="lms-notice lms-notice--info">
+                                <strong>Enrolled:</strong> {{ enrollment.enrolled_at|date:"M d, Y" }}
+                                {% if enrollment.completed_at %}
+                                    <br><strong>Completed:</strong> {{ enrollment.completed_at|date:"M d, Y" }}
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="lms-enrollment">
+                            <a href="{% url 'wagtail_lms:enroll_course' page.id %}" class="lms-button lms-button--success">
+                                Enroll in Course
+                            </a>
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <div class="lms-notice lms-notice--warning">
+                        Please login to enroll in this course.
+                    </div>
+                {% endif %}
+            {% endif %}
+
             {% if page.scorm_package %}
                 <div class="lms-course__info">
                     <h3>Course Content</h3>
@@ -67,7 +104,9 @@
                         Please login to enroll in this course.
                     </div>
                 {% endif %}
-            {% else %}
+            {% endif %}
+
+            {% if not lesson_pages and not page.scorm_package %}
                 <div class="lms-notice lms-notice--warning">
                     This course doesn't have any content assigned yet.
                 </div>
@@ -77,12 +116,15 @@
         <aside class="lms-course__sidebar">
             <div class="lms-sidebar-section">
                 <h4>Course Information</h4>
-                {% if page.scorm_package %}
-                    <ul class="lms-info-list">
+                <ul class="lms-info-list">
+                    {% if lesson_pages %}
+                        <li><strong>Lessons:</strong> {{ lesson_pages|length }}</li>
+                    {% endif %}
+                    {% if page.scorm_package %}
                         <li><strong>Type:</strong> SCORM {{ page.scorm_package.version }}</li>
                         <li><strong>Added:</strong> {{ page.scorm_package.created_at|date:"M d, Y" }}</li>
-                    </ul>
-                {% endif %}
+                    {% endif %}
+                </ul>
             </div>
         </aside>
     </div>

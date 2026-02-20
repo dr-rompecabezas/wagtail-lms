@@ -8,7 +8,7 @@
     <title>{% block title %}{% if page %}{{ page.title }}{% else %}Wagtail LMS Example{% endif %}{% endblock %}</title>
 
     {# LMS Default Styles #}
-    <link rel="stylesheet" href="{% static 'lms/css/course.css' %}">
+    <link rel="stylesheet" href="{% static 'wagtail_lms/css/course.css' %}">
 
     {# Example Project Styles #}
     <style>
@@ -85,6 +85,7 @@
         <a href="/admin/">Wagtail Admin</a>
         <a href="/django-admin/">Django Admin</a>
         <a href="/admin/scormpackage/">SCORM Packages</a>
+        <a href="/admin/h5pactivity/">H5P Activities</a>
     </nav>
 
     <main>

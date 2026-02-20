@@ -8,7 +8,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ("wagtailcore", "0094_alter_page_locale"),
+        ("wagtailcore", "0091_remove_revision_submitted_for_moderation"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 

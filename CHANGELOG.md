@@ -5,7 +5,72 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.9.0] - 2026-02-20
+
+### Added
+
+- **H5P activity support** ([#57](https://github.com/dr-rompecabezas/wagtail-lms/issues/57), [#60](https://github.com/dr-rompecabezas/wagtail-lms/issues/60), [#65](https://github.com/dr-rompecabezas/wagtail-lms/issues/65), [#66](https://github.com/dr-rompecabezas/wagtail-lms/issues/66))
+  - `H5PActivity` Wagtail snippet — upload `.h5p` packages, auto-extract to any Django storage backend (local, S3, etc.), parse `h5p.json` metadata; choosable in lesson composition blocks; respects `WAGTAIL_LMS_H5P_UPLOAD_PATH` and `WAGTAIL_LMS_H5P_CONTENT_PATH` settings
+  - `LessonPage` Wagtail page — long-scroll layout with `StreamField` body (`RichTextBlock` + `H5PActivityBlock`); enforces page hierarchy under `CoursePage`; enrollment gate in `serve()` redirects unenrolled users to the parent course
+  - `H5PAttempt` — per-user, per-activity progress record (completion/success status, raw/min/max/scaled scores); lazily created on first xAPI event; DB-level `unique_together` on `(user, activity)`
+  - `H5PXAPIStatement` — append-only xAPI statement log with verb display and full raw payload
+  - `POST /lms/h5p-xapi/<activity_id>/` — CSRF-protected xAPI ingestion endpoint; validates that `verb` and `result` are JSON objects (returns 400 otherwise); maps `completed`, `passed`, `failed`, and `scored` verbs to attempt fields; sets `CourseEnrollment.completed_at` on `completed` or `passed`
+  - `GET /lms/h5p-content/<path>` — authenticated H5P asset serving via `ServeH5PContentView`, a subclass of `ServeScormContentView`; inherits the same extensibility hooks (`get_storage_path`, `get_cache_control`, `should_redirect`, `get_redirect_url`) and path-traversal protection; content URL built via `reverse()` so any URL mount point is respected
+  - `H5PActivityViewSet` (full CRUD) and `H5PAttemptViewSet` (read-only) added to the `LMSViewSetGroup` Wagtail admin menu; Django admin registrations included
+  - **h5p-standalone v3.8.0** (MIT) vendored: `main.bundle.js`, `frame.bundle.js`, `styles/h5p.css`
+  - `h5p-lesson.js` — `IntersectionObserver` lazy loading (300 px look-ahead); xAPI listener registered synchronously before player init so the same activity embedded multiple times on a page never double-posts; `X-CSRFToken` on every fetch; append `?h5pLazy=0` to the lesson URL to disable lazy loading and initialise all activities immediately (useful for debugging); append `?h5pDebug=1` to enable verbose console logging of xAPI routing decisions, resume preload results, and dispatcher lifecycle events
+  - H5P file cleanup on package deletion via `post_delete` signal, mirroring existing SCORM behaviour
+  - Example project updated with H5P workflow documentation and navigation link
+
+- **H5P resume state persistence**
+  - `H5PContentUserData` model — stores per-user, per-activity H5P runtime state keyed by `(attempt, data_type, sub_content_id)`; `unique_together` constraint prevents duplicate rows; auto-managed `created_at`/`updated_at` timestamps
+  - `GET /lms/h5p-content-user-data/<activity_id>/` — returns saved state payload or `{"success": true, "data": false}` for first-time learners; does not create an attempt record on read
+  - `POST /lms/h5p-content-user-data/<activity_id>/` — stores or updates state payload; H5P's clear signal (`data=0`) deletes the row; rejects payloads exceeding 64 KB (HTTP 413) to prevent storage exhaustion
+  - State is pre-fetched before H5P Standalone initialises and passed as `contentUserData` so learners resume where they left off without an extra round-trip after load
+  - Verified with `H5P.QuestionSet`; Django admin registration included
+
+- **Per-lesson completion tracking** (closes [#69](https://github.com/dr-rompecabezas/wagtail-lms/issues/69))
+  - `LessonCompletion` model — records when a user has completed every H5P activity in a `LessonPage`; `unique_together = ("user", "lesson")` prevents duplicate rows; idempotent via `get_or_create`
+  - Course enrollment is now marked complete only when every live lesson in the course has a `LessonCompletion` record, replacing the previous single-activity trigger
+  - `CoursePage.get_context()` now emits `completed_lesson_ids` (a `set` of lesson PKs) so the template can render per-lesson progress indicators in a single extra query
+  - `course_page.html` lesson items gain `lms-lesson-list__item--completed` CSS class and a checkmark (`✓`) when the lesson has a completion record
+  - `LessonCompletionViewSet` (read-only) added to the `LMSViewSetGroup` Wagtail admin menu; Django admin registration included
+  - Comprehensive xAPI verb coverage — all verbs that signal a learner has fully interacted with an activity now trigger lesson/course completion:
+    - `completed`, `passed` — unchanged behaviour
+    - `answered` (top-level only) — primary terminal verb for standalone question types (MultiChoice, TrueFalse, Blanks, DragDrop, MarkTheWords, FindHotspot, Summary, ArithmeticQuiz, SpeakTheWords, Flashcards, Crossword, Essay); child-question `answered` statements from inside containers (QuestionSet, InteractiveVideo, etc.) are filtered out via `context.contextActivities.parent` so they don't prematurely complete a lesson
+    - `mastered` — emitted by H5P.Essay on a perfect score; treated as `completed + passed`
+    - `failed` — completion and success are now tracked orthogonally; a learner who submits and fails has still finished the activity and must not be blocked from progressing
+    - `consumed` (`http://activitystrea.ms/schema/1.0/consume`) — emitted by informational types (H5P.Accordion, H5P.Column) that have no pass/fail state (closes [#70](https://github.com/dr-rompecabezas/wagtail-lms/issues/70))
+
+- **System check `wagtail_lms.W001`** ([#65](https://github.com/dr-rompecabezas/wagtail-lms/issues/65))
+  - Raised at startup when a `CoursePage` subclass defines `subpage_types` without `"wagtail_lms.LessonPage"`, preventing the Wagtail editor from silently omitting lessons; see `docs/api.md` for the upgrade guide
+
+- **Course page lists and links to lesson pages**
+  - `CoursePage.get_context()` now includes `lesson_pages` (live `LessonPage` children, ordered by tree position)
+  - `course_page.html` displays a numbered lesson list with direct links when lessons exist; enrolled users see their enrollment date, unenrolled users see an enroll CTA
+  - The "no content" notice now correctly reflects courses that have neither a SCORM package nor any lesson pages
+  - Sidebar shows the lesson count alongside existing SCORM metadata
+
+### Fixed
+
+- **H5P completion now requires enrollment before writing lesson/course progress**
+  - `_mark_h5p_enrollment_complete()` now skips completion writes unless the user has a `CourseEnrollment` for the parent course
+  - Prevents pre-enrollment xAPI submissions from pre-creating `LessonCompletion` records and bypassing course progression gates after later enrollment
+
+- **Migration compatibility restored for Wagtail 6.0/6.1 baselines**
+  - `wagtailcore` migration dependencies were aligned to the oldest shared node (`0091_remove_revision_submitted_for_moderation`) across app and example migrations
+  - H5P `StreamField` migration serialization was rewritten to explicit block classes (no `block_lookup` kwarg), so historical migrations load on supported Wagtail 6.x versions
+
+- **Security: path-normalization bypass in ZIP extraction and content-directory deletion**
+  - `posixpath.normpath("a/..")` resolves to `"."`, which previously passed the traversal guard; in the deletion path this would have wiped the entire base content directory on package removal. Guard now also rejects the `"."` result. Fix applied to ZIP extraction in both the SCORM and H5P extractors and to `_delete_extracted_content`.
+
+- **Example project: broken CSS path since v0.4.0**
+  - `base.html` still referenced `lms/css/course.css` after static assets moved to `wagtail_lms/css/course.css` in v0.4.0; LMS styles were silently absent in the example project. Corrected to `{% static 'wagtail_lms/css/course.css' %}`.
+
+### Known Limitations (0.9.0)
+
+- Activities that emit only `consumed` (e.g. `H5P.Accordion`) do not persist resume state — they have no meaningful resume position, so resetting on reload is the correct behaviour
+- Resume state has been verified with `H5P.QuestionSet`; other activity types have not yet been systematically tested ([#71](https://github.com/dr-rompecabezas/wagtail-lms/issues/71))
 
 ### Changed
 
@@ -14,6 +79,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Set `WAGTAIL_LMS_AUTO_ENROLL = True` to keep the v0.8.1 auto-enrollment flow
 
 ## [0.8.1] - 2026-02-19
+
+### Added
+
+- Python 3.14 support; CI matrix rebalanced to two entries per Python version (3.11–3.14)
 
 ### Fixed
 
@@ -26,10 +95,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Setting was defined in `conf.py` but never read; the SCORM player always auto-enrolled users
   - Default changed from `False` → `True` to preserve existing behaviour
   - With `WAGTAIL_LMS_AUTO_ENROLL = False`, unenrolled users who reach the SCORM player are redirected to the course page with an error message instead of being silently enrolled
-
-### Added
-
-- Python 3.14 support; CI matrix rebalanced to two entries per Python version (3.11–3.14)
 
 ## [0.8.0] - 2026-02-16
 

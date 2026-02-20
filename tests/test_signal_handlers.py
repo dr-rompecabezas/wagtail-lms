@@ -11,7 +11,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import models
 
 from wagtail_lms import conf
-from wagtail_lms.models import SCORMPackage
+from wagtail_lms.models import H5PActivity, SCORMPackage
 from wagtail_lms.signal_handlers import _delete_extracted_content
 
 
@@ -30,6 +30,24 @@ def _make_scorm_zip(manifest_xml, content_filename="index.html"):
 def _content_prefix(extracted_path):
     """Build the storage prefix for extracted content using the configured path."""
     return conf.WAGTAIL_LMS_CONTENT_PATH.rstrip("/") + "/" + extracted_path
+
+
+def _make_h5p_zip():
+    """Helper to create a minimal H5P ZIP file."""
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr(
+            "h5p.json",
+            (
+                '{"title":"Signal Handler Test","mainLibrary":"H5P.MultiChoice",'
+                '"embedTypes":["div"],"license":"U"}'
+            ),
+        )
+        zf.writestr("content/content.json", '{"foo":"bar"}')
+    buf.seek(0)
+    return SimpleUploadedFile(
+        "test.h5p", buf.getvalue(), content_type="application/zip"
+    )
 
 
 @pytest.mark.django_db(transaction=True)
@@ -159,10 +177,21 @@ class TestSCORMPackageDeletion:
         dirs, files = default_storage.listdir(prefix)
         assert len(files) == 0
 
-    def test_path_traversal_rejected(self):
-        """extracted_path with traversal segments is refused."""
+    @pytest.mark.parametrize(
+        "bad_path",
+        [
+            "../../etc",  # classic traversal
+            "a/..",  # normalizes to "." — would target the base dir
+            ".",  # explicit dot
+            "",  # empty string
+            "foo/bar",  # nested path (only top-level dirs expected)
+            "/etc",  # absolute path
+        ],
+    )
+    def test_path_traversal_rejected(self, bad_path):
+        """Suspicious extracted_path values are refused without touching storage."""
         with patch("wagtail_lms.signal_handlers.default_storage") as mock_storage:
-            _delete_extracted_content("../../etc")
+            _delete_extracted_content(bad_path, conf.WAGTAIL_LMS_CONTENT_PATH)
             mock_storage.listdir.assert_not_called()
             mock_storage.delete.assert_not_called()
 
@@ -181,3 +210,62 @@ class TestSCORMPackageDeletion:
 
         assert "Failed to delete package file" in caplog.text
         assert zip_name in caplog.text
+
+
+@pytest.mark.django_db(transaction=True)
+class TestH5PActivityDeletion:
+    def _create_activity(self, settings, tmp_path):
+        media_root = tmp_path / "media"
+        settings.MEDIA_ROOT = str(media_root)
+        os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
+
+        activity = H5PActivity(
+            title="Cleanup Test",
+            package_file=_make_h5p_zip(),
+        )
+        activity.save()
+        return activity
+
+    def test_delete_passes_h5p_content_base_path(self, settings, tmp_path):
+        activity = self._create_activity(settings, tmp_path)
+        extracted_path = activity.extracted_path
+
+        with patch(
+            "wagtail_lms.signal_handlers._delete_extracted_content"
+        ) as mock_delete_extracted:
+            activity.delete()
+
+        mock_delete_extracted.assert_called_once_with(
+            extracted_path, conf.WAGTAIL_LMS_H5P_CONTENT_PATH
+        )
+
+    def test_file_delete_error_logged(self, settings, tmp_path, caplog):
+        """Errors during H5P package deletion are logged, not raised."""
+        activity = self._create_activity(settings, tmp_path)
+        pkg_name = activity.package_file.name
+
+        with (
+            patch(
+                "wagtail_lms.signal_handlers.default_storage.delete",
+                side_effect=OSError("disk error"),
+            ),
+            patch("wagtail_lms.signal_handlers._delete_extracted_content"),
+        ):
+            activity.delete()
+
+        assert "Failed to delete H5P package file" in caplog.text
+        assert pkg_name in caplog.text
+
+    def test_extracted_content_delete_error_logged(self, settings, tmp_path, caplog):
+        """Errors during extracted H5P cleanup are logged, not raised."""
+        activity = self._create_activity(settings, tmp_path)
+        extracted_path = activity.extracted_path
+
+        with patch(
+            "wagtail_lms.signal_handlers._delete_extracted_content",
+            side_effect=OSError("disk error"),
+        ):
+            activity.delete()
+
+        assert "Failed to delete extracted H5P content" in caplog.text
+        assert extracted_path in caplog.text
