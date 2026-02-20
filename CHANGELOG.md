@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.9.0] - 2026-02-19
+## [0.9.0] - 2026-02-20
 
 ### Added
 
@@ -21,6 +21,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `h5p-lesson.js` — `IntersectionObserver` lazy loading (300 px look-ahead); xAPI listener registered synchronously before player init so the same activity embedded multiple times on a page never double-posts; `X-CSRFToken` on every fetch
   - H5P file cleanup on package deletion via `post_delete` signal, mirroring existing SCORM behaviour
   - Example project updated with H5P workflow documentation and navigation link
+
+- **H5P resume state persistence**
+  - `H5PContentUserData` model — stores per-user, per-activity H5P runtime state keyed by `(attempt, data_type, sub_content_id)`; `unique_together` constraint prevents duplicate rows; auto-managed `created_at`/`updated_at` timestamps
+  - `GET /lms/h5p-content-user-data/<activity_id>/` — returns saved state payload or `{"success": true, "data": false}` for first-time learners; does not create an attempt record on read
+  - `POST /lms/h5p-content-user-data/<activity_id>/` — stores or updates state payload; H5P's clear signal (`data=0`) deletes the row; rejects payloads exceeding 64 KB (HTTP 413) to prevent storage exhaustion
+  - State is pre-fetched before H5P Standalone initialises and passed as `contentUserData` so learners resume where they left off without an extra round-trip after load
+  - Verified with `H5P.QuestionSet`; Django admin registration included
 
 - **System check `wagtail_lms.W001`** ([#65](https://github.com/dr-rompecabezas/wagtail-lms/issues/65))
   - Raised at startup when a `CoursePage` subclass defines `subpage_types` without `"wagtail_lms.LessonPage"`, preventing the Wagtail editor from silently omitting lessons; see `docs/api.md` for the upgrade guide
