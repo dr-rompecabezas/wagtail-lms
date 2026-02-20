@@ -12,6 +12,7 @@ from django.contrib.auth.views import redirect_to_login
 from django.core.exceptions import ValidationError
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
+from django.core.files.uploadedfile import UploadedFile
 from django.db import models, transaction
 from django.shortcuts import redirect
 from django.urls import reverse
@@ -329,30 +330,42 @@ class H5PActivity(models.Model):
 
         Checks ZIP integrity (CRC) so a corrupted upload surfaces as a
         user-visible form validation error rather than an unhandled 500.
+
+        Accesses the underlying UploadedFile directly rather than via
+        FieldFile.open(), because FieldFile.open() used in a ``with``
+        block closes (and on macOS/Linux deletes) the TemporaryUploadedFile
+        before save() can commit it to storage.
         """
-        if self.package_file:
-            try:
-                with self.package_file.open("rb") as fh:
-                    with zipfile.ZipFile(fh, "r") as zf:
-                        bad_file = zf.testzip()
-                if bad_file is not None:
-                    raise ValidationError(
-                        {
-                            "package_file": (
-                                f"The uploaded file is corrupted "
-                                f"(CRC error in '{bad_file}'). "
-                                "Please re-download and try again."
-                            )
-                        }
+        # Only validate freshly uploaded files. For existing saved files
+        # (editing without changing the package) there is nothing to check.
+        raw_file = getattr(self.package_file, "_file", None)
+        if not isinstance(raw_file, UploadedFile):
+            return
+
+        try:
+            raw_file.seek(0)
+            with zipfile.ZipFile(raw_file) as zf:
+                bad_file = zf.testzip()
+            raw_file.seek(0)  # Reset so save() can read the file.
+        except zipfile.BadZipFile as exc:
+            raise ValidationError(
+                {
+                    "package_file": (
+                        f"The uploaded file is not a valid ZIP archive: {exc}"
                     )
-            except zipfile.BadZipFile as exc:
-                raise ValidationError(
-                    {
-                        "package_file": (
-                            f"The uploaded file is not a valid ZIP archive: {exc}"
-                        )
-                    }
-                ) from exc
+                }
+            ) from exc
+
+        if bad_file is not None:
+            raise ValidationError(
+                {
+                    "package_file": (
+                        f"The uploaded file is corrupted "
+                        f"(CRC error in '{bad_file}'). "
+                        "Please re-download and try again."
+                    )
+                }
+            )
 
     def extract_package(self):
         """Extract H5P package and parse h5p.json.

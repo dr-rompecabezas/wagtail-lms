@@ -320,6 +320,31 @@ class TestH5PActivity:
         errors = exc_info.value.message_dict
         assert "package_file" in errors
 
+    def test_clean_does_not_consume_uploaded_file(self, settings, tmp_path, db):
+        """clean() leaves the UploadedFile readable so save() can commit it.
+
+        Using FieldFile.open() in a ``with`` block would close (and on
+        systems with delete=True NamedTemporaryFile, delete) the temp file
+        before save() runs.  Accessing _file directly avoids this.
+        """
+        settings.MEDIA_ROOT = str(tmp_path / "media")
+
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr("h5p.json", json.dumps(H5P_JSON))
+            zf.writestr("content/content.json", json.dumps(CONTENT_JSON))
+        valid = SimpleUploadedFile(
+            "valid.h5p", buf.getvalue(), content_type="application/zip"
+        )
+
+        activity = H5PActivity(title="Valid", package_file=valid)
+        activity.clean()  # Must not consume/close the file
+
+        # The file object must still be readable after clean().
+        raw = activity.package_file._file
+        raw.seek(0)
+        assert raw.read(2) == b"PK"  # ZIP magic bytes
+
     def test_str(self, h5p_activity):
         assert str(h5p_activity) == "Test H5P Activity"
 
