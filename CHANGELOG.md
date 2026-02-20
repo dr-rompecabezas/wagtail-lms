@@ -15,10 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `H5PAttempt` — per-user, per-activity progress record (completion/success status, raw/min/max/scaled scores); lazily created on first xAPI event; DB-level `unique_together` on `(user, activity)`
   - `H5PXAPIStatement` — append-only xAPI statement log with verb display and full raw payload
   - `POST /lms/h5p-xapi/<activity_id>/` — CSRF-protected xAPI ingestion endpoint; validates that `verb` and `result` are JSON objects (returns 400 otherwise); maps `completed`, `passed`, `failed`, and `scored` verbs to attempt fields; sets `CourseEnrollment.completed_at` on `completed` or `passed`
-  - `GET /lms/h5p-content/<path>` — authenticated H5P asset serving with path-traversal protection; content URL built via `reverse()` so any URL mount point is respected
+  - `GET /lms/h5p-content/<path>` — authenticated H5P asset serving via `ServeH5PContentView`, a subclass of `ServeScormContentView`; inherits the same extensibility hooks (`get_storage_path`, `get_cache_control`, `should_redirect`, `get_redirect_url`) and path-traversal protection; content URL built via `reverse()` so any URL mount point is respected
   - `H5PActivityViewSet` (full CRUD) and `H5PAttemptViewSet` (read-only) added to the `LMSViewSetGroup` Wagtail admin menu; Django admin registrations included
   - **h5p-standalone v3.8.0** (MIT) vendored: `main.bundle.js`, `frame.bundle.js`, `styles/h5p.css`
-  - `h5p-lesson.js` — `IntersectionObserver` lazy loading (300 px look-ahead); xAPI listener registered synchronously before player init so the same activity embedded multiple times on a page never double-posts; `X-CSRFToken` on every fetch
+  - `h5p-lesson.js` — `IntersectionObserver` lazy loading (300 px look-ahead); xAPI listener registered synchronously before player init so the same activity embedded multiple times on a page never double-posts; `X-CSRFToken` on every fetch; append `?h5pLazy=0` to the lesson URL to disable lazy loading and initialise all activities immediately (useful for debugging); append `?h5pDebug=1` to enable verbose console logging of xAPI routing decisions, resume preload results, and dispatcher lifecycle events
   - H5P file cleanup on package deletion via `post_delete` signal, mirroring existing SCORM behaviour
   - Example project updated with H5P workflow documentation and navigation link
 
