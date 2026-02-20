@@ -560,7 +560,7 @@ class CoursePage(Page):
 
 
 class LessonPage(Page):
-    """A Rise-style long-scroll lesson page, child of CoursePage.
+    """A long-scroll lesson page, child of CoursePage.
 
     Composes rich text and H5P activities into a single scrollable page.
     Access is gated to users enrolled in the parent CoursePage.

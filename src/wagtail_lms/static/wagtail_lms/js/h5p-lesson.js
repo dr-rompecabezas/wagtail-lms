@@ -515,7 +515,7 @@
      Lazy-load via IntersectionObserver.
 
      Activities are observed and initialised when they are within 300px of
-     the viewport, matching the progressive-reveal behaviour of Rise.
+     the viewport for progressive loading as the learner scrolls.
      ----------------------------------------------------------------------- */
   var containers = document.querySelectorAll('.lms-h5p-activity');
 
