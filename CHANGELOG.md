@@ -53,6 +53,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **H5P completion now requires enrollment before writing lesson/course progress**
+  - `_mark_h5p_enrollment_complete()` now skips completion writes unless the user has a `CourseEnrollment` for the parent course
+  - Prevents pre-enrollment xAPI submissions from pre-creating `LessonCompletion` records and bypassing course progression gates after later enrollment
+
+- **Migration compatibility restored for Wagtail 6.0/6.1 baselines**
+  - `wagtailcore` migration dependencies were aligned to the oldest shared node (`0091_remove_revision_submitted_for_moderation`) across app and example migrations
+  - H5P `StreamField` migration serialization was rewritten to explicit block classes (no `block_lookup` kwarg), so historical migrations load on supported Wagtail 6.x versions
+
 - **Security: path-normalization bypass in ZIP extraction and content-directory deletion**
   - `posixpath.normpath("a/..")` resolves to `"."`, which previously passed the traversal guard; in the deletion path this would have wiped the entire base content directory on package removal. Guard now also rejects the `"."` result. Fix applied to ZIP extraction in both the SCORM and H5P extractors and to `_delete_extracted_content`.
 
