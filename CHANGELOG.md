@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `CoursePage.get_context()` now emits `completed_lesson_ids` (a `set` of lesson PKs) so the template can render per-lesson progress indicators in a single extra query
   - `course_page.html` lesson items gain `lms-lesson-list__item--completed` CSS class and a checkmark (`✓`) when the lesson has a completion record
   - `LessonCompletionViewSet` (read-only) added to the `LMSViewSetGroup` Wagtail admin menu; Django admin registration included
+  - `consumed` verb (`http://activitystrea.ms/schema/1.0/consume`) — emitted by informational H5P types such as `H5P.Accordion` and `H5P.Column` that have no meaningful "completed" state — is now treated as completion-equivalent, so these activities no longer block lesson or course completion (closes [#70](https://github.com/dr-rompecabezas/wagtail-lms/issues/70))
 
 - **System check `wagtail_lms.W001`** ([#65](https://github.com/dr-rompecabezas/wagtail-lms/issues/65))
   - Raised at startup when a `CoursePage` subclass defines `subpage_types` without `"wagtail_lms.LessonPage"`, preventing the Wagtail editor from silently omitting lessons; see `docs/api.md` for the upgrade guide
@@ -55,7 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Known Limitations (0.9.0)
 
-- Activities that report `consumed` rather than `completed` (e.g. `H5P.Accordion`) do not persist state — they have no meaningful resume position, so resetting on reload is the correct behaviour ([#70](https://github.com/dr-rompecabezas/wagtail-lms/issues/70))
+- Activities that emit only `consumed` (e.g. `H5P.Accordion`) do not persist resume state — they have no meaningful resume position, so resetting on reload is the correct behaviour
 - Resume state has been verified with `H5P.QuestionSet`; other activity types have not yet been systematically tested ([#71](https://github.com/dr-rompecabezas/wagtail-lms/issues/71))
 
 ## [0.8.1] - 2026-02-19

@@ -728,6 +728,39 @@ class TestH5PXAPIView:
         enrollment.refresh_from_db()
         assert enrollment.completed_at is not None
 
+    def test_consumed_verb_sets_completion_status(self, client, user, h5p_activity):
+        """consumed verb (H5P.Accordion etc.) sets completion_status to completed."""
+        client.force_login(user)
+        stmt = _xapi_statement("http://activitystrea.ms/schema/1.0/consume", "consumed")
+        client.post(
+            self._url(h5p_activity.pk),
+            data=json.dumps(stmt),
+            content_type="application/json",
+        )
+        attempt = H5PAttempt.objects.get(user=user, activity=h5p_activity)
+        assert attempt.completion_status == "completed"
+
+    def test_consumed_verb_triggers_enrollment_completion(
+        self,
+        client,
+        enrolled_user,
+        h5p_activity,
+        lesson_page,
+        course_page_h5p,
+    ):
+        """consumed verb propagates through lesson → course completion."""
+        client.force_login(enrolled_user)
+        stmt = _xapi_statement("http://activitystrea.ms/schema/1.0/consume", "consumed")
+        client.post(
+            self._url(h5p_activity.pk),
+            data=json.dumps(stmt),
+            content_type="application/json",
+        )
+        enrollment = CourseEnrollment.objects.get(
+            user=enrolled_user, course=course_page_h5p
+        )
+        assert enrollment.completed_at is not None
+
     def test_completion_without_enrollment_does_not_error(
         self, client, user, h5p_activity, lesson_page, course_page_h5p
     ):

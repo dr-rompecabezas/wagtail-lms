@@ -565,6 +565,10 @@ _H5P_MAX_USER_DATA_BYTES = 65_536
 _XAPI_COMPLETED = "http://adlnet.gov/expapi/verbs/completed"
 _XAPI_PASSED = "http://adlnet.gov/expapi/verbs/passed"
 _XAPI_FAILED = "http://adlnet.gov/expapi/verbs/failed"
+# Activity Streams verb used by informational H5P types (H5P.Accordion, H5P.Column, …)
+# that have no meaningful "completed" state — treated as completion-equivalent so they
+# don't block lesson/course completion indefinitely.
+_XAPI_CONSUMED = "http://activitystrea.ms/schema/1.0/consume"
 _XAPI_SCORE_VERBS = {
     _XAPI_COMPLETED,
     _XAPI_PASSED,
@@ -617,6 +621,9 @@ def _update_h5p_attempt(attempt, statement, verb_id):
     elif verb_id == _XAPI_FAILED:
         attempt.success_status = "failed"
         modified = True
+    elif verb_id == _XAPI_CONSUMED:
+        attempt.completion_status = "completed"
+        modified = True
 
     if verb_id in _XAPI_SCORE_VERBS:
         modified = _apply_xapi_score(attempt, result) or modified
@@ -624,7 +631,7 @@ def _update_h5p_attempt(attempt, statement, verb_id):
     if modified:
         attempt.save()
 
-    if verb_id in (_XAPI_COMPLETED, _XAPI_PASSED):
+    if verb_id in (_XAPI_COMPLETED, _XAPI_PASSED, _XAPI_CONSUMED):
         _mark_h5p_enrollment_complete(attempt)
 
 
