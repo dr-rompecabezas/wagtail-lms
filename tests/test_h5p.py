@@ -376,6 +376,111 @@ class TestH5PActivity:
         assert activity.main_library == "H5P.CoursePresentation"
         assert not default_storage.exists(obsolete_path)
 
+    def test_schedule_replaced_content_cleanup_deletes_old_package_and_content(
+        self, h5p_activity, monkeypatch
+    ):
+        """Cleanup callback deletes superseded package and extracted content."""
+        deleted_packages = []
+        deleted_extracted = []
+
+        def _run_on_commit(callback, *args, **kwargs):
+            callback()
+
+        def _fake_delete(path):
+            deleted_packages.append(path)
+
+        def _fake_delete_extracted(extracted_path, content_base_path):
+            deleted_extracted.append((extracted_path, content_base_path))
+
+        monkeypatch.setattr("wagtail_lms.models.transaction.on_commit", _run_on_commit)
+        monkeypatch.setattr(default_storage, "delete", _fake_delete)
+        monkeypatch.setattr(
+            "wagtail_lms.signal_handlers._delete_extracted_content",
+            _fake_delete_extracted,
+        )
+
+        h5p_activity._schedule_replaced_content_cleanup(
+            old_package_name="h5p_packages/old.h5p",
+            old_extracted_path="h5p_1_old",
+            new_package_name="h5p_packages/new.h5p",
+            new_extracted_path="h5p_1_new",
+        )
+
+        assert deleted_packages == ["h5p_packages/old.h5p"]
+        assert deleted_extracted == [("h5p_1_old", conf.WAGTAIL_LMS_H5P_CONTENT_PATH)]
+
+    def test_schedule_replaced_content_cleanup_skips_when_paths_match(
+        self, h5p_activity, monkeypatch
+    ):
+        """No cleanup runs when old/new package and extraction paths coincide."""
+        deleted_packages = []
+        deleted_extracted = []
+
+        def _run_on_commit(callback, *args, **kwargs):
+            callback()
+
+        def _fake_delete(path):
+            deleted_packages.append(path)
+
+        def _fake_delete_extracted(extracted_path, content_base_path):
+            deleted_extracted.append((extracted_path, content_base_path))
+
+        monkeypatch.setattr("wagtail_lms.models.transaction.on_commit", _run_on_commit)
+        monkeypatch.setattr(default_storage, "delete", _fake_delete)
+        monkeypatch.setattr(
+            "wagtail_lms.signal_handlers._delete_extracted_content",
+            _fake_delete_extracted,
+        )
+
+        h5p_activity._schedule_replaced_content_cleanup(
+            old_package_name="h5p_packages/same.h5p",
+            old_extracted_path="h5p_1_same",
+            new_package_name="h5p_packages/same.h5p",
+            new_extracted_path="h5p_1_same",
+        )
+
+        assert deleted_packages == []
+        assert deleted_extracted == []
+
+    def test_schedule_replaced_content_cleanup_logs_warnings_on_failures(
+        self, h5p_activity, monkeypatch, caplog
+    ):
+        """Cleanup failures are swallowed and logged as warnings."""
+        import logging
+
+        def _run_on_commit(callback, *args, **kwargs):
+            callback()
+
+        def _failing_delete(_path):
+            raise RuntimeError("pkg delete failed")
+
+        def _failing_delete_extracted(_extracted_path, _content_base_path):
+            raise RuntimeError("content delete failed")
+
+        monkeypatch.setattr("wagtail_lms.models.transaction.on_commit", _run_on_commit)
+        monkeypatch.setattr(default_storage, "delete", _failing_delete)
+        monkeypatch.setattr(
+            "wagtail_lms.signal_handlers._delete_extracted_content",
+            _failing_delete_extracted,
+        )
+
+        with caplog.at_level(logging.WARNING, logger="wagtail_lms.models"):
+            h5p_activity._schedule_replaced_content_cleanup(
+                old_package_name="h5p_packages/old.h5p",
+                old_extracted_path="h5p_1_old",
+                new_package_name="h5p_packages/new.h5p",
+                new_extracted_path="h5p_1_new",
+            )
+
+        assert any(
+            "Failed to delete replaced H5P package file" in record.message
+            for record in caplog.records
+        )
+        assert any(
+            "Failed to delete replaced H5P extracted content" in record.message
+            for record in caplog.records
+        )
+
     def test_clean_raises_on_corrupted_zip(self, settings, tmp_path, db):
         """clean() raises ValidationError when ZIP CRC check fails."""
         from django.core.exceptions import ValidationError
