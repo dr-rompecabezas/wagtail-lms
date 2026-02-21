@@ -29,7 +29,7 @@ def _make_scorm_zip(manifest_xml, content_filename="index.html"):
 
 def _content_prefix(extracted_path):
     """Build the storage prefix for extracted content using the configured path."""
-    return conf.WAGTAIL_LMS_CONTENT_PATH.rstrip("/") + "/" + extracted_path
+    return conf.WAGTAIL_LMS_SCORM_CONTENT_PATH.rstrip("/") + "/" + extracted_path
 
 
 def _make_h5p_zip():
@@ -191,7 +191,7 @@ class TestSCORMPackageDeletion:
     def test_path_traversal_rejected(self, bad_path):
         """Suspicious extracted_path values are refused without touching storage."""
         with patch("wagtail_lms.signal_handlers.default_storage") as mock_storage:
-            _delete_extracted_content(bad_path, conf.WAGTAIL_LMS_CONTENT_PATH)
+            _delete_extracted_content(bad_path, conf.WAGTAIL_LMS_SCORM_CONTENT_PATH)
             mock_storage.listdir.assert_not_called()
             mock_storage.delete.assert_not_called()
 

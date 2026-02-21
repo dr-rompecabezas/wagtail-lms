@@ -382,7 +382,7 @@ class TestSCORMPackageStorageBackend:
 
     def test_extract_uses_storage_api(self, scorm_package):
         """Verify extracted files are accessible via default_storage."""
-        content_path = conf.WAGTAIL_LMS_CONTENT_PATH.rstrip("/")
+        content_path = conf.WAGTAIL_LMS_SCORM_CONTENT_PATH.rstrip("/")
         storage_path = f"{content_path}/{scorm_package.extracted_path}/index.html"
         assert default_storage.exists(storage_path)
 
@@ -395,7 +395,7 @@ class TestSCORMPackageStorageBackend:
         package.save()
 
         assert package.extracted_path != ""
-        content_path = conf.WAGTAIL_LMS_CONTENT_PATH.rstrip("/")
+        content_path = conf.WAGTAIL_LMS_SCORM_CONTENT_PATH.rstrip("/")
         storage_path = f"{content_path}/{package.extracted_path}/index.html"
         assert default_storage.exists(storage_path)
         assert package.launch_url == "index.html"
@@ -414,7 +414,7 @@ class TestSCORMPackageStorageBackend:
         package.save()
 
         # Safe files should be extracted
-        content_path = conf.WAGTAIL_LMS_CONTENT_PATH.rstrip("/")
+        content_path = conf.WAGTAIL_LMS_SCORM_CONTENT_PATH.rstrip("/")
         safe_path = f"{content_path}/{package.extracted_path}/index.html"
         assert default_storage.exists(safe_path)
 

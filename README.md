@@ -83,7 +83,7 @@ Optional settings in your Django settings:
 ```python
 # SCORM
 WAGTAIL_LMS_SCORM_UPLOAD_PATH = 'scorm_packages/'  # Upload directory
-WAGTAIL_LMS_CONTENT_PATH = 'scorm_content/'        # Extracted content
+WAGTAIL_LMS_SCORM_CONTENT_PATH = 'scorm_content/'        # Extracted content
 WAGTAIL_LMS_AUTO_ENROLL = False                     # Auto-enroll on course visit
 
 # H5P

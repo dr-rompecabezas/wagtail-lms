@@ -168,7 +168,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Wagtail LMS settings (optional — defaults shown)
 # SCORM
 # WAGTAIL_LMS_SCORM_UPLOAD_PATH = 'scorm_packages/'
-# WAGTAIL_LMS_CONTENT_PATH = 'scorm_content/'
+# WAGTAIL_LMS_SCORM_CONTENT_PATH = 'scorm_content/'
 # WAGTAIL_LMS_AUTO_ENROLL = False
 # WAGTAIL_LMS_CACHE_CONTROL = {
 #     "text/html": "no-cache",

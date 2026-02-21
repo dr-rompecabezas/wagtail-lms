@@ -47,7 +47,7 @@ def _delete_extracted_content(extracted_path, content_base_path):
 
     Args:
         extracted_path: The relative extracted directory name (e.g. 'package_1_foo').
-        content_base_path: The configured base path (e.g. conf.WAGTAIL_LMS_CONTENT_PATH).
+        content_base_path: The configured base path (e.g. conf.WAGTAIL_LMS_SCORM_CONTENT_PATH).
     """
     normalized = posixpath.normpath(extracted_path)
     # Reject anything that isn't a single, plain directory name:
@@ -85,7 +85,9 @@ def post_delete_scorm_cleanup(sender, instance, **kwargs):
 
         if extracted_path:
             try:
-                _delete_extracted_content(extracted_path, conf.WAGTAIL_LMS_CONTENT_PATH)
+                _delete_extracted_content(
+                    extracted_path, conf.WAGTAIL_LMS_SCORM_CONTENT_PATH
+                )
             except Exception:
                 logger.exception(
                     "Failed to delete extracted SCORM content: %s", extracted_path
