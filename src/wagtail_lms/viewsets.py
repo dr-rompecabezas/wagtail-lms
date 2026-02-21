@@ -31,10 +31,10 @@ class EditOnlyPermissionPolicy(ModelPermissionPolicy):
 
 class SCORMPackageViewSet(ModelViewSet):
     model = SCORMPackage
-    icon = "upload"
+    icon = "media"
     add_to_admin_menu = False
     menu_label = "SCORM Packages"
-    menu_icon = "upload"
+    menu_icon = "media"
     list_display = ["title", "version", "created_at", "launch_url"]
     list_filter = ["version", "created_at"]
     search_fields = ["title", "description"]
@@ -105,10 +105,10 @@ class H5PAttemptViewSet(ModelViewSet):
 
 class LessonCompletionViewSet(ModelViewSet):
     model = LessonCompletion
-    icon = "tick"
+    icon = "tick-inverse"
     add_to_admin_menu = False
     menu_label = "Lesson Completions"
-    menu_icon = "tick"
+    menu_icon = "tick-inverse"
     list_display = ["user", "lesson", "completed_at"]
     list_filter = ["completed_at"]
     search_fields = ["user__username", "lesson__title"]
