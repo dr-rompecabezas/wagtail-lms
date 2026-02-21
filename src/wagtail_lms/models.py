@@ -16,6 +16,7 @@ from django.core.files.uploadedfile import UploadedFile
 from django.db import models, transaction
 from django.shortcuts import redirect
 from django.urls import reverse
+from django.utils.module_loading import import_string
 from wagtail.admin.panels import FieldPanel, TitleFieldPanel
 from wagtail.blocks import RichTextBlock, StructBlock
 from wagtail.fields import RichTextField, StreamField
@@ -686,7 +687,7 @@ class LessonPage(Page):
     Access is gated to users enrolled in the parent CoursePage.
     """
 
-    parent_page_types = ["wagtail_lms.CoursePage"]
+    parent_page_types = None
     subpage_types = []
 
     intro = RichTextField(blank=True)
@@ -721,21 +722,17 @@ class LessonPage(Page):
         if request.user.has_perm("wagtailadmin.access_admin"):
             return super().serve(request)
 
-        # Check enrollment in the parent CoursePage.
-        # Fetch the parent Page once; use page_ptr_id to filter without a
-        # .specific downcast on the hot path (enrolled users get 2 queries
-        # instead of 3).  Only downcast to CoursePage when we need course.url
-        # for the redirect (unenrolled path).
+        # Check lesson access via configurable callable.
         parent_page = self.get_parent()
-        if not CourseEnrollment.objects.filter(
-            user=request.user,
-            course__page_ptr_id=parent_page.pk,
-        ).exists():
+        course_page = parent_page.specific
+        check_access = import_string(conf.WAGTAIL_LMS_CHECK_LESSON_ACCESS)
+
+        if not check_access(request, self, course_page):
             messages.error(
                 request,
                 "You must be enrolled in this course to access this lesson.",
             )
-            return redirect(parent_page.specific.url)
+            return redirect(course_page.url)
 
         return super().serve(request)
 
