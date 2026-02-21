@@ -81,7 +81,7 @@ class SCORMPackage(models.Model):
         # Create extraction directory with unique path using package ID
         package_name = os.path.splitext(os.path.basename(self.package_file.name))[0]
         unique_dir = f"package_{self.id}_{package_name}"
-        content_path = conf.WAGTAIL_LMS_CONTENT_PATH.rstrip("/")
+        content_path = conf.WAGTAIL_LMS_SCORM_CONTENT_PATH.rstrip("/")
 
         manifest_content = None
 

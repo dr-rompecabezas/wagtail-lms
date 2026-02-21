@@ -484,7 +484,7 @@ class ServeScormContentView(LoginRequiredMixin, View):
         return normalized
 
     def get_storage_path(self, normalized_content_path):
-        content_base = conf.WAGTAIL_LMS_CONTENT_PATH.rstrip("/")
+        content_base = conf.WAGTAIL_LMS_SCORM_CONTENT_PATH.rstrip("/")
         return posixpath.join(content_base, normalized_content_path)
 
     def get_content_type(self, content_path):
