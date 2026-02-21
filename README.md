@@ -6,6 +6,7 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/dr-rompecabezas/wagtail-lms/main.svg)](https://results.pre-commit.ci/latest/github/dr-rompecabezas/wagtail-lms/main)
+[![Documentation Status](https://readthedocs.org/projects/wagtail-lms/badge/?version=latest)](https://wagtail-lms.readthedocs.io/en/latest/)
 
 A Learning Management System extension for Wagtail CMS with SCORM 1.2/2004 and H5P support.
 

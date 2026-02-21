@@ -2,69 +2,47 @@
 
 This document outlines the planned development path for Wagtail LMS.
 
-## Current Status: v0.3.0 (Alpha)
+## Current Status: v0.9.0 (Alpha)
 
-The current release includes **framework-agnostic templates, comprehensive CI/CD infrastructure, and improved developer experience**.
+The current release includes **full H5P support, xAPI tracking, long-scroll lesson pages, and all prior SCORM infrastructure**.
 
-**Completed in v0.3.0:**
+**Completed in v0.9.0:**
 
-✅ **Framework-Agnostic Templates** - Breaking changes for better flexibility
+✅ **H5P Activity Support**
 
-- Replaced Bootstrap-style classes with BEM-style `.lms-*` classes
-- Added `lms/css/course.css` with minimal, functional default styles
-- Works out of the box without external CSS frameworks
-- Comprehensive template customization documentation with Bootstrap, Tailwind, and Bulma examples
+- `H5PActivity` Wagtail snippet — upload `.h5p` packages, auto-extract, parse metadata
+- `LessonPage` — long-scroll layout with StreamField body (RichText + H5PActivityBlock)
+- `H5PAttempt`, `H5PXAPIStatement`, `H5PContentUserData` — progress, audit log, resume state
+- xAPI ingestion endpoint with verb → attempt field mapping
+- H5P resume/progress state endpoint (H5P content-user-data protocol)
+- Secure H5P asset serving via `ServeH5PContentView`
+- h5p-standalone v3.8.0 vendored; `h5p-lesson.js` with lazy loading and xAPI dispatch
 
-✅ **Accessibility Improvements**
+✅ **Lesson and Course Completion Logic**
 
-- Added `:focus` state to SCORM player back button for keyboard navigation
-- Semantic HTML structure with proper ARIA roles
-- Visible focus indicators for better accessibility
+- Lesson completes when all H5P activities in it reach `completion_status="completed"`
+- Course completes when all lessons containing H5P activities are complete
+- Informational lessons (no H5P blocks) do not gate completion
 
-✅ **Developer Experience Enhancements**
+**Previously completed:**
 
-- In-template comments explaining CSS requirements
-- Updated release process to use `uv publish` instead of `twine`
-- Example project demonstrates default LMS styling
-- Testing infrastructure improvements (base.html for tests)
+✅ **SCORM 1.2/2004** — full runtime API, package upload/extraction, attempt tracking
 
-✅ **Documentation**
+✅ **Framework-Agnostic Templates** — BEM-style `.lms-*` classes, minimal default CSS
 
-- New `docs/template_customization.md` with complete framework examples
-- Dynamic template location finder
-- FOUC (Flash of Unstyled Content) prevention guidance
+✅ **Comprehensive test suite** — models, views, SCORM API, H5P endpoints, integration workflows
 
-✅ **Testing & Quality Infrastructure**
-
-- CI/CD pipeline with GitHub Actions
-  - Automated testing on every push and PR
-  - Multi-version test matrix
-  - Code quality checks (ruff, pre-commit)
-- Multi-platform testing
-  - Python: 3.11, 3.12, 3.13
-  - Django: 4.2 LTS, 5.0, 5.1, 5.2
-  - Wagtail: 6.0, 6.1, 6.2, 6.3, 7.0, 7.1
-
-**Previously completed in v0.1.0:**
-
-✅ **Comprehensive test suite** - 86% code coverage with 65+ tests
-
-- Unit tests for all models, views, and SCORM API endpoints
-- Integration tests for complete course workflows
-- Concurrent operation and security testing
-- Test fixtures for SCORM 1.2 and 2004 packages
+✅ **CI/CD pipeline** — GitHub Actions, multi-version matrix, ruff, pre-commit
 
 ✅ **Fully functional example project** with complete setup guide
 
-✅ **Bug fixes** for preview mode and database concurrency
-
 **Supported versions:**
 
-- **Python:** 3.11, 3.12, 3.13
-- **Django:** 4.2 (LTS), 5.0, 5.1, 5.2 (LTS)
-- **Wagtail:** 6.0, 6.1, 6.2, 6.3, 7.0 (LTS), 7.1
+- **Python:** 3.11, 3.12, 3.13, 3.14
+- **Django:** 4.2 (LTS), 5.0, 5.1, 5.2 (LTS), 6.0
+- **Wagtail:** 6.0, 6.2, 6.3, 7.1, 7.2, 7.3
 
-All combinations tested in CI with strategic version matrix.
+Selected combinations tested in CI — see the [CI matrix](https://github.com/dr-rompecabezas/wagtail-lms/blob/main/.github/workflows/ci.yml) for details.
 
 ## Version 0.4.0 - Q3 2026
 
@@ -161,12 +139,10 @@ All combinations tested in CI with strategic version matrix.
 
 ## Version 2.0.0+ (long-term vision)
 
-### xAPI/TinCan API Support
+### xAPI / LRS Integration
 
-- [ ] xAPI statement storage and retrieval
-- [ ] Learning Record Store (LRS) integration
+- [ ] Learning Record Store (LRS) integration for external xAPI consumers
 - [ ] Advanced analytics with xAPI data
-- [ ] Modern learning experience tracking
 
 ### Advanced Learning Features
 
