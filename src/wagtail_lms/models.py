@@ -22,7 +22,6 @@ from wagtail.blocks import RichTextBlock, StructBlock
 from wagtail.fields import RichTextField, StreamField
 from wagtail.models import Page
 from wagtail.snippets.blocks import SnippetChooserBlock
-from wagtail.snippets.models import register_snippet
 
 from . import conf
 
@@ -212,7 +211,6 @@ def _h5p_package_upload_path(instance, filename):
     return f"{conf.WAGTAIL_LMS_H5P_UPLOAD_PATH}{filename}"
 
 
-@register_snippet
 class H5PActivity(models.Model):
     """Reusable H5P interactive activity, managed as a Wagtail snippet.
 

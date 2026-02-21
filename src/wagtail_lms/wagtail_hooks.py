@@ -1,8 +1,12 @@
 from django.templatetags.static import static
 from django.utils.html import format_html
 from wagtail import hooks
+from wagtail.snippets.models import register_snippet
 
-from .viewsets import LMSViewSetGroup
+from .models import H5PActivity
+from .viewsets import H5PActivitySnippetViewSet, LMSViewSetGroup
+
+register_snippet(H5PActivity, viewset=H5PActivitySnippetViewSet)
 
 
 @hooks.register("register_admin_viewset")

@@ -1,6 +1,7 @@
 from django.utils.module_loading import import_string
 from wagtail.admin.viewsets.model import ModelViewSet, ModelViewSetGroup
 from wagtail.permission_policies import ModelPermissionPolicy
+from wagtail.snippets.views.snippets import SnippetViewSet
 
 from . import conf
 from .models import (
@@ -55,6 +56,19 @@ class H5PActivityViewSet(ModelViewSet):
     add_to_admin_menu = False
     menu_label = "H5P Activities"
     menu_icon = "media"
+    list_display = ["title", "main_library", "created_at"]
+    list_filter = ["created_at"]
+    search_fields = ["title", "description", "main_library"]
+
+
+class H5PActivitySnippetViewSet(SnippetViewSet):
+    model = H5PActivity
+    icon = "media"
+    menu_label = "H5P Activities"
+    menu_icon = "media"
+    # Keep snippet chooser support but avoid a second admin menu path.
+    add_to_admin_menu = False
+    menu_item_is_registered = True
     list_display = ["title", "main_library", "created_at"]
     list_filter = ["created_at"]
     search_fields = ["title", "description", "main_library"]
