@@ -1,6 +1,8 @@
+from django.utils.module_loading import import_string
 from wagtail.admin.viewsets.model import ModelViewSet, ModelViewSetGroup
 from wagtail.permission_policies import ModelPermissionPolicy
 
+from . import conf
 from .models import (
     CourseEnrollment,
     H5PActivity,
@@ -9,6 +11,13 @@ from .models import (
     SCORMAttempt,
     SCORMPackage,
 )
+
+
+def _import_viewset_class(dotted_path):
+    viewset_class = import_string(dotted_path)
+    if not issubclass(viewset_class, ModelViewSet):
+        raise TypeError(f"{dotted_path} is not a ModelViewSet subclass")
+    return viewset_class
 
 
 class ReadOnlyPermissionPolicy(ModelPermissionPolicy):
@@ -118,11 +127,14 @@ class LessonCompletionViewSet(ModelViewSet):
 class LMSViewSetGroup(ModelViewSetGroup):
     menu_label = "LMS"
     menu_icon = "glasses"
-    items = (
-        SCORMPackageViewSet,
-        H5PActivityViewSet,
-        CourseEnrollmentViewSet,
-        SCORMAttemptViewSet,
-        H5PAttemptViewSet,
-        LessonCompletionViewSet,
-    )
+
+    @property
+    def items(self):
+        return (
+            _import_viewset_class(conf.WAGTAIL_LMS_SCORM_PACKAGE_VIEWSET_CLASS),
+            _import_viewset_class(conf.WAGTAIL_LMS_H5P_ACTIVITY_VIEWSET_CLASS),
+            CourseEnrollmentViewSet,
+            SCORMAttemptViewSet,
+            H5PAttemptViewSet,
+            LessonCompletionViewSet,
+        )

@@ -4,12 +4,10 @@ from wagtail import hooks
 
 from .viewsets import LMSViewSetGroup
 
-lms_viewset_group = LMSViewSetGroup()
-
 
 @hooks.register("register_admin_viewset")
 def register_lms_viewset():
-    return lms_viewset_group
+    return LMSViewSetGroup()
 
 
 # Add custom CSS/JS for SCORM player
