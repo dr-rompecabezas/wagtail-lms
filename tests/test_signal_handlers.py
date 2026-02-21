@@ -173,8 +173,12 @@ class TestSCORMPackageDeletion:
         package.delete()
 
         assert not default_storage.exists(zip_name)
-        # InMemoryStorage keeps empty "directories" as keys, so just check files
-        dirs, files = default_storage.listdir(prefix)
+        # InMemoryStorage may retain empty directory keys; filesystem storage
+        # may remove the directory entirely.
+        try:
+            dirs, files = default_storage.listdir(prefix)
+        except FileNotFoundError:
+            files = []
         assert len(files) == 0
 
     @pytest.mark.parametrize(
