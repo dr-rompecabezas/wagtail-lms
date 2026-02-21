@@ -54,12 +54,12 @@ This release addresses extensibility gaps discovered while integrating the packa
 
 ### Extensibility Fixes
 
-- [ ] Set `LessonPage.parent_page_types = None` so `CoursePage` subclasses can host lesson pages without requiring downstream patches ([#73](https://github.com/dr-rompecabezas/wagtail-lms/issues/73))
-- [ ] Fix `H5PActivity` snippet registration to remove the duplicate Wagtail admin entry that bypasses custom upload flows ([#73](https://github.com/dr-rompecabezas/wagtail-lms/issues/73))
-- [ ] Add `WAGTAIL_LMS_SCORM_PACKAGE_VIEWSET_CLASS` and `WAGTAIL_LMS_H5P_ACTIVITY_VIEWSET_CLASS` settings so downstream projects can substitute their own upload viewsets ([#73](https://github.com/dr-rompecabezas/wagtail-lms/issues/73))
-- [ ] Add `WAGTAIL_LMS_CHECK_LESSON_ACCESS` setting — a dotted-path callable for customising the enrollment gate in `LessonPage.serve()` ([#64](https://github.com/dr-rompecabezas/wagtail-lms/issues/64))
-- [ ] Add `WAGTAIL_LMS_REGISTER_DJANGO_ADMIN` setting to opt out of automatic Django admin registration ([#63](https://github.com/dr-rompecabezas/wagtail-lms/issues/63))
-- [ ] Allow downstream projects to swap `SCORMPackage`/`H5PActivity` Django admin classes without calling `unregister()` ([#61](https://github.com/dr-rompecabezas/wagtail-lms/issues/61))
+- [x] Set `LessonPage.parent_page_types = None` so `CoursePage` subclasses can host lesson pages without requiring downstream patches ([#73](https://github.com/dr-rompecabezas/wagtail-lms/issues/73))
+- [x] Fix `H5PActivity` snippet registration to remove the duplicate Wagtail admin entry that bypasses custom upload flows ([#73](https://github.com/dr-rompecabezas/wagtail-lms/issues/73))
+- [x] Add `WAGTAIL_LMS_SCORM_PACKAGE_VIEWSET_CLASS` and `WAGTAIL_LMS_H5P_ACTIVITY_VIEWSET_CLASS` settings so downstream projects can substitute their own upload viewsets ([#73](https://github.com/dr-rompecabezas/wagtail-lms/issues/73))
+- [x] Add `WAGTAIL_LMS_CHECK_LESSON_ACCESS` setting — a dotted-path callable for customising the enrollment gate in `LessonPage.serve()` ([#64](https://github.com/dr-rompecabezas/wagtail-lms/issues/64))
+- [x] Add `WAGTAIL_LMS_REGISTER_DJANGO_ADMIN` setting to opt out of automatic Django admin registration ([#63](https://github.com/dr-rompecabezas/wagtail-lms/issues/63))
+- [x] Allow downstream projects to swap `SCORMPackage`/`H5PActivity` Django admin classes without calling `unregister()` ([#61](https://github.com/dr-rompecabezas/wagtail-lms/issues/61))
 
 ### Testing
 
