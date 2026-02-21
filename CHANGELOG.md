@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Documentation
+
+- **MkDocs Material site with Read the Docs publishing**
+  - Added `readthedocs.yaml` configuration for RTD builds using MkDocs
+  - Added `mkdocs.yml` with Material theme, navigation, and search
+  - Added `mkdocs-material` and `mkdocs-include-markdown-plugin` to `[project.optional-dependencies] docs`
+  - `docs/index.md` rewritten as a proper landing page with feature highlights and quick-install snippet
+  - `docs/changelog.md` and `docs/contributing.md` added as thin `include-markdown` wrappers so `CHANGELOG.md` and `CONTRIBUTING.md` are included verbatim in the site without duplication
+  - `docs/testing.md` updated: H5P models documented, hardcoded CI matrix replaced with a link to the workflow file
+  - `docs/roadmap.md` updated: current status set to v0.9.0, H5P activity support marked complete, v0.10.0 section added (downstream integration fixes — issues [#73](https://github.com/dr-rompecabezas/wagtail-lms/issues/73), [#64](https://github.com/dr-rompecabezas/wagtail-lms/issues/64), [#63](https://github.com/dr-rompecabezas/wagtail-lms/issues/63), [#61](https://github.com/dr-rompecabezas/wagtail-lms/issues/61), [#71](https://github.com/dr-rompecabezas/wagtail-lms/issues/71)), future versions renumbered to 0.11.0 / 0.12.0 / 1.0.0
+  - RTD documentation badge added to `README.md`
+
 ### Deprecated
 
 - `WAGTAIL_LMS_CONTENT_PATH` renamed to `WAGTAIL_LMS_SCORM_CONTENT_PATH` for consistency with the `WAGTAIL_LMS_SCORM_*` prefix convention. The old name still works and its configured value is honoured, but it now emits a `DeprecationWarning` at startup. It will be removed in a future release — rename the setting in your Django settings to silence the warning.
