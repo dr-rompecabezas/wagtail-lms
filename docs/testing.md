@@ -1,13 +1,13 @@
 # Testing Guide
 
-Wagtail LMS includes a comprehensive test suite with **86% code coverage** and 65+ tests covering models, views, API endpoints, and integration workflows.
+Wagtail LMS includes a comprehensive test suite covering models, views, API endpoints, and integration workflows.
 
 ## Test Coverage
 
 The test suite covers:
 
-- **Models**: SCORMPackage, CoursePage, CourseEnrollment, SCORMAttempt, SCORMData
-- **Views**: SCORM player, enrollment, content serving
+- **Models**: SCORMPackage, CoursePage, CourseEnrollment, SCORMAttempt, SCORMData, H5PActivity, H5PAttempt, H5PXAPIStatement, H5PContentUserData, LessonPage, LessonCompletion
+- **Views**: SCORM player, H5P xAPI endpoint, enrollment, content serving, resume state
 - **SCORM API**: All runtime methods (Initialize, Terminate, GetValue, SetValue, Commit)
 - **Integration**: Complete course workflows, concurrent operations
 - **Security**: Authentication, authorization, path traversal protection
@@ -136,13 +136,7 @@ Each test runs in a transaction that is rolled back after completion, ensuring t
 
 ## Continuous Integration
 
-GitHub Actions runs the full test suite on every push and pull request. The CI matrix covers 8 version combinations:
-
-- **Python:** 3.11, 3.12, 3.13
-- **Django:** 4.2, 5.0, 5.1, 5.2, 6.0
-- **Wagtail:** 6.0, 6.2, 6.3, 7.1, 7.2, 7.3
-
-See [`.github/workflows/ci.yml`](https://github.com/dr-rompecabezas/wagtail-lms/blob/main/.github/workflows/ci.yml) for the exact matrix.
+GitHub Actions runs the full test suite on every push and pull request. See [`.github/workflows/ci.yml`](https://github.com/dr-rompecabezas/wagtail-lms/blob/main/.github/workflows/ci.yml) for the current matrix of Python, Django, and Wagtail version combinations.
 
 ## Known Test Limitations
 

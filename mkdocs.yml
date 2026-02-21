@@ -6,11 +6,17 @@ repo_name: dr-rompecabezas/wagtail-lms
 theme:
   name: material
 
+plugins:
+  - search
+  - include-markdown
+
 nav:
   - Home: index.md
   - Installation: installation.md
   - API Reference: api.md
   - Template Customization: template_customization.md
   - Testing: testing.md
+  - Contributing: contributing.md
   - Release Process: release_process.md
+  - Changelog: changelog.md
   - Roadmap: roadmap.md

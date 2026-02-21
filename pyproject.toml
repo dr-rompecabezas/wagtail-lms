@@ -57,6 +57,7 @@ testing = [
 ]
 docs = [
     "mkdocs-material",
+    "mkdocs-include-markdown-plugin",
 ]
 
 [project.urls]
