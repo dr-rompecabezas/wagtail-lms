@@ -44,65 +44,61 @@ The current release includes **full H5P support, xAPI tracking, long-scroll less
 
 Selected combinations tested in CI — see the [CI matrix](https://github.com/dr-rompecabezas/wagtail-lms/blob/main/.github/workflows/ci.yml) for details.
 
-## Version 0.4.0 - Q3 2026
+---
+
+## Version 0.10.0 — Downstream Integration
+
+**Goal:** Remove integration friction for projects that build on top of wagtail-lms
+
+This release addresses extensibility gaps discovered while integrating the package downstream (see [#73](https://github.com/dr-rompecabezas/wagtail-lms/issues/73), [#64](https://github.com/dr-rompecabezas/wagtail-lms/issues/64), [#63](https://github.com/dr-rompecabezas/wagtail-lms/issues/63), [#61](https://github.com/dr-rompecabezas/wagtail-lms/issues/61)). No new end-user features — the focus is on making the package easier to extend without monkey-patching.
+
+### Extensibility Fixes
+
+- [ ] Set `LessonPage.parent_page_types = None` so `CoursePage` subclasses can host lesson pages without requiring downstream patches ([#73](https://github.com/dr-rompecabezas/wagtail-lms/issues/73))
+- [ ] Fix `H5PActivity` snippet registration to remove the duplicate Wagtail admin entry that bypasses custom upload flows ([#73](https://github.com/dr-rompecabezas/wagtail-lms/issues/73))
+- [ ] Add `WAGTAIL_LMS_SCORM_PACKAGE_VIEWSET_CLASS` and `WAGTAIL_LMS_H5P_ACTIVITY_VIEWSET_CLASS` settings so downstream projects can substitute their own upload viewsets ([#73](https://github.com/dr-rompecabezas/wagtail-lms/issues/73))
+- [ ] Add `WAGTAIL_LMS_CHECK_LESSON_ACCESS` setting — a dotted-path callable for customising the enrollment gate in `LessonPage.serve()` ([#64](https://github.com/dr-rompecabezas/wagtail-lms/issues/64))
+- [ ] Add `WAGTAIL_LMS_REGISTER_DJANGO_ADMIN` setting to opt out of automatic Django admin registration ([#63](https://github.com/dr-rompecabezas/wagtail-lms/issues/63))
+- [ ] Allow downstream projects to swap `SCORMPackage`/`H5PActivity` Django admin classes without calling `unregister()` ([#61](https://github.com/dr-rompecabezas/wagtail-lms/issues/61))
+
+### Testing
+
+- [ ] Verify H5P resume state with all supported activity types ([#71](https://github.com/dr-rompecabezas/wagtail-lms/issues/71))
+
+---
+
+## Version 0.11.0 — Q3 2026
 
 **Goal:** Enhanced Wagtail integration and developer experience
 
-### Wagtail Integration Improvements
+### Wagtail Admin Improvements
 
-- [ ] Pure Wagtail admin interface
-  - Replace Django admin with Wagtail SnippetViewSet or ModelAdmin
-  - SCORM package upload directly in Wagtail admin
-  - Drag-and-drop file upload with progress indication
-- [ ] Improved admin UX
-  - Better SCORM package validation feedback
-  - Preview SCORM content in admin
-  - Inline enrollment management
+- [ ] Replace Django admin with pure Wagtail admin for SCORM packages and enrollments
+- [ ] Improved upload UX — validation feedback, progress indication
+- [ ] Inline enrollment management in the Wagtail admin
 
 ### Documentation & Developer Experience
 
-- [ ] Comprehensive user guide
-  - Step-by-step course creation tutorial
-  - SCORM package preparation guide
-  - Troubleshooting common issues
-- [ ] API documentation improvements
-  - Detailed SCORM API reference
-  - Code examples for customization
-- [ ] Docker setup for quick testing
-  - Docker Compose configuration
-  - Pre-loaded sample SCORM packages
-- [ ] Improved error handling and logging
-- [ ] Better validation messages for SCORM packages
-- [ ] Configuration documentation
+- [ ] Step-by-step course creation tutorial
+- [ ] Docker Compose setup for quick local testing with pre-loaded sample content
+- [ ] Improved error handling and logging for SCORM and H5P upload failures
 
 ### Testing & Quality
 
 - [ ] Increase test coverage to 90%+
 
-## Version 0.5.0 - Q4 2026
+---
+
+## Version 0.12.0 — Q4 2026
 
 **Goal:** Enhanced LMS features and reporting
 
 ### Features
 
-- [ ] Progress reporting and analytics
-  - Course completion reports
-  - Student progress dashboard
-  - Export reports to CSV/Excel
-- [ ] Batch enrollment
-  - Enroll multiple users at once
-  - Import from CSV
-  - Group-based enrollment
-- [ ] Course prerequisites
-  - Define required courses
-  - Lock courses until prerequisites complete
-- [ ] Notifications
-  - Email notifications for enrollment
-  - Completion certificates via email
-- [ ] Course completion certificates
-  - PDF certificate generation
-  - Customizable certificate templates
-  - Download and email options
+- [ ] Progress reporting — course completion reports and student progress dashboard
+- [ ] Batch enrollment — enroll multiple users at once, import from CSV
+- [ ] Course prerequisites — lock courses until required courses are complete
+- [ ] Email notifications for enrollment and completion events
 
 ### Admin Enhancements
 
@@ -110,32 +106,25 @@ Selected combinations tested in CI — see the [CI matrix](https://github.com/dr
 - [ ] Advanced filtering and search
 - [ ] Student progress monitoring in admin
 
-## Version 1.0.0 (Stable) - Q1 2027
+---
 
-**Goal:** Production-ready, feature-complete LMS
+## Version 1.0.0 (Stable) — 2027
+
+**Goal:** Production-ready, feature-complete LMS with stable public API
 
 ### Stability
 
-- [ ] No breaking API changes for 1.x series
-- [ ] Comprehensive documentation
+- [ ] Stable public API — no breaking changes within the 1.x series
 - [ ] 90%+ test coverage
-- [ ] Performance optimization
-  - Database query optimization
-  - Caching strategies for SCORM content
-  - Large file upload handling
+- [ ] Performance optimisation — query optimisation, caching strategies for large content
 
 ### Additional Features
 
 - [ ] Multi-language support (i18n)
-- [ ] Advanced SCORM features
-  - Sequencing and navigation
-  - Adaptive content delivery
-- [ ] Course versioning
-  - Update SCORM packages without losing progress
-  - Migration tools for package updates
+- [ ] Course versioning — update packages without losing learner progress
 - [ ] LTI (Learning Tools Interoperability) support
-  - Integration with external LMS platforms
-  - SSO authentication
+
+---
 
 ## Version 2.0.0+ (long-term vision)
 
@@ -146,36 +135,17 @@ Selected combinations tested in CI — see the [CI matrix](https://github.com/dr
 
 ### Advanced Learning Features
 
-- [ ] Quizzing and assessment tools
-  - Built-in quiz builder
-  - Question banks
-  - Automated grading
+- [ ] Quizzing and assessment tools — built-in quiz builder, question banks, automated grading
 - [ ] Discussion forums per course
-- [ ] Live webinar integration
-- [ ] Gamification
-  - Badges and achievements
-  - Leaderboards
-  - Progress milestones
-
-### Content Authoring
-
-- [ ] Built-in content editor
-  - Create simple courses without SCORM
-  - Rich media support
-- [ ] Content templates
-- [ ] Multi-format export
+- [ ] Gamification — badges, achievements, leaderboards
 
 ### Enterprise Features
 
 - [ ] Organizations and subgroups
 - [ ] Role-based access control (RBAC)
-- [ ] Custom branding per organization
-- [ ] API for integrations
-  - RESTful API for course management
-  - Webhooks for events
-- [ ] Advanced reporting
-  - Custom report builder
-  - Scheduled reports
+- [ ] RESTful API for course management and webhooks
+
+---
 
 ## Contributing
 
@@ -183,7 +153,7 @@ We welcome contributions! If you're interested in working on any of these featur
 
 1. Check the [GitHub Issues](https://github.com/dr-rompecabezas/wagtail-lms/issues) for current work
 2. Comment on an issue to claim it or discuss your approach
-3. Submit a PR following our [Contributing Guidelines](../CONTRIBUTING.md)
+3. Submit a PR following our [Contributing Guidelines](contributing.md)
 
 ## Feedback
 
