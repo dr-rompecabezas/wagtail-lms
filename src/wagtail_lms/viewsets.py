@@ -1,4 +1,5 @@
 from django.utils.module_loading import import_string
+from wagtail.admin.views.generic.models import IndexView, InspectView
 from wagtail.admin.viewsets.model import ModelViewSet, ModelViewSetGroup
 from wagtail.permission_policies import ModelPermissionPolicy
 from wagtail.snippets.views.snippets import SnippetViewSet
@@ -37,6 +38,14 @@ class EditOnlyPermissionPolicy(ModelPermissionPolicy):
         if action in ("add", "delete"):
             return False
         return super().user_has_permission(user, action)
+
+
+class ViewPermissionIndexView(IndexView):
+    any_permission_required = ["view"]
+
+
+class ViewPermissionInspectView(InspectView):
+    any_permission_required = ["view"]
 
 
 class SCORMPackageViewSet(ModelViewSet):
@@ -92,6 +101,8 @@ class SCORMAttemptViewSet(ModelViewSet):
     add_to_admin_menu = False
     menu_label = "SCORM Attempts"
     menu_icon = "time"
+    index_view_class = ViewPermissionIndexView
+    inspect_view_class = ViewPermissionInspectView
     inspect_view_enabled = True
     list_display = [
         "user",
@@ -112,6 +123,8 @@ class H5PAttemptViewSet(ModelViewSet):
     add_to_admin_menu = False
     menu_label = "H5P Attempts"
     menu_icon = "time"
+    index_view_class = ViewPermissionIndexView
+    inspect_view_class = ViewPermissionInspectView
     inspect_view_enabled = True
     list_display = [
         "user",
@@ -132,6 +145,7 @@ class LessonCompletionViewSet(ModelViewSet):
     add_to_admin_menu = False
     menu_label = "Lesson Completions"
     menu_icon = "tick-inverse"
+    index_view_class = ViewPermissionIndexView
     list_display = ["user", "lesson", "completed_at"]
     list_filter = ["completed_at"]
     search_fields = ["user__username", "lesson__title"]
