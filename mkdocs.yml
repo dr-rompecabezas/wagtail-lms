@@ -1,0 +1,16 @@
+site_name: Wagtail LMS
+site_url: https://wagtail-lms.readthedocs.io
+repo_url: https://github.com/dr-rompecabezas/wagtail-lms
+repo_name: dr-rompecabezas/wagtail-lms
+
+theme:
+  name: material
+
+nav:
+  - Home: index.md
+  - Installation: installation.md
+  - API Reference: api.md
+  - Template Customization: template_customization.md
+  - Testing: testing.md
+  - Release Process: release_process.md
+  - Roadmap: roadmap.md
