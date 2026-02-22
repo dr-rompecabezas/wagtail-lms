@@ -40,7 +40,11 @@ def forward_migrate_scorm_packages(apps, schema_editor):
             scorm_package_id=hist_course.scorm_package_id,
         )
         course.add_child(instance=lesson)
-        lesson.save_revision().publish()
+        # Mirror the parent's live status without triggering Wagtail's
+        # full publish workflow (signals, notifications, etc.) inside a migration.
+        lesson.live = course.live
+        lesson.has_unpublished_changes = False
+        lesson.save(update_fields=["live", "has_unpublished_changes"])
 
 
 def reverse_noop(apps, schema_editor):

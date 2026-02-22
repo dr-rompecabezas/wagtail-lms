@@ -224,6 +224,8 @@ def scorm_player_view(request, lesson_id):
     """Display SCORM player for a SCORM lesson page"""
     lesson = get_object_or_404(SCORMLessonPage, id=lesson_id)
     course = lesson.get_parent().specific
+    if not isinstance(course, CoursePage):
+        raise Http404("This lesson is not placed under a course.")
 
     if not lesson.scorm_package:
         messages.error(request, "This lesson doesn't have a SCORM package assigned.")
