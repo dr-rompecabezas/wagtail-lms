@@ -18,26 +18,28 @@ from wagtail_lms.views import get_scorm_value, set_scorm_value
 class TestSCORMPlayerView:
     """Tests for SCORM player view."""
 
-    def test_scorm_player_requires_login(self, client, course_page):
+    def test_scorm_player_requires_login(self, client, scorm_lesson_page):
         """Test that SCORM player requires authentication."""
-        url = reverse("wagtail_lms:scorm_player", args=[course_page.id])
+        url = reverse("wagtail_lms:scorm_player", args=[scorm_lesson_page.id])
         response = client.get(url)
         # Should redirect to login
         assert response.status_code == 302
         assert "/admin/login/" in response.url or "/accounts/login/" in response.url
 
-    def test_scorm_player_authenticated_enrolled(self, client, user, course_page):
+    def test_scorm_player_authenticated_enrolled(
+        self, client, user, course_page, scorm_lesson_page
+    ):
         """Test SCORM player with authenticated enrolled user."""
         CourseEnrollment.objects.create(user=user, course=course_page)
         client.force_login(user)
-        url = reverse("wagtail_lms:scorm_player", args=[course_page.id])
+        url = reverse("wagtail_lms:scorm_player", args=[scorm_lesson_page.id])
         response = client.get(url)
         assert response.status_code == 200
-        # The player displays the course title, not the SCORM package title
-        assert b"Test Course" in response.content
+        # The player displays the lesson title
+        assert b"SCORM Lesson" in response.content
 
     def test_scorm_player_creates_enrollment_when_auto_enroll_enabled(
-        self, client, user, course_page, monkeypatch
+        self, client, user, course_page, scorm_lesson_page, monkeypatch
     ):
         """Test that auto-enroll creates enrollment when explicitly enabled."""
         from wagtail_lms import conf
@@ -48,7 +50,7 @@ class TestSCORMPlayerView:
             CourseEnrollment.objects.filter(user=user, course=course_page).count() == 0
         )
 
-        url = reverse("wagtail_lms:scorm_player", args=[course_page.id])
+        url = reverse("wagtail_lms:scorm_player", args=[scorm_lesson_page.id])
         client.get(url)
 
         assert (
@@ -56,7 +58,7 @@ class TestSCORMPlayerView:
         )
 
     def test_scorm_player_creates_attempt(
-        self, client, user, course_page, scorm_package
+        self, client, user, course_page, scorm_package, scorm_lesson_page
     ):
         """Test that accessing player creates SCORM attempt."""
         CourseEnrollment.objects.create(user=user, course=course_page)
@@ -66,7 +68,7 @@ class TestSCORMPlayerView:
             == 0
         )
 
-        url = reverse("wagtail_lms:scorm_player", args=[course_page.id])
+        url = reverse("wagtail_lms:scorm_player", args=[scorm_lesson_page.id])
         client.get(url)
 
         assert (
@@ -75,22 +77,29 @@ class TestSCORMPlayerView:
         )
 
     def test_scorm_player_without_package(self, client, user, home_page):
-        """Test SCORM player for course without package."""
-        from wagtail_lms.models import CoursePage
+        """Test SCORM player for SCORMLessonPage without package."""
+        from wagtail_lms.models import CoursePage, SCORMLessonPage
 
         course = CoursePage(title="No Package Course", slug="no-package")
         home_page.add_child(instance=course)
+        course.save_revision().publish()
 
+        lesson = SCORMLessonPage(title="Empty SCORM Lesson", slug="empty-scorm")
+        course.add_child(instance=lesson)
+
+        CourseEnrollment.objects.create(user=user, course=course)
         client.force_login(user)
-        url = reverse("wagtail_lms:scorm_player", args=[course.id])
+        url = reverse("wagtail_lms:scorm_player", args=[lesson.id])
         response = client.get(url)
 
         # Should redirect with error message
         assert response.status_code == 302
 
-    def test_scorm_player_default_redirects_unenrolled(self, client, user, course_page):
+    def test_scorm_player_default_redirects_unenrolled(
+        self, client, user, course_page, scorm_lesson_page
+    ):
         client.force_login(user)
-        url = reverse("wagtail_lms:scorm_player", args=[course_page.id])
+        url = reverse("wagtail_lms:scorm_player", args=[scorm_lesson_page.id])
         response = client.get(url)
         assert response.status_code == 302
         assert (
@@ -98,14 +107,14 @@ class TestSCORMPlayerView:
         )
 
     def test_scorm_player_auto_enroll_false_allows_enrolled(
-        self, client, user, course_page, monkeypatch
+        self, client, user, course_page, scorm_lesson_page, monkeypatch
     ):
         from wagtail_lms import conf
 
         monkeypatch.setattr(conf, "WAGTAIL_LMS_AUTO_ENROLL", False)
         CourseEnrollment.objects.create(user=user, course=course_page)
         client.force_login(user)
-        url = reverse("wagtail_lms:scorm_player", args=[course_page.id])
+        url = reverse("wagtail_lms:scorm_player", args=[scorm_lesson_page.id])
         response = client.get(url)
         assert response.status_code == 200
 
@@ -405,7 +414,7 @@ class TestSCORMDataHelpers:
         assert data.value == "completed"
 
     def test_set_lesson_status_completed_marks_enrollment(
-        self, user, scorm_package, course_page
+        self, user, scorm_package, course_page, scorm_lesson_page
     ):
         enrollment = CourseEnrollment.objects.create(user=user, course=course_page)
         attempt = SCORMAttempt.objects.create(user=user, scorm_package=scorm_package)
@@ -414,7 +423,7 @@ class TestSCORMDataHelpers:
         assert enrollment.completed_at is not None
 
     def test_set_lesson_status_passed_marks_enrollment(
-        self, user, scorm_package, course_page
+        self, user, scorm_package, course_page, scorm_lesson_page
     ):
         enrollment = CourseEnrollment.objects.create(user=user, course=course_page)
         attempt = SCORMAttempt.objects.create(user=user, scorm_package=scorm_package)
@@ -423,7 +432,7 @@ class TestSCORMDataHelpers:
         assert enrollment.completed_at is not None
 
     def test_set_lesson_status_incomplete_does_not_mark_enrollment(
-        self, user, scorm_package, course_page
+        self, user, scorm_package, course_page, scorm_lesson_page
     ):
         enrollment = CourseEnrollment.objects.create(user=user, course=course_page)
         attempt = SCORMAttempt.objects.create(user=user, scorm_package=scorm_package)
@@ -432,7 +441,7 @@ class TestSCORMDataHelpers:
         assert enrollment.completed_at is None
 
     def test_set_lesson_status_completed_idempotent(
-        self, user, scorm_package, course_page
+        self, user, scorm_package, course_page, scorm_lesson_page
     ):
         import datetime as dt
 

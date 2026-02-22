@@ -9,7 +9,7 @@ from .models import (
     CourseEnrollment,
     H5PActivity,
     H5PAttempt,
-    LessonCompletion,
+    H5PLessonCompletion,
     SCORMAttempt,
     SCORMPackage,
 )
@@ -148,17 +148,17 @@ class H5PAttemptViewSet(ModelViewSet):
     permission_policy = ReadOnlyPermissionPolicy(H5PAttempt)
 
 
-class LessonCompletionViewSet(ModelViewSet):
-    model = LessonCompletion
+class H5PLessonCompletionViewSet(ModelViewSet):
+    model = H5PLessonCompletion
     icon = "tick-inverse"
     add_to_admin_menu = False
-    menu_label = "Lesson Completions"
+    menu_label = "H5P Lesson Completions"
     menu_icon = "tick-inverse"
     index_view_class = ViewPermissionIndexView
     list_display = ["user", "lesson", "completed_at"]
     list_filter = ["completed_at"]
     search_fields = ["user__username", "lesson__title"]
-    permission_policy = ReadOnlyPermissionPolicy(LessonCompletion)
+    permission_policy = ReadOnlyPermissionPolicy(H5PLessonCompletion)
 
 
 class LMSViewSetGroup(ModelViewSetGroup):
@@ -179,5 +179,5 @@ class LMSViewSetGroup(ModelViewSetGroup):
             CourseEnrollmentViewSet,
             SCORMAttemptViewSet,
             H5PAttemptViewSet,
-            LessonCompletionViewSet,
+            H5PLessonCompletionViewSet,
         )

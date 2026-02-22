@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 
-{% block title %}{{ course.title }} - SCORM Player{% endblock %}
+{% block title %}{{ lesson.title }} - SCORM Player{% endblock %}
 
 {% block content %}
 <div class="lms-player">
     <header class="lms-player__header">
-        <h2>{{ course.title }}</h2>
+        <h2>{{ lesson.title }}</h2>
         <div class="lms-player__controls">
             <a href="{{ course.url }}" class="lms-player__back-button">Back to Course</a>
             <span class="lms-player__status">Status: <span id="scorm-status">Loading...</span></span>

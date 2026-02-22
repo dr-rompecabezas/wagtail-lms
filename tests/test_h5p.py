@@ -18,9 +18,9 @@ from wagtail_lms.models import (
     H5PActivity,
     H5PAttempt,
     H5PContentUserData,
+    H5PLessonCompletion,
+    H5PLessonPage,
     H5PXAPIStatement,
-    LessonCompletion,
-    LessonPage,
 )
 
 # ---------------------------------------------------------------------------
@@ -116,8 +116,8 @@ def course_page_h5p(home_page):
 
 @pytest.fixture
 def lesson_page(course_page_h5p, h5p_activity):
-    """LessonPage child of course_page_h5p containing one H5P activity block."""
-    lesson = LessonPage(
+    """H5PLessonPage child of course_page_h5p containing one H5P activity block."""
+    lesson = H5PLessonPage(
         title="Lesson One",
         slug="lesson-one",
         intro="<p>Welcome to lesson one.</p>",
@@ -141,8 +141,8 @@ def lesson_page(course_page_h5p, h5p_activity):
 
 @pytest.fixture
 def text_only_lesson_page(course_page_h5p):
-    """LessonPage child of course_page_h5p with only non-H5P blocks."""
-    lesson = LessonPage(
+    """H5PLessonPage child of course_page_h5p with only non-H5P blocks."""
+    lesson = H5PLessonPage(
         title="Text Lesson",
         slug="text-lesson",
         intro="<p>Text-only lesson.</p>",
@@ -681,10 +681,10 @@ class TestLessonPageAccess:
         assert b"wagtail_lms/js/h5p-lesson.js" not in response.content
 
     def test_page_hierarchy_enforced(self, home_page):
-        """LessonPage cannot be created directly under a non-CoursePage parent."""
-        assert "wagtail_lms.LessonPage" in CoursePage.subpage_types
-        assert LessonPage.parent_page_types is None
-        assert LessonPage.subpage_types == []
+        """H5PLessonPage has no parent page restriction and no subpage types."""
+        assert "wagtail_lms.H5PLessonPage" in CoursePage.subpage_types
+        assert H5PLessonPage.parent_page_types is None
+        assert H5PLessonPage.subpage_types == []
 
 
 # ---------------------------------------------------------------------------
@@ -1044,7 +1044,7 @@ class TestH5PXAPIView:
         )
         attempt = H5PAttempt.objects.get(user=enrolled_user, activity=h5p_activity)
         assert attempt.completion_status == "not_attempted"
-        assert not LessonCompletion.objects.filter(
+        assert not H5PLessonCompletion.objects.filter(
             user=enrolled_user, lesson=lesson_page
         ).exists()
 
@@ -1066,7 +1066,7 @@ class TestH5PXAPIView:
             package_file=_make_h5p_zip_file("activity2.h5p"),
         )
         activity2.save()
-        lesson2 = LessonPage(
+        lesson2 = H5PLessonPage(
             title="Lesson Two",
             slug="lesson-two",
             body=json.dumps(
@@ -1107,7 +1107,7 @@ class TestH5PXAPIView:
         course_page_h5p,
     ):
         """Lessons without H5P blocks are informational and must not gate completion."""
-        text_only_lesson = LessonPage(
+        text_only_lesson = H5PLessonPage(
             title="Reading Lesson",
             slug="reading-lesson",
             body=json.dumps([{"type": "paragraph", "value": "<p>Read this</p>"}]),
@@ -1127,7 +1127,7 @@ class TestH5PXAPIView:
             user=enrolled_user, course=course_page_h5p
         )
         assert enrollment.completed_at is not None
-        assert not LessonCompletion.objects.filter(
+        assert not H5PLessonCompletion.objects.filter(
             user=enrolled_user, lesson=text_only_lesson
         ).exists()
 
@@ -1179,7 +1179,7 @@ class TestH5PXAPIView:
         assert not CourseEnrollment.objects.filter(
             user=user, course=course_page_h5p
         ).exists()
-        assert not LessonCompletion.objects.filter(
+        assert not H5PLessonCompletion.objects.filter(
             user=user, lesson=lesson_page
         ).exists()
 
@@ -1202,7 +1202,7 @@ class TestH5PXAPIView:
             package_file=_make_h5p_zip_file("activity2.h5p"),
         )
         activity2.save()
-        lesson2 = LessonPage(
+        lesson2 = H5PLessonPage(
             title="Lesson Two",
             slug="lesson-two-preenroll",
             body=json.dumps(
@@ -1227,10 +1227,12 @@ class TestH5PXAPIView:
             content_type="application/json",
         )
 
-        assert not LessonCompletion.objects.filter(
+        assert not H5PLessonCompletion.objects.filter(
             user=user, lesson=lesson_page
         ).exists()
-        assert not LessonCompletion.objects.filter(user=user, lesson=lesson2).exists()
+        assert not H5PLessonCompletion.objects.filter(
+            user=user, lesson=lesson2
+        ).exists()
 
         enrollment = CourseEnrollment.objects.create(user=user, course=course_page_h5p)
 
@@ -1242,8 +1244,12 @@ class TestH5PXAPIView:
         )
         enrollment.refresh_from_db()
         assert enrollment.completed_at is None
-        assert LessonCompletion.objects.filter(user=user, lesson=lesson_page).exists()
-        assert not LessonCompletion.objects.filter(user=user, lesson=lesson2).exists()
+        assert H5PLessonCompletion.objects.filter(
+            user=user, lesson=lesson_page
+        ).exists()
+        assert not H5PLessonCompletion.objects.filter(
+            user=user, lesson=lesson2
+        ).exists()
 
     def test_streamfield_body_format_matches_enrollment_lookup(
         self, lesson_page, h5p_activity
@@ -1259,11 +1265,11 @@ class TestH5PXAPIView:
         # Read the raw body column value directly from the DB
         with connection.cursor() as cursor:
             cursor.execute(
-                "SELECT body FROM wagtail_lms_lessonpage WHERE page_ptr_id = %s",
+                "SELECT body FROM wagtail_lms_h5plessonpage WHERE page_ptr_id = %s",
                 [lesson_page.pk],
             )
             row = cursor.fetchone()
-        assert row is not None, "LessonPage not found in DB"
+        assert row is not None, "H5PLessonPage not found in DB"
         raw_body = row[0]
         # The lookup string used by _mark_h5p_enrollment_complete
         lookup = '"activity": ' + str(h5p_activity.pk) + "}"
@@ -1458,18 +1464,18 @@ class TestServeH5PContentView:
 
 
 # ---------------------------------------------------------------------------
-# LessonCompletion tests
+# H5PLessonCompletion tests
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.django_db
-class TestLessonCompletion:
-    """Per-lesson completion tracking via LessonCompletion model."""
+class TestH5PLessonCompletion:
+    """Per-lesson completion tracking via H5PLessonCompletion model."""
 
     def test_completing_activity_creates_lesson_completion(
         self, client, enrolled_user, h5p_activity, lesson_page, course_page_h5p
     ):
-        """Completing all activities in a lesson creates a LessonCompletion record."""
+        """Completing all activities in a lesson creates a H5PLessonCompletion record."""
         client.force_login(enrolled_user)
         stmt = _xapi_statement("http://adlnet.gov/expapi/verbs/completed", "completed")
         client.post(
@@ -1477,14 +1483,14 @@ class TestLessonCompletion:
             data=json.dumps(stmt),
             content_type="application/json",
         )
-        assert LessonCompletion.objects.filter(
+        assert H5PLessonCompletion.objects.filter(
             user=enrolled_user, lesson=lesson_page
         ).exists()
 
     def test_partial_activity_completion_does_not_create_lesson_completion(
         self, client, enrolled_user, course_page_h5p, settings, tmp_path
     ):
-        """Completing only one of two activities in a lesson must not create LessonCompletion."""
+        """Completing only one of two activities in a lesson must not create H5PLessonCompletion."""
         settings.MEDIA_ROOT = str(tmp_path / "media")
 
         activity_a = H5PActivity(
@@ -1496,7 +1502,7 @@ class TestLessonCompletion:
         )
         activity_b.save()
 
-        lesson = LessonPage(
+        lesson = H5PLessonPage(
             title="Two-Activity Lesson",
             slug="two-activity-lesson",
             body=json.dumps(
@@ -1516,7 +1522,7 @@ class TestLessonCompletion:
             data=json.dumps(stmt),
             content_type="application/json",
         )
-        assert not LessonCompletion.objects.filter(
+        assert not H5PLessonCompletion.objects.filter(
             user=enrolled_user, lesson=lesson
         ).exists()
 
@@ -1526,7 +1532,7 @@ class TestLessonCompletion:
             data=json.dumps(stmt),
             content_type="application/json",
         )
-        assert LessonCompletion.objects.filter(
+        assert H5PLessonCompletion.objects.filter(
             user=enrolled_user, lesson=lesson
         ).exists()
 
@@ -1534,7 +1540,7 @@ class TestLessonCompletion:
         self, client, enrolled_user, lesson_page, course_page_h5p
     ):
         """CoursePage template shows completion indicator for completed lessons."""
-        LessonCompletion.objects.create(user=enrolled_user, lesson=lesson_page)
+        H5PLessonCompletion.objects.create(user=enrolled_user, lesson=lesson_page)
 
         client.force_login(enrolled_user)
         response = client.get(course_page_h5p.url)
@@ -1544,7 +1550,7 @@ class TestLessonCompletion:
     def test_course_page_no_completion_marker_for_incomplete_lesson(
         self, client, enrolled_user, lesson_page, course_page_h5p
     ):
-        """Lessons without a LessonCompletion record show no completion marker."""
+        """Lessons without a H5PLessonCompletion record show no completion marker."""
         client.force_login(enrolled_user)
         response = client.get(course_page_h5p.url)
         assert response.status_code == 200
@@ -1554,7 +1560,7 @@ class TestLessonCompletion:
         self, client, enrolled_user, h5p_activity, lesson_page, course_page_h5p
     ):
         """Receiving a second completed verb for the same activity must not create a
-        duplicate LessonCompletion (get_or_create guard)."""
+        duplicate H5PLessonCompletion (get_or_create guard)."""
         client.force_login(enrolled_user)
         stmt = _xapi_statement("http://adlnet.gov/expapi/verbs/completed", "completed")
         url = reverse("wagtail_lms:h5p_xapi", args=[h5p_activity.pk])
@@ -1562,7 +1568,7 @@ class TestLessonCompletion:
         client.post(url, data=json.dumps(stmt), content_type="application/json")
 
         assert (
-            LessonCompletion.objects.filter(
+            H5PLessonCompletion.objects.filter(
                 user=enrolled_user, lesson=lesson_page
             ).count()
             == 1

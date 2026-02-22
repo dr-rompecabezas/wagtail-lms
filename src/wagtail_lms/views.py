@@ -25,11 +25,12 @@ from .models import (
     H5PActivity,
     H5PAttempt,
     H5PContentUserData,
+    H5PLessonCompletion,
+    H5PLessonPage,
     H5PXAPIStatement,
-    LessonCompletion,
-    LessonPage,
     SCORMAttempt,
     SCORMData,
+    SCORMLessonPage,
 )
 
 
@@ -76,22 +77,77 @@ def retry_on_db_lock(max_attempts=3, delay=0.1, backoff=2):
     return decorator
 
 
-def _mark_enrollment_complete(attempt):
-    """Set completed_at on the CourseEnrollment linked to a completed SCORM attempt.
+def _try_complete_course(user, course):
+    """Mark enrollment complete when all trackable lesson pages in the course are done.
 
-    Traverses attempt → SCORMPackage → CoursePage → CourseEnrollment via ORM
-    join so no extra queries are needed. The completed_at__isnull=True filter
-    makes this a no-op if completion was already recorded.
+    Checks both H5P lessons (via H5PLessonCompletion) and SCORM lessons
+    (via SCORMAttempt.completion_status). Informational lessons without any
+    trackable content are skipped. The completed_at__isnull=True guard makes
+    repeated calls a no-op.
     """
+    trackable = False
+
+    # Check H5P lessons
+    for lesson in H5PLessonPage.objects.child_of(course).live():
+        activity_ids = _collect_lesson_activity_ids(lesson)
+        if not activity_ids:
+            continue  # informational, no H5P activities
+        trackable = True
+        if not H5PLessonCompletion.objects.filter(user=user, lesson=lesson).exists():
+            return
+
+    # Check SCORM lessons
+    for lesson in SCORMLessonPage.objects.child_of(course).live():
+        if not lesson.scorm_package_id:
+            continue  # no package assigned, skip
+        trackable = True
+        if not SCORMAttempt.objects.filter(
+            user=user,
+            scorm_package=lesson.scorm_package,
+            completion_status__in=("completed", "passed"),
+        ).exists():
+            return
+
+    if not trackable:
+        return
+
     CourseEnrollment.objects.filter(
-        user=attempt.user,
-        course__scorm_package=attempt.scorm_package,
+        user=user,
+        course=course,
         completed_at__isnull=True,
     ).update(completed_at=timezone.now())
 
 
+def _try_complete_scorm_course(attempt, course):
+    """Trigger unified course completion check from a SCORM attempt completion."""
+    _try_complete_course(attempt.user, course)
+
+
+def _mark_enrollment_complete(attempt):
+    """Set completed_at on CourseEnrollment(s) linked to a completed SCORM attempt.
+
+    Finds SCORMLessonPage(s) where scorm_package=attempt.scorm_package,
+    gets each parent CoursePage, checks enrollment, then calls
+    _try_complete_scorm_course to perform the full completion check.
+    """
+    lesson_pages = SCORMLessonPage.objects.filter(
+        scorm_package=attempt.scorm_package,
+        live=True,
+    )
+    for lesson in lesson_pages:
+        parent = lesson.get_parent().specific
+        if not isinstance(parent, CoursePage):
+            continue
+        if not CourseEnrollment.objects.filter(
+            user=attempt.user,
+            course=parent,
+        ).exists():
+            continue
+        _try_complete_scorm_course(attempt, parent)
+
+
 def _collect_lesson_activity_ids(lesson_obj):
-    """Return the set of H5PActivity PKs referenced by a LessonPage's StreamField body.
+    """Return the set of H5PActivity PKs referenced by an H5PLessonPage's StreamField body.
 
     Iterating a StreamValue yields BoundBlock objects; SnippetChooserBlock
     resolves each activity FK to an instance (or None if deleted).
@@ -108,7 +164,7 @@ def _collect_lesson_activity_ids(lesson_obj):
 def _try_complete_lesson(attempt, lesson_obj):
     """Mark a lesson complete if every H5P activity in it has been completed.
 
-    Returns the LessonCompletion instance (new or pre-existing) when all
+    Returns the H5PLessonCompletion instance (new or pre-existing) when all
     activities are done, or None when at least one activity is still incomplete.
     The get_or_create makes repeated calls idempotent.
     """
@@ -125,43 +181,12 @@ def _try_complete_lesson(attempt, lesson_obj):
     )
 
     if completed_ids >= activity_ids:
-        completion, _ = LessonCompletion.objects.get_or_create(
+        completion, _ = H5PLessonCompletion.objects.get_or_create(
             user=attempt.user,
             lesson=lesson_obj,
         )
         return completion
     return None
-
-
-def _try_complete_course(attempt, course):
-    """Mark enrollment complete when all H5P-bearing lessons are complete.
-
-    Lessons without any H5PActivity blocks are informational-only and do not
-    produce LessonCompletion records, so they must not gate course completion.
-    Updates completed_at only when all trackable lessons are complete. The
-    completed_at__isnull=True guard makes repeated calls a no-op.
-    """
-    trackable_lesson_ids = {
-        lesson.pk
-        for lesson in LessonPage.objects.child_of(course).live()
-        if _collect_lesson_activity_ids(lesson)
-    }
-    if not trackable_lesson_ids:
-        return
-
-    completed_lesson_ids = set(
-        LessonCompletion.objects.filter(
-            user=attempt.user,
-            lesson_id__in=trackable_lesson_ids,
-        ).values_list("lesson_id", flat=True)
-    )
-
-    if completed_lesson_ids >= trackable_lesson_ids:
-        CourseEnrollment.objects.filter(
-            user=attempt.user,
-            course=course,
-            completed_at__isnull=True,
-        ).update(completed_at=timezone.now())
 
 
 def _mark_h5p_enrollment_complete(attempt):
@@ -183,7 +208,7 @@ def _mark_h5p_enrollment_complete(attempt):
         return
 
     lookup = '"activity": ' + str(attempt.activity_id) + "}"
-    lesson_pages = LessonPage.objects.filter(live=True, body__icontains=lookup)
+    lesson_pages = H5PLessonPage.objects.filter(live=True, body__icontains=lookup)
     for lesson in lesson_pages:
         parent = lesson.get_parent().specific
         if not isinstance(parent, CoursePage):
@@ -191,42 +216,44 @@ def _mark_h5p_enrollment_complete(attempt):
         if parent.pk not in enrolled_course_ids:
             continue
         if _try_complete_lesson(attempt, lesson):
-            _try_complete_course(attempt, parent)
+            _try_complete_course(attempt.user, parent)
 
 
 @login_required
-def scorm_player_view(request, course_id):
-    """Display SCORM player for a course"""
-    course = get_object_or_404(CoursePage, id=course_id)
+def scorm_player_view(request, lesson_id):
+    """Display SCORM player for a SCORM lesson page"""
+    lesson = get_object_or_404(SCORMLessonPage, id=lesson_id)
+    course = lesson.get_parent().specific
 
-    if not course.scorm_package:
-        messages.error(request, "This course doesn't have a SCORM package assigned.")
-        return redirect("/")
+    if not lesson.scorm_package:
+        messages.error(request, "This lesson doesn't have a SCORM package assigned.")
+        return redirect(course.url if hasattr(course, "url") else "/")
 
     # Check if SCORM package is properly extracted
-    launch_url = course.scorm_package.get_launch_url()
+    launch_url = lesson.scorm_package.get_launch_url()
     if not launch_url:
         messages.error(
             request, "SCORM package is not properly extracted or has no launch URL."
         )
-        return redirect(course.url)
+        return redirect(lesson.url)
 
     if conf.WAGTAIL_LMS_AUTO_ENROLL:
         CourseEnrollment.objects.get_or_create(user=request.user, course=course)
     elif not CourseEnrollment.objects.filter(user=request.user, course=course).exists():
         messages.error(request, "You must be enrolled in this course to access it.")
-        return redirect(course.url)
+        return redirect(course.url if hasattr(course, "url") else "/")
 
     # Get or create SCORM attempt
     attempt, _ = SCORMAttempt.objects.get_or_create(
         user=request.user,
-        scorm_package=course.scorm_package,
+        scorm_package=lesson.scorm_package,
         defaults={"completion_status": "incomplete"},
     )
 
     context = {
+        "lesson": lesson,
         "course": course,
-        "scorm_package": course.scorm_package,
+        "scorm_package": lesson.scorm_package,
         "attempt": attempt,
         "launch_url": launch_url,
     }
@@ -367,12 +394,13 @@ def set_scorm_value(attempt, key, value):  # noqa: C901
     with transaction.atomic():
         # Update attempt fields for core elements
         attempt_modified = False
+        trigger_completion = False
 
         if key == "cmi.core.lesson_status":
             attempt.completion_status = value
             attempt_modified = True
             if value in ("completed", "passed"):  # "passed" is valid in SCORM 1.2
-                _mark_enrollment_complete(attempt)
+                trigger_completion = True
         elif key == "cmi.core.lesson_location":
             attempt.location = value
             attempt_modified = True
@@ -398,7 +426,7 @@ def set_scorm_value(attempt, key, value):  # noqa: C901
             except ValueError:
                 pass
 
-        # Save attempt if modified
+        # Save attempt before completion check so DB queries see the updated status
         if attempt_modified:
             attempt.save()
 
@@ -406,6 +434,10 @@ def set_scorm_value(attempt, key, value):  # noqa: C901
         SCORMData.objects.update_or_create(
             attempt=attempt, key=key, defaults={"value": value}
         )
+
+        # Trigger enrollment completion check after attempt is persisted
+        if trigger_completion:
+            _mark_enrollment_complete(attempt)
 
 
 def get_error_string(error_code):

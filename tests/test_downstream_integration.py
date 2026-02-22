@@ -9,7 +9,12 @@ from wagtail.snippets.models import get_snippet_models
 from wagtail_lms import admin as wagtail_lms_admin
 from wagtail_lms import conf, wagtail_hooks
 from wagtail_lms import models as wagtail_lms_models
-from wagtail_lms.models import CourseEnrollment, H5PActivity, LessonPage, SCORMPackage
+from wagtail_lms.models import (
+    CourseEnrollment,
+    H5PActivity,
+    H5PLessonPage,
+    SCORMPackage,
+)
 from wagtail_lms.viewsets import (
     H5PActivitySnippetViewSet,
     H5PActivityViewSet,
@@ -48,7 +53,7 @@ class CustomH5PActivitySnippetViewSet(H5PActivitySnippetViewSet):
 
 @pytest.fixture
 def lesson_page_for_access(course_page):
-    lesson = LessonPage(
+    lesson = H5PLessonPage(
         title="Hooked Lesson",
         slug="hooked-lesson",
         intro="<p>Access hook test.</p>",
@@ -60,7 +65,7 @@ def lesson_page_for_access(course_page):
 
 @pytest.mark.django_db
 def test_lesson_parent_page_types_is_unrestricted():
-    assert LessonPage.parent_page_types is None
+    assert H5PLessonPage.parent_page_types is None
 
 
 @pytest.mark.django_db

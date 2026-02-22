@@ -12,7 +12,9 @@ from wagtail_lms.models import CourseEnrollment, SCORMAttempt, SCORMData
 class TestFullCourseWorkflow:
     """Test complete course enrollment and completion workflow."""
 
-    def test_complete_course_workflow(self, client, user, course_page, scorm_package):
+    def test_complete_course_workflow(
+        self, client, user, course_page, scorm_package, scorm_lesson_page
+    ):
         """Test full workflow from enrollment to course completion."""
         client.force_login(user)
 
@@ -24,8 +26,8 @@ class TestFullCourseWorkflow:
         enrollment = CourseEnrollment.objects.get(user=user, course=course_page)
         assert enrollment is not None
 
-        # Step 2: Start course (access player)
-        player_url = reverse("wagtail_lms:scorm_player", args=[course_page.id])
+        # Step 2: Start course (access player via SCORM lesson)
+        player_url = reverse("wagtail_lms:scorm_player", args=[scorm_lesson_page.id])
         response = client.get(player_url)
         assert response.status_code == 200
 
@@ -111,13 +113,15 @@ class TestFullCourseWorkflow:
         enrollment = CourseEnrollment.objects.get(user=user, course=course_page)
         assert enrollment.completed_at is not None
 
-    def test_suspend_and_resume(self, client, user, course_page, scorm_package):
+    def test_suspend_and_resume(
+        self, client, user, course_page, scorm_package, scorm_lesson_page
+    ):
         """Test suspending and resuming course progress."""
         client.force_login(user)
         CourseEnrollment.objects.create(user=user, course=course_page)
 
         # Start course
-        player_url = reverse("wagtail_lms:scorm_player", args=[course_page.id])
+        player_url = reverse("wagtail_lms:scorm_player", args=[scorm_lesson_page.id])
         response = client.get(player_url)
         assert response.status_code == 200
 
@@ -180,7 +184,7 @@ class TestFullCourseWorkflow:
         assert response.json()["result"] == "page5"
 
     def test_multiple_users_same_course(
-        self, client, django_user_model, course_page, scorm_package
+        self, client, django_user_model, course_page, scorm_package, scorm_lesson_page
     ):
         """Test multiple users taking the same course independently."""
         # Create two users
@@ -195,7 +199,7 @@ class TestFullCourseWorkflow:
 
         # User 1: Start and complete
         client.force_login(user1)
-        player_url = reverse("wagtail_lms:scorm_player", args=[course_page.id])
+        player_url = reverse("wagtail_lms:scorm_player", args=[scorm_lesson_page.id])
         response = client.get(player_url)
         assert response.status_code == 200
 
@@ -240,27 +244,17 @@ class TestFullCourseWorkflow:
         assert attempt2.completion_status == "incomplete"
         assert attempt1.id != attempt2.id
 
-    def test_course_page_context_with_progress(
-        self, client, user, course_page, scorm_package, rf
-    ):
-        """Test course page shows correct enrollment and progress info."""
-        # Enroll and create progress
+    def test_course_page_context_with_enrollment(self, user, course_page, rf):
+        """Test course page context includes enrollment and lesson page querysets."""
         enrollment = CourseEnrollment.objects.create(user=user, course=course_page)
-        attempt = SCORMAttempt.objects.create(
-            user=user,
-            scorm_package=scorm_package,
-            completion_status="incomplete",
-            score_raw=75.0,
-        )
 
-        # Get page context
         request = rf.get("/")
         request.user = user
         context = course_page.get_context(request)
 
         assert context["enrollment"] == enrollment
-        assert context["progress"] == attempt
-        assert context["progress"].score_raw == 75.0
+        assert "lesson_pages" in context
+        assert "scorm_lesson_pages" in context
 
 
 @pytest.mark.django_db

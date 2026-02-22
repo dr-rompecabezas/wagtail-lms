@@ -7,8 +7,8 @@ from .models import (
     H5PActivity,
     H5PAttempt,
     H5PContentUserData,
+    H5PLessonCompletion,
     H5PXAPIStatement,
-    LessonCompletion,
     SCORMAttempt,
     SCORMData,
     SCORMPackage,
@@ -99,7 +99,7 @@ class H5PContentUserDataAdmin(admin.ModelAdmin):
     search_fields = ("attempt__user__username", "attempt__activity__title", "data_type")
 
 
-class LessonCompletionAdmin(admin.ModelAdmin):
+class H5PLessonCompletionAdmin(admin.ModelAdmin):
     list_display = ("user", "lesson", "completed_at")
     list_filter = ("completed_at",)
     search_fields = ("user__username", "lesson__title")
@@ -148,7 +148,7 @@ def _register_django_admin():
     admin.site.register(H5PAttempt, H5PAttemptAdmin)
     admin.site.register(H5PXAPIStatement, H5PXAPIStatementAdmin)
     admin.site.register(H5PContentUserData, H5PContentUserDataAdmin)
-    admin.site.register(LessonCompletion, LessonCompletionAdmin)
+    admin.site.register(H5PLessonCompletion, H5PLessonCompletionAdmin)
 
 
 _register_django_admin()
