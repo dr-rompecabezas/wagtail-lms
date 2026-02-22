@@ -19,4 +19,11 @@ class Migration(migrations.Migration):
             old_name="LessonCompletion",
             new_name="H5PLessonCompletion",
         ),
+        migrations.AlterModelOptions(
+            name="h5plessoncompletion",
+            options={
+                "verbose_name": "H5P Lesson Completion",
+                "verbose_name_plural": "H5P Lesson Completions",
+            },
+        ),
     ]
