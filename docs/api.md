@@ -138,6 +138,29 @@ This endpoint powers H5P resume/progress state and is wired via
 
 ---
 
+## Downstream Extensibility Settings
+
+| Setting | Default | Purpose |
+|---------|---------|---------|
+| `WAGTAIL_LMS_SCORM_PACKAGE_VIEWSET_CLASS` | `"wagtail_lms.viewsets.SCORMPackageViewSet"` | Replace the SCORM package Wagtail admin viewset |
+| `WAGTAIL_LMS_H5P_ACTIVITY_VIEWSET_CLASS` | `"wagtail_lms.viewsets.H5PActivityViewSet"` | Replace the H5P activity Wagtail admin viewset |
+| `WAGTAIL_LMS_H5P_SNIPPET_VIEWSET_CLASS` | `"wagtail_lms.viewsets.H5PActivitySnippetViewSet"` | Replace the H5P snippet viewset used for chooser/admin snippet URLs |
+| `WAGTAIL_LMS_CHECK_LESSON_ACCESS` | `"wagtail_lms.access.default_lesson_access_check"` | Dotted-path callable used by `LessonPage.serve()` |
+| `WAGTAIL_LMS_REGISTER_DJANGO_ADMIN` | `True` | Enable/disable wagtail-lms Django admin registration |
+| `WAGTAIL_LMS_SCORM_ADMIN_CLASS` | `"wagtail_lms.admin.SCORMPackageAdmin"` | Dotted-path Django `ModelAdmin` for `SCORMPackage` |
+| `WAGTAIL_LMS_H5P_ADMIN_CLASS` | `"wagtail_lms.admin.H5PActivityAdmin"` | Dotted-path Django `ModelAdmin` for `H5PActivity` |
+
+`WAGTAIL_LMS_CHECK_LESSON_ACCESS` callable signature:
+
+```python
+def check_access(request, lesson_page, course_page) -> bool:
+    ...
+```
+
+Return `True` to allow access, `False` to redirect learners to the parent course page with an error message.
+
+---
+
 ## Subclassing CoursePage
 
 If your project subclasses `CoursePage`, you **must** include `"wagtail_lms.LessonPage"`
@@ -148,6 +171,8 @@ class ExtendedCoursePage(CoursePage):
     subpage_types = ["wagtail_lms.LessonPage"]
     # ... your extra fields
 ```
+
+`LessonPage.parent_page_types` is intentionally unrestricted (`None`), so no child-side patching is required.
 
 If you previously set `subpage_types = []` to prevent child pages entirely, update it
 before using H5P lessons. Wagtail will silently hide the "Add child page" option for

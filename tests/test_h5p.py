@@ -683,7 +683,7 @@ class TestLessonPageAccess:
     def test_page_hierarchy_enforced(self, home_page):
         """LessonPage cannot be created directly under a non-CoursePage parent."""
         assert "wagtail_lms.LessonPage" in CoursePage.subpage_types
-        assert "wagtail_lms.CoursePage" in LessonPage.parent_page_types
+        assert LessonPage.parent_page_types is None
         assert LessonPage.subpage_types == []
 
 

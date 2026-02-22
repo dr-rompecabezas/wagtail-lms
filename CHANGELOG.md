@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Downstream integration extension points** ([#73](https://github.com/dr-rompecabezas/wagtail-lms/issues/73), [#64](https://github.com/dr-rompecabezas/wagtail-lms/issues/64), [#63](https://github.com/dr-rompecabezas/wagtail-lms/issues/63), [#61](https://github.com/dr-rompecabezas/wagtail-lms/issues/61))
+  - `LessonPage.parent_page_types` set to `None` so `CoursePage` subclasses can host lessons without monkey-patching
+  - `WAGTAIL_LMS_SCORM_PACKAGE_VIEWSET_CLASS` / `WAGTAIL_LMS_H5P_ACTIVITY_VIEWSET_CLASS` settings for swapping Wagtail admin upload viewsets
+  - `WAGTAIL_LMS_H5P_SNIPPET_VIEWSET_CLASS` setting for swapping the H5P snippet viewset without runtime mutation
+  - `WAGTAIL_LMS_CHECK_LESSON_ACCESS` setting (dotted-path callable) used by `LessonPage.serve()` access gate
+  - `WAGTAIL_LMS_REGISTER_DJANGO_ADMIN` setting to opt out of automatic Django admin model registration
+  - `WAGTAIL_LMS_SCORM_ADMIN_CLASS` / `WAGTAIL_LMS_H5P_ADMIN_CLASS` settings for swapping Django admin classes without `unregister()`
+  - New test coverage for all downstream extension points
+
+### Changed
+
+- **H5P snippet registration now uses explicit hidden snippet viewset**
+  - Removed `@register_snippet` decorator from `H5PActivity` model
+  - Registered `H5PActivity` snippet in hooks with a snippet viewset configured for chooser support without a duplicate sidebar admin entry
+  - Added backward-compatible `lms_viewset_group` alias in hooks for downstream projects still migrating off in-place patching
+
+- **Snippet model title panels fixed**
+  - Replaced `TitleFieldPanel("title")` with `FieldPanel("title")` on `SCORMPackage` and `H5PActivity` to avoid `w-sync` slug-target JavaScript errors on non-Page models
+
 ### Documentation
 
 - **MkDocs Material site with Read the Docs publishing**

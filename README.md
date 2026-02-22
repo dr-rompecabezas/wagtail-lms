@@ -104,6 +104,19 @@ WAGTAIL_LMS_CACHE_CONTROL = {
 
 # Redirect audio/video assets to storage URLs (useful for S3 backends)
 WAGTAIL_LMS_REDIRECT_MEDIA = False
+
+# Use custom Wagtail admin viewsets for upload flows
+WAGTAIL_LMS_SCORM_PACKAGE_VIEWSET_CLASS = "wagtail_lms.viewsets.SCORMPackageViewSet"
+WAGTAIL_LMS_H5P_ACTIVITY_VIEWSET_CLASS = "wagtail_lms.viewsets.H5PActivityViewSet"
+WAGTAIL_LMS_H5P_SNIPPET_VIEWSET_CLASS = "wagtail_lms.viewsets.H5PActivitySnippetViewSet"
+
+# Lesson access hook (dotted-path callable)
+WAGTAIL_LMS_CHECK_LESSON_ACCESS = "wagtail_lms.access.default_lesson_access_check"
+
+# Django admin registration controls
+WAGTAIL_LMS_REGISTER_DJANGO_ADMIN = True
+WAGTAIL_LMS_SCORM_ADMIN_CLASS = "wagtail_lms.admin.SCORMPackageAdmin"
+WAGTAIL_LMS_H5P_ADMIN_CLASS = "wagtail_lms.admin.H5PActivityAdmin"
 ```
 
 ## Usage

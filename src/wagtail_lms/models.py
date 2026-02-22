@@ -5,6 +5,7 @@ import os
 import posixpath
 import xml.etree.ElementTree as ET
 import zipfile
+from functools import lru_cache
 
 from django.conf import settings
 from django.contrib import messages
@@ -16,16 +17,28 @@ from django.core.files.uploadedfile import UploadedFile
 from django.db import models, transaction
 from django.shortcuts import redirect
 from django.urls import reverse
-from wagtail.admin.panels import FieldPanel, TitleFieldPanel
+from django.utils.module_loading import import_string
+from wagtail.admin.panels import FieldPanel
 from wagtail.blocks import RichTextBlock, StructBlock
 from wagtail.fields import RichTextField, StreamField
 from wagtail.models import Page
 from wagtail.snippets.blocks import SnippetChooserBlock
-from wagtail.snippets.models import register_snippet
 
 from . import conf
 
 logger = logging.getLogger(__name__)
+_DEFAULT_LESSON_ACCESS_CHECK_PATH = "wagtail_lms.access.default_lesson_access_check"
+
+
+@lru_cache(maxsize=8)
+def _get_lesson_access_check(dotted_path):
+    try:
+        return import_string(dotted_path)
+    except (ImportError, AttributeError) as exc:
+        raise ImportError(
+            "Could not import lesson access callable "
+            f"'{dotted_path}' from WAGTAIL_LMS_CHECK_LESSON_ACCESS"
+        ) from exc
 
 
 class SCORMPackage(models.Model):
@@ -44,7 +57,7 @@ class SCORMPackage(models.Model):
     manifest_data = models.JSONField(default=dict, blank=True)
 
     panels = [
-        TitleFieldPanel("title"),
+        FieldPanel("title"),
         FieldPanel("description"),
         FieldPanel("package_file"),
         FieldPanel("version"),
@@ -211,7 +224,6 @@ def _h5p_package_upload_path(instance, filename):
     return f"{conf.WAGTAIL_LMS_H5P_UPLOAD_PATH}{filename}"
 
 
-@register_snippet
 class H5PActivity(models.Model):
     """Reusable H5P interactive activity, managed as a Wagtail snippet.
 
@@ -231,7 +243,7 @@ class H5PActivity(models.Model):
     h5p_json = models.JSONField(default=dict, blank=True)
 
     panels = [
-        TitleFieldPanel("title"),
+        FieldPanel("title"),
         FieldPanel("description"),
         FieldPanel("package_file"),
         FieldPanel("extracted_path", read_only=True),
@@ -686,7 +698,7 @@ class LessonPage(Page):
     Access is gated to users enrolled in the parent CoursePage.
     """
 
-    parent_page_types = ["wagtail_lms.CoursePage"]
+    parent_page_types = None
     subpage_types = []
 
     intro = RichTextField(blank=True)
@@ -721,21 +733,31 @@ class LessonPage(Page):
         if request.user.has_perm("wagtailadmin.access_admin"):
             return super().serve(request)
 
-        # Check enrollment in the parent CoursePage.
-        # Fetch the parent Page once; use page_ptr_id to filter without a
-        # .specific downcast on the hot path (enrolled users get 2 queries
-        # instead of 3).  Only downcast to CoursePage when we need course.url
-        # for the redirect (unenrolled path).
+        # Preserve the default enrollment-check fast path so enrolled users
+        # avoid an unnecessary .specific downcast query.
         parent_page = self.get_parent()
-        if not CourseEnrollment.objects.filter(
-            user=request.user,
-            course__page_ptr_id=parent_page.pk,
-        ).exists():
+        check_path = conf.WAGTAIL_LMS_CHECK_LESSON_ACCESS
+        if check_path == _DEFAULT_LESSON_ACCESS_CHECK_PATH:
+            has_access = CourseEnrollment.objects.filter(
+                user=request.user,
+                course__page_ptr_id=parent_page.pk,
+            ).exists()
+            if not has_access:
+                messages.error(
+                    request,
+                    "You must be enrolled in this course to access this lesson.",
+                )
+                return redirect(parent_page.specific.url)
+            return super().serve(request)
+
+        course_page = parent_page.specific
+        check_access = _get_lesson_access_check(check_path)
+        if not check_access(request, self, course_page):
             messages.error(
                 request,
                 "You must be enrolled in this course to access this lesson.",
             )
-            return redirect(parent_page.specific.url)
+            return redirect(course_page.url)
 
         return super().serve(request)
 

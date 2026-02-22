@@ -57,3 +57,43 @@ WAGTAIL_LMS_H5P_UPLOAD_PATH = getattr(
 WAGTAIL_LMS_H5P_CONTENT_PATH = getattr(
     settings, "WAGTAIL_LMS_H5P_CONTENT_PATH", "h5p_content/"
 )
+
+WAGTAIL_LMS_SCORM_PACKAGE_VIEWSET_CLASS = getattr(
+    settings,
+    "WAGTAIL_LMS_SCORM_PACKAGE_VIEWSET_CLASS",
+    "wagtail_lms.viewsets.SCORMPackageViewSet",
+)
+
+WAGTAIL_LMS_H5P_ACTIVITY_VIEWSET_CLASS = getattr(
+    settings,
+    "WAGTAIL_LMS_H5P_ACTIVITY_VIEWSET_CLASS",
+    "wagtail_lms.viewsets.H5PActivityViewSet",
+)
+
+WAGTAIL_LMS_H5P_SNIPPET_VIEWSET_CLASS = getattr(
+    settings,
+    "WAGTAIL_LMS_H5P_SNIPPET_VIEWSET_CLASS",
+    "wagtail_lms.viewsets.H5PActivitySnippetViewSet",
+)
+
+WAGTAIL_LMS_CHECK_LESSON_ACCESS = getattr(
+    settings,
+    "WAGTAIL_LMS_CHECK_LESSON_ACCESS",
+    "wagtail_lms.access.default_lesson_access_check",
+)
+
+WAGTAIL_LMS_REGISTER_DJANGO_ADMIN = getattr(
+    settings, "WAGTAIL_LMS_REGISTER_DJANGO_ADMIN", True
+)
+
+WAGTAIL_LMS_SCORM_ADMIN_CLASS = getattr(
+    settings,
+    "WAGTAIL_LMS_SCORM_ADMIN_CLASS",
+    "wagtail_lms.admin.SCORMPackageAdmin",
+)
+
+WAGTAIL_LMS_H5P_ADMIN_CLASS = getattr(
+    settings,
+    "WAGTAIL_LMS_H5P_ADMIN_CLASS",
+    "wagtail_lms.admin.H5PActivityAdmin",
+)

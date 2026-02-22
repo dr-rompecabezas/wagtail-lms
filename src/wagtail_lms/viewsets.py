@@ -1,6 +1,10 @@
+from django.utils.module_loading import import_string
+from wagtail.admin.views.generic.models import IndexView, InspectView
 from wagtail.admin.viewsets.model import ModelViewSet, ModelViewSetGroup
 from wagtail.permission_policies import ModelPermissionPolicy
+from wagtail.snippets.views.snippets import SnippetViewSet
 
+from . import conf
 from .models import (
     CourseEnrollment,
     H5PActivity,
@@ -9,6 +13,22 @@ from .models import (
     SCORMAttempt,
     SCORMPackage,
 )
+
+
+def _import_viewset_class(dotted_path, setting_name):
+    try:
+        viewset_class = import_string(dotted_path)
+    except (ImportError, AttributeError) as exc:
+        raise ImportError(
+            f"Could not import '{dotted_path}' from {setting_name}"
+        ) from exc
+    if not issubclass(viewset_class, ModelViewSet):
+        raise TypeError(
+            f"{setting_name} must reference a ModelViewSet subclass; "
+            f"got '{dotted_path}'. SnippetViewSet classes should be "
+            "registered via Wagtail snippet hooks."
+        )
+    return viewset_class
 
 
 class ReadOnlyPermissionPolicy(ModelPermissionPolicy):
@@ -27,6 +47,14 @@ class EditOnlyPermissionPolicy(ModelPermissionPolicy):
         if action in ("add", "delete"):
             return False
         return super().user_has_permission(user, action)
+
+
+class ViewPermissionIndexView(IndexView):
+    any_permission_required = ["view"]
+
+
+class ViewPermissionInspectView(InspectView):
+    any_permission_required = ["view"]
 
 
 class SCORMPackageViewSet(ModelViewSet):
@@ -51,6 +79,19 @@ class H5PActivityViewSet(ModelViewSet):
     search_fields = ["title", "description", "main_library"]
 
 
+class H5PActivitySnippetViewSet(SnippetViewSet):
+    model = H5PActivity
+    icon = "media"
+    menu_label = "H5P Activities"
+    menu_icon = "media"
+    # Keep snippet chooser support but avoid a second admin menu path.
+    add_to_admin_menu = False
+    menu_item_is_registered = True
+    list_display = ["title", "main_library", "created_at"]
+    list_filter = ["created_at"]
+    search_fields = ["title", "description", "main_library"]
+
+
 class CourseEnrollmentViewSet(ModelViewSet):
     model = CourseEnrollment
     icon = "group"
@@ -69,6 +110,8 @@ class SCORMAttemptViewSet(ModelViewSet):
     add_to_admin_menu = False
     menu_label = "SCORM Attempts"
     menu_icon = "time"
+    index_view_class = ViewPermissionIndexView
+    inspect_view_class = ViewPermissionInspectView
     inspect_view_enabled = True
     list_display = [
         "user",
@@ -89,6 +132,8 @@ class H5PAttemptViewSet(ModelViewSet):
     add_to_admin_menu = False
     menu_label = "H5P Attempts"
     menu_icon = "time"
+    index_view_class = ViewPermissionIndexView
+    inspect_view_class = ViewPermissionInspectView
     inspect_view_enabled = True
     list_display = [
         "user",
@@ -109,6 +154,7 @@ class LessonCompletionViewSet(ModelViewSet):
     add_to_admin_menu = False
     menu_label = "Lesson Completions"
     menu_icon = "tick-inverse"
+    index_view_class = ViewPermissionIndexView
     list_display = ["user", "lesson", "completed_at"]
     list_filter = ["completed_at"]
     search_fields = ["user__username", "lesson__title"]
@@ -118,11 +164,20 @@ class LessonCompletionViewSet(ModelViewSet):
 class LMSViewSetGroup(ModelViewSetGroup):
     menu_label = "LMS"
     menu_icon = "glasses"
-    items = (
-        SCORMPackageViewSet,
-        H5PActivityViewSet,
-        CourseEnrollmentViewSet,
-        SCORMAttemptViewSet,
-        H5PAttemptViewSet,
-        LessonCompletionViewSet,
-    )
+
+    @property
+    def items(self):
+        return (
+            _import_viewset_class(
+                conf.WAGTAIL_LMS_SCORM_PACKAGE_VIEWSET_CLASS,
+                "WAGTAIL_LMS_SCORM_PACKAGE_VIEWSET_CLASS",
+            ),
+            _import_viewset_class(
+                conf.WAGTAIL_LMS_H5P_ACTIVITY_VIEWSET_CLASS,
+                "WAGTAIL_LMS_H5P_ACTIVITY_VIEWSET_CLASS",
+            ),
+            CourseEnrollmentViewSet,
+            SCORMAttemptViewSet,
+            H5PAttemptViewSet,
+            LessonCompletionViewSet,
+        )
