@@ -70,6 +70,12 @@ WAGTAIL_LMS_H5P_ACTIVITY_VIEWSET_CLASS = getattr(
     "wagtail_lms.viewsets.H5PActivityViewSet",
 )
 
+WAGTAIL_LMS_H5P_SNIPPET_VIEWSET_CLASS = getattr(
+    settings,
+    "WAGTAIL_LMS_H5P_SNIPPET_VIEWSET_CLASS",
+    "wagtail_lms.viewsets.H5PActivitySnippetViewSet",
+)
+
 WAGTAIL_LMS_CHECK_LESSON_ACCESS = getattr(
     settings,
     "WAGTAIL_LMS_CHECK_LESSON_ACCESS",

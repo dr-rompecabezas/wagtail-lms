@@ -3,13 +3,15 @@
 import pytest
 from django.contrib import admin
 from django.contrib.admin import AdminSite
+from wagtail.admin.panels import FieldPanel
 from wagtail.snippets.models import get_snippet_models
 
 from wagtail_lms import admin as wagtail_lms_admin
-from wagtail_lms import conf
+from wagtail_lms import conf, wagtail_hooks
 from wagtail_lms import models as wagtail_lms_models
 from wagtail_lms.models import CourseEnrollment, H5PActivity, LessonPage, SCORMPackage
 from wagtail_lms.viewsets import (
+    H5PActivitySnippetViewSet,
     H5PActivityViewSet,
     LMSViewSetGroup,
     SCORMPackageViewSet,
@@ -37,6 +39,10 @@ class CustomSCORMPackageAdmin(admin.ModelAdmin):
 
 
 class CustomH5PActivityAdmin(admin.ModelAdmin):
+    pass
+
+
+class CustomH5PActivitySnippetViewSet(H5PActivitySnippetViewSet):
     pass
 
 
@@ -152,10 +158,53 @@ def test_lms_viewset_group_invalid_dotted_path_includes_setting_name(monkeypatch
         LMSViewSetGroup()
 
 
+def test_backcompat_lms_viewset_group_alias_present():
+    assert isinstance(wagtail_hooks.lms_viewset_group, LMSViewSetGroup)
+    assert wagtail_hooks.register_lms_viewset() is wagtail_hooks.lms_viewset_group
+
+
 def test_h5p_snippet_registration_uses_hidden_snippet_viewset():
     assert H5PActivity in get_snippet_models()
     assert H5PActivity.snippet_viewset.add_to_admin_menu is False
     assert H5PActivity.snippet_viewset.get_menu_item_is_registered() is True
+
+
+def test_h5p_snippet_viewset_setting_import_helper_accepts_snippet_viewset():
+    imported = wagtail_hooks._import_snippet_viewset_class(
+        "tests.test_downstream_integration.CustomH5PActivitySnippetViewSet",
+        "WAGTAIL_LMS_H5P_SNIPPET_VIEWSET_CLASS",
+    )
+    assert imported is CustomH5PActivitySnippetViewSet
+
+
+def test_h5p_snippet_viewset_setting_import_helper_invalid_path():
+    with pytest.raises(ImportError, match="WAGTAIL_LMS_H5P_SNIPPET_VIEWSET_CLASS"):
+        wagtail_hooks._import_snippet_viewset_class(
+            "tests.missing.DoesNotExist",
+            "WAGTAIL_LMS_H5P_SNIPPET_VIEWSET_CLASS",
+        )
+
+
+def test_h5p_snippet_viewset_setting_import_helper_invalid_type():
+    with pytest.raises(TypeError, match="WAGTAIL_LMS_H5P_SNIPPET_VIEWSET_CLASS"):
+        wagtail_hooks._import_snippet_viewset_class(
+            "wagtail_lms.viewsets.H5PActivityViewSet",
+            "WAGTAIL_LMS_H5P_SNIPPET_VIEWSET_CLASS",
+        )
+
+
+def test_h5p_snippet_viewset_setting_default_is_configured():
+    assert (
+        conf.WAGTAIL_LMS_H5P_SNIPPET_VIEWSET_CLASS
+        == "wagtail_lms.viewsets.H5PActivitySnippetViewSet"
+    )
+
+
+def test_title_panels_use_fieldpanel_for_non_page_models():
+    assert isinstance(SCORMPackage.panels[0], FieldPanel)
+    assert isinstance(H5PActivity.panels[0], FieldPanel)
+    assert SCORMPackage.panels[0].field_name == "title"
+    assert H5PActivity.panels[0].field_name == "title"
 
 
 def test_register_django_admin_can_be_disabled(monkeypatch):

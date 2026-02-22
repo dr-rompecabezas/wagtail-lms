@@ -144,6 +144,7 @@ This endpoint powers H5P resume/progress state and is wired via
 |---------|---------|---------|
 | `WAGTAIL_LMS_SCORM_PACKAGE_VIEWSET_CLASS` | `"wagtail_lms.viewsets.SCORMPackageViewSet"` | Replace the SCORM package Wagtail admin viewset |
 | `WAGTAIL_LMS_H5P_ACTIVITY_VIEWSET_CLASS` | `"wagtail_lms.viewsets.H5PActivityViewSet"` | Replace the H5P activity Wagtail admin viewset |
+| `WAGTAIL_LMS_H5P_SNIPPET_VIEWSET_CLASS` | `"wagtail_lms.viewsets.H5PActivitySnippetViewSet"` | Replace the H5P snippet viewset used for chooser/admin snippet URLs |
 | `WAGTAIL_LMS_CHECK_LESSON_ACCESS` | `"wagtail_lms.access.default_lesson_access_check"` | Dotted-path callable used by `LessonPage.serve()` |
 | `WAGTAIL_LMS_REGISTER_DJANGO_ADMIN` | `True` | Enable/disable wagtail-lms Django admin registration |
 | `WAGTAIL_LMS_SCORM_ADMIN_CLASS` | `"wagtail_lms.admin.SCORMPackageAdmin"` | Dotted-path Django `ModelAdmin` for `SCORMPackage` |

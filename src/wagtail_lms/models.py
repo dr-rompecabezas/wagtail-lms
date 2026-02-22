@@ -18,7 +18,7 @@ from django.db import models, transaction
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils.module_loading import import_string
-from wagtail.admin.panels import FieldPanel, TitleFieldPanel
+from wagtail.admin.panels import FieldPanel
 from wagtail.blocks import RichTextBlock, StructBlock
 from wagtail.fields import RichTextField, StreamField
 from wagtail.models import Page
@@ -57,7 +57,7 @@ class SCORMPackage(models.Model):
     manifest_data = models.JSONField(default=dict, blank=True)
 
     panels = [
-        TitleFieldPanel("title"),
+        FieldPanel("title"),
         FieldPanel("description"),
         FieldPanel("package_file"),
         FieldPanel("version"),
@@ -243,7 +243,7 @@ class H5PActivity(models.Model):
     h5p_json = models.JSONField(default=dict, blank=True)
 
     panels = [
-        TitleFieldPanel("title"),
+        FieldPanel("title"),
         FieldPanel("description"),
         FieldPanel("package_file"),
         FieldPanel("extracted_path", read_only=True),
