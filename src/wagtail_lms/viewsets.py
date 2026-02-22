@@ -15,10 +15,19 @@ from .models import (
 )
 
 
-def _import_viewset_class(dotted_path):
-    viewset_class = import_string(dotted_path)
+def _import_viewset_class(dotted_path, setting_name):
+    try:
+        viewset_class = import_string(dotted_path)
+    except (ImportError, AttributeError) as exc:
+        raise ImportError(
+            f"Could not import '{dotted_path}' from {setting_name}"
+        ) from exc
     if not issubclass(viewset_class, ModelViewSet):
-        raise TypeError(f"{dotted_path} is not a ModelViewSet subclass")
+        raise TypeError(
+            f"{setting_name} must reference a ModelViewSet subclass; "
+            f"got '{dotted_path}'. SnippetViewSet classes should be "
+            "registered via Wagtail snippet hooks."
+        )
     return viewset_class
 
 
@@ -159,8 +168,14 @@ class LMSViewSetGroup(ModelViewSetGroup):
     @property
     def items(self):
         return (
-            _import_viewset_class(conf.WAGTAIL_LMS_SCORM_PACKAGE_VIEWSET_CLASS),
-            _import_viewset_class(conf.WAGTAIL_LMS_H5P_ACTIVITY_VIEWSET_CLASS),
+            _import_viewset_class(
+                conf.WAGTAIL_LMS_SCORM_PACKAGE_VIEWSET_CLASS,
+                "WAGTAIL_LMS_SCORM_PACKAGE_VIEWSET_CLASS",
+            ),
+            _import_viewset_class(
+                conf.WAGTAIL_LMS_H5P_ACTIVITY_VIEWSET_CLASS,
+                "WAGTAIL_LMS_H5P_ACTIVITY_VIEWSET_CLASS",
+            ),
             CourseEnrollmentViewSet,
             SCORMAttemptViewSet,
             H5PAttemptViewSet,

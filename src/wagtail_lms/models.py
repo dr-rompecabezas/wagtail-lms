@@ -5,6 +5,7 @@ import os
 import posixpath
 import xml.etree.ElementTree as ET
 import zipfile
+from functools import lru_cache
 
 from django.conf import settings
 from django.contrib import messages
@@ -26,6 +27,18 @@ from wagtail.snippets.blocks import SnippetChooserBlock
 from . import conf
 
 logger = logging.getLogger(__name__)
+_DEFAULT_LESSON_ACCESS_CHECK_PATH = "wagtail_lms.access.default_lesson_access_check"
+
+
+@lru_cache(maxsize=8)
+def _get_lesson_access_check(dotted_path):
+    try:
+        return import_string(dotted_path)
+    except (ImportError, AttributeError) as exc:
+        raise ImportError(
+            "Could not import lesson access callable "
+            f"'{dotted_path}' from WAGTAIL_LMS_CHECK_LESSON_ACCESS"
+        ) from exc
 
 
 class SCORMPackage(models.Model):
@@ -720,11 +733,25 @@ class LessonPage(Page):
         if request.user.has_perm("wagtailadmin.access_admin"):
             return super().serve(request)
 
-        # Check lesson access via configurable callable.
+        # Preserve the default enrollment-check fast path so enrolled users
+        # avoid an unnecessary .specific downcast query.
         parent_page = self.get_parent()
-        course_page = parent_page.specific
-        check_access = import_string(conf.WAGTAIL_LMS_CHECK_LESSON_ACCESS)
+        check_path = conf.WAGTAIL_LMS_CHECK_LESSON_ACCESS
+        if check_path == _DEFAULT_LESSON_ACCESS_CHECK_PATH:
+            has_access = CourseEnrollment.objects.filter(
+                user=request.user,
+                course__page_ptr_id=parent_page.pk,
+            ).exists()
+            if not has_access:
+                messages.error(
+                    request,
+                    "You must be enrolled in this course to access this lesson.",
+                )
+                return redirect(parent_page.specific.url)
+            return super().serve(request)
 
+        course_page = parent_page.specific
+        check_access = _get_lesson_access_check(check_path)
         if not check_access(request, self, course_page):
             messages.error(
                 request,
