@@ -98,6 +98,12 @@ jobs:
           uv pip install "wagtail~=${{ matrix.wagtail-version }}.0"
           uv pip install -e ".[testing]"
 
+      - name: Check for missing wagtail_lms migrations
+        run: |
+          uv run python example_project/manage.py makemigrations wagtail_lms --check --dry-run
+        env:
+          PYTHONPATH: .:example_project
+
       - name: Run tests
         run: |
           uv run pytest --cov=src/wagtail_lms --cov-report=xml --cov-report=term-missing
