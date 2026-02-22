@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.1] - 2026-02-22
+
+### Fixed
+
+- **Missing migration state update for `LessonPage.body`**
+  - Added `src/wagtail_lms/migrations/0003_alter_lessonpage_body.py` so `makemigrations wagtail_lms --check --dry-run` no longer reports pending model changes on current supported stacks.
+
+### Changed
+
+- **CI now enforces migration-state consistency for `wagtail_lms`**
+  - Added a dedicated workflow step running `python example_project/manage.py makemigrations wagtail_lms --check --dry-run` before tests.
+
 ## [0.10.0] - 2026-02-21
 
 ### Added
