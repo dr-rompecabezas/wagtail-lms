@@ -16,11 +16,24 @@ def forward_migrate_scorm_packages(apps, schema_editor):
     # Use historical CoursePage to access scorm_package (field removed in this migration)
     HistoricalCoursePage = apps.get_model("wagtail_lms", "CoursePage")
 
+    from wagtail.models import Page
+
     for hist_course in HistoricalCoursePage.objects.filter(
         scorm_package__isnull=False
     ).iterator():
         course = CoursePage.objects.get(pk=hist_course.pk)
-        slug = f"scorm-{course.id}"
+
+        # Generate a slug that is unique among the course's existing children
+        base_slug = f"scorm-{course.id}"
+        existing_slugs = set(
+            Page.objects.child_of(course).values_list("slug", flat=True)
+        )
+        slug = base_slug
+        counter = 2
+        while slug in existing_slugs:
+            slug = f"{base_slug}-{counter}"
+            counter += 1
+
         lesson = SCORMLessonPage(
             title=f"{course.title} - SCORM Content",
             slug=slug,

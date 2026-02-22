@@ -27,7 +27,7 @@
 
             {% if lesson_pages %}
                 <div class="lms-course__info">
-                    <h3>Course Lessons</h3>
+                    <h3>Lessons</h3>
                     <ol class="lms-lesson-list">
                         {% for lesson in lesson_pages %}
                             <li class="lms-lesson-list__item{% if lesson.pk in completed_lesson_ids %} lms-lesson-list__item--completed{% endif %}">
@@ -37,7 +37,22 @@
                         {% endfor %}
                     </ol>
                 </div>
+            {% endif %}
 
+            {% if scorm_lesson_pages %}
+                <div class="lms-course__info">
+                    <h3>SCORM Lessons</h3>
+                    <ol class="lms-lesson-list">
+                        {% for lesson in scorm_lesson_pages %}
+                            <li class="lms-lesson-list__item">
+                                <a href="{% pageurl lesson %}" class="lms-lesson-list__link">{{ lesson.title }}</a>
+                            </li>
+                        {% endfor %}
+                    </ol>
+                </div>
+            {% endif %}
+
+            {% if lesson_pages or scorm_lesson_pages %}
                 {% if user.is_authenticated %}
                     {% if enrollment %}
                         <div class="lms-enrollment">
