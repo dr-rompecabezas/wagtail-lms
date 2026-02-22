@@ -6,6 +6,7 @@ This guide outlines the steps for releasing a new version of Wagtail LMS to PyPI
 
 - Maintainer access to the GitHub repository
 - PyPI trusted publishing configured for the repository (see [Setup](#pypi-trusted-publishing-setup) below)
+- Read the Docs versioning configured for release tags (see [Read the Docs Versioning Setup](#read-the-docs-versioning-setup-one-time))
 - `uv` installed and up to date (for local testing)
 
 ## PyPI Trusted Publishing Setup
@@ -44,6 +45,21 @@ Wagtail LMS uses PyPI's [Trusted Publishing](https://docs.pypi.org/trusted-publi
 
 Once configured, GitHub Actions can publish to PyPI without any API tokens. The `pypi` environment will require your manual approval for extra safety.
 
+## Read the Docs Versioning Setup (One-Time)
+
+This project starts versioned documentation releases at `v0.10.0` and does not backfill older tags.
+
+1. Go to the Read the Docs project admin for Wagtail LMS.
+2. Add an automation rule for tags with this regex:
+
+   ```text
+   ^v(?:0\.(?:1[0-9]|[2-9][0-9])\.[0-9]+|[1-9][0-9]*\.[0-9]+\.[0-9]+)$
+   ```
+
+3. Configure the rule to activate matching versions automatically.
+4. Keep pre-`v0.10.0` tags inactive/hidden.
+5. After `v0.10.0` is built, set the default documentation version to `stable` (recommended) and keep `latest` tracking `main`.
+
 ## Pre-Release Checklist
 
 Before starting the release process, ensure:
@@ -52,6 +68,7 @@ Before starting the release process, ensure:
 - [ ] GitHub Actions CI is passing on `main` branch
 - [ ] Documentation is up to date
 - [ ] CHANGELOG.md is updated with changes for this release
+- [ ] Read the Docs versioning rule for `v0.10.0+` is configured
 - [ ] No outstanding critical issues
 
 **Note**: GitHub Actions automatically runs tests and quality checks on every push. Ensure the CI badge shows passing before proceeding.
@@ -155,7 +172,19 @@ After creating the release, the publish workflow will start:
 4. Wait for the workflow to complete successfully (usually takes 1-2 minutes after approval)
 5. If it fails, check the logs and troubleshoot (see [Troubleshooting](#troubleshooting) below)
 
-### 7. Verify Installation
+### 7. Verify Read the Docs Version
+
+After the release tag is created (for example, `v0.10.0`), verify docs versioning in Read the Docs:
+
+1. Open the Read the Docs "Versions" page for the project.
+2. Confirm the new tag version exists and its build is successful.
+3. Confirm the version is active/public.
+4. For the first versioned release (`v0.10.0`), confirm:
+   - `stable` points to `v0.10.0`
+   - `latest` still points to `main`
+   - Default version is `stable`
+
+### 8. Verify Installation
 
 Test that the package can be installed from PyPI:
 
@@ -175,7 +204,7 @@ deactivate
 rm -rf verify-env
 ```
 
-### 8. Post-Release Tasks
+### 9. Post-Release Tasks
 
 - [ ] Verify the package appears on PyPI: <https://pypi.org/project/wagtail-lms/>
 - [ ] Announce the release on relevant channels (GitHub Discussions, social media, etc.)
@@ -263,8 +292,9 @@ gh release create v0.2.0 \
   --notes-file <(sed -n '/## \[0.2.0\]/,/## \[/p' CHANGELOG.md | sed '$d')
 
 # 4. Approve deployment in GitHub Actions (if required reviewers configured)
-# 5. Monitor publish workflow and verify on PyPI
-# 6. Update CHANGELOG.md with [Unreleased] section
+# 5. Verify Read the Docs version build for the new tag
+# 6. Monitor publish workflow and verify on PyPI
+# 7. Update CHANGELOG.md with [Unreleased] section
 ```
 
 ## Resources
@@ -274,3 +304,5 @@ gh release create v0.2.0 \
 - [Semantic Versioning](https://semver.org/)
 - [uv Documentation](https://docs.astral.sh/uv/)
 - [GitHub CLI - Creating Releases](https://cli.github.com/manual/gh_release_create)
+- [Read the Docs - Versioning](https://docs.readthedocs.io/en/stable/versions.html)
+- [Read the Docs - Automation Rules](https://docs.readthedocs.io/en/stable/automation-rules.html)

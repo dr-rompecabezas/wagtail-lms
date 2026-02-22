@@ -40,6 +40,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `docs/roadmap.md` updated: current status set to v0.9.0, H5P activity support marked complete, v0.10.0 section added (downstream integration fixes — issues [#73](https://github.com/dr-rompecabezas/wagtail-lms/issues/73), [#64](https://github.com/dr-rompecabezas/wagtail-lms/issues/64), [#63](https://github.com/dr-rompecabezas/wagtail-lms/issues/63), [#61](https://github.com/dr-rompecabezas/wagtail-lms/issues/61), [#71](https://github.com/dr-rompecabezas/wagtail-lms/issues/71)), future versions renumbered to 0.11.0 / 0.12.0 / 1.0.0
   - RTD documentation badge added to `README.md`
 
+- **Read the Docs release-versioning rollout for v0.10.0+**
+  - Pinned docs build dependencies, documented one-time RTD automation/default-version setup, added post-release RTD version verification, and fixed docs links so MkDocs strict mode passes
+
 ### Deprecated
 
 - `WAGTAIL_LMS_CONTENT_PATH` renamed to `WAGTAIL_LMS_SCORM_CONTENT_PATH` for consistency with the `WAGTAIL_LMS_SCORM_*` prefix convention. The old name still works and its configured value is honoured, but it now emits a `DeprecationWarning` at startup. It will be removed in a future release — rename the setting in your Django settings to silence the warning.
@@ -337,7 +340,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Old: `.container`, `.row`, `.col-md-8`, `.btn-primary`, `.alert-info`
   - New: `.lms-course`, `.lms-course__layout`, `.lms-button--primary`, `.lms-notice--info`
   - **Migration:** Update any custom CSS targeting old classes, or override templates with your own
-  - See [Template Customization Guide](docs/template_customization.md) for examples
+  - See [Template Customization Guide](https://github.com/dr-rompecabezas/wagtail-lms/blob/main/docs/template_customization.md) for examples
 
 ### Added
 
