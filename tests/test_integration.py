@@ -256,6 +256,30 @@ class TestFullCourseWorkflow:
         assert "lesson_pages" in context
         assert "scorm_lesson_pages" in context
 
+    def test_completed_scorm_lesson_ids_populated_after_completion(
+        self, user, course_page, scorm_lesson_page, scorm_package, rf
+    ):
+        """completed_scorm_lesson_ids contains the lesson PK when the user has a
+        completed/passed SCORMAttempt for the associated package."""
+        CourseEnrollment.objects.create(user=user, course=course_page)
+        SCORMAttempt.objects.create(
+            user=user, scorm_package=scorm_package, completion_status="completed"
+        )
+        request = rf.get("/")
+        request.user = user
+        context = course_page.get_context(request)
+        assert scorm_lesson_page.pk in context["completed_scorm_lesson_ids"]
+
+    def test_completed_scorm_lesson_ids_empty_without_attempt(
+        self, user, course_page, scorm_lesson_page, rf
+    ):
+        """completed_scorm_lesson_ids is empty when the user has no attempt."""
+        CourseEnrollment.objects.create(user=user, course=course_page)
+        request = rf.get("/")
+        request.user = user
+        context = course_page.get_context(request)
+        assert context["completed_scorm_lesson_ids"] == set()
+
 
 @pytest.mark.django_db
 class TestConcurrentSCORMOperations:

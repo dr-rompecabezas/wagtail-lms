@@ -474,6 +474,28 @@ class TestSCORMDataHelpers:
 
 
 @pytest.mark.django_db
+class TestTryCompleteCourse:
+    """Tests for the unified _try_complete_course helper."""
+
+    def test_scorm_lesson_without_package_is_not_trackable(self, user, course_page):
+        """A SCORMLessonPage with no scorm_package is informational; it must not
+        gate course completion, and a course containing only such lessons must
+        not mark the enrollment complete."""
+        from wagtail_lms.models import SCORMLessonPage
+        from wagtail_lms.views import _try_complete_course
+
+        lesson = SCORMLessonPage(title="Info SCORM", slug="info-scorm-lesson")
+        course_page.add_child(instance=lesson)
+        lesson.live = True
+        lesson.save(update_fields=["live"])
+
+        enrollment = CourseEnrollment.objects.create(user=user, course=course_page)
+        _try_complete_course(user, course_page)
+        enrollment.refresh_from_db()
+        assert enrollment.completed_at is None
+
+
+@pytest.mark.django_db
 class TestServeScormContent:
     """Tests for SCORM content serving view."""
 

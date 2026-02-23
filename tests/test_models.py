@@ -4,6 +4,7 @@ import io
 import os
 
 import pytest
+from django.contrib.auth.models import AnonymousUser
 from django.core.files.storage import default_storage
 from django.db import IntegrityError
 
@@ -416,3 +417,31 @@ class TestSCORMPackageStorageBackend:
 
         assert package.launch_url == "index.html"
         assert package.manifest_data["title"] == "Test SCORM Course"
+
+
+@pytest.mark.django_db
+class TestSCORMLessonPageGetContext:
+    """Tests for SCORMLessonPage.get_context()."""
+
+    def test_context_contains_existing_attempt(
+        self, rf, user, scorm_lesson_page, scorm_package
+    ):
+        attempt = SCORMAttempt.objects.create(user=user, scorm_package=scorm_package)
+        request = rf.get("/")
+        request.user = user
+        context = scorm_lesson_page.get_context(request)
+        assert context["attempt"] == attempt
+
+    def test_context_attempt_is_none_when_no_attempt_exists(
+        self, rf, user, scorm_lesson_page
+    ):
+        request = rf.get("/")
+        request.user = user
+        context = scorm_lesson_page.get_context(request)
+        assert context["attempt"] is None
+
+    def test_context_attempt_is_none_for_anonymous_user(self, rf, scorm_lesson_page):
+        request = rf.get("/")
+        request.user = AnonymousUser()
+        context = scorm_lesson_page.get_context(request)
+        assert context["attempt"] is None
