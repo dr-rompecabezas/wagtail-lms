@@ -2,9 +2,21 @@
 
 This document outlines the planned development path for Wagtail LMS.
 
-## Current Status: v0.10.1
+## Current Status: v0.11.0
 
 The current release includes **full H5P and SCORM lesson page support, xAPI tracking, downstream extensibility, and all prior SCORM infrastructure**.
+
+**Completed in v0.11.0:**
+
+✅ **SCORMLessonPage + Model Renames**
+
+- `SCORMLessonPage` — dedicated Wagtail Page child of `CoursePage` for SCORM delivery
+- `LessonPage` renamed to `H5PLessonPage`; `LessonCompletion` renamed to `H5PLessonCompletion`
+- `CoursePage.scorm_package` FK removed — SCORM packages now belong to `SCORMLessonPage`
+- SCORM player URL changed from `player/<course_id>/` to `scorm-lesson/<lesson_id>/play/`
+- Course completion now checks both H5P lesson completions and SCORM attempt statuses
+- Data migration creates a `SCORMLessonPage` child for existing courses that had a `scorm_package`
+- System check `W002` added to warn when a `CoursePage` subclass omits `SCORMLessonPage` from `subpage_types`
 
 **Completed in v0.10.x:**
 
@@ -55,25 +67,7 @@ Selected combinations tested in CI — see the [CI matrix](https://github.com/dr
 
 ---
 
-## Version 0.11.0 — SCORMLessonPage + Model Renames (in progress)
-
-**Goal:** Clean separation of SCORM and H5P content at the lesson level
-
-- [x] Introduce `SCORMLessonPage` — a dedicated Wagtail Page child of `CoursePage` for SCORM delivery
-- [x] Rename `LessonPage` → `H5PLessonPage` and `LessonCompletion` → `H5PLessonCompletion`
-- [x] Remove `CoursePage.scorm_package` FK — SCORM packages now belong to `SCORMLessonPage`
-- [x] SCORM player URL changed from `player/<course_id>/` to `scorm-lesson/<lesson_id>/play/`
-- [x] Course completion now checks both H5P lesson completions and SCORM attempt statuses
-- [x] Data migration creates a `SCORMLessonPage` child for existing courses that had a `scorm_package`
-- [x] System check `W002` added to warn when a `CoursePage` subclass omits `SCORMLessonPage` from `subpage_types`
-
-### Testing
-
-- [ ] Verify H5P resume state with all supported activity types ([#71](https://github.com/dr-rompecabezas/wagtail-lms/issues/71))
-
----
-
-## Version 0.12.0 — Q3 2026
+## Version 0.12.0 — Q2 2026
 
 **Goal:** Enhanced Wagtail integration and developer experience
 
@@ -89,13 +83,9 @@ Selected combinations tested in CI — see the [CI matrix](https://github.com/dr
 - [ ] Docker Compose setup for quick local testing with pre-loaded sample content
 - [ ] Improved error handling and logging for SCORM and H5P upload failures
 
-### Testing & Quality
-
-- [ ] Increase test coverage to 90%+
-
 ---
 
-## Version 0.13.0 — Q4 2026
+## Version 0.13.0 — Q3 2026
 
 **Goal:** Enhanced LMS features and reporting
 
