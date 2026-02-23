@@ -89,6 +89,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 "abstract": False,
+                "verbose_name": "SCORM lesson page",
             },
             bases=("wagtailcore.page",),
         ),

@@ -26,4 +26,8 @@ class Migration(migrations.Migration):
                 "verbose_name_plural": "H5P Lesson Completions",
             },
         ),
+        migrations.AlterModelOptions(
+            name="h5plessonpage",
+            options={"verbose_name": "H5P lesson page"},
+        ),
     ]
