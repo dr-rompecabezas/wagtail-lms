@@ -6,7 +6,7 @@ Wagtail LMS includes a comprehensive test suite covering models, views, API endp
 
 The test suite covers:
 
-- **Models**: SCORMPackage, CoursePage, CourseEnrollment, SCORMAttempt, SCORMData, H5PActivity, H5PAttempt, H5PXAPIStatement, H5PContentUserData, LessonPage, LessonCompletion
+- **Models**: SCORMPackage, CoursePage, CourseEnrollment, SCORMAttempt, SCORMData, H5PActivity, H5PAttempt, H5PXAPIStatement, H5PContentUserData, H5PLessonPage, H5PLessonCompletion, SCORMLessonPage
 - **Views**: SCORM player, H5P xAPI endpoint, enrollment, content serving, resume state
 - **SCORM API**: All runtime methods (Initialize, Terminate, GetValue, SetValue, Commit)
 - **Integration**: Complete course workflows, concurrent operations

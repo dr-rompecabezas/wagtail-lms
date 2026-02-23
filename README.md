@@ -82,10 +82,11 @@ pip install wagtail-lms
 Optional settings in your Django settings:
 
 ```python
+WAGTAIL_LMS_AUTO_ENROLL = False                    # Auto-enroll on course visit
+
 # SCORM
 WAGTAIL_LMS_SCORM_UPLOAD_PATH = 'scorm_packages/'  # Upload directory
-WAGTAIL_LMS_SCORM_CONTENT_PATH = 'scorm_content/'        # Extracted content
-WAGTAIL_LMS_AUTO_ENROLL = False                     # Auto-enroll on course visit
+WAGTAIL_LMS_SCORM_CONTENT_PATH = 'scorm_content/'  # Extracted content
 
 # H5P
 WAGTAIL_LMS_H5P_UPLOAD_PATH = 'h5p_packages/'      # Upload directory
@@ -126,7 +127,8 @@ WAGTAIL_LMS_H5P_ADMIN_CLASS = "wagtail_lms.admin.H5PActivityAdmin"
 1. Log into Wagtail admin
 2. Create a new **Course Page** under Pages
 3. Upload a SCORM package via **LMS → SCORM Packages** in the Wagtail admin
-4. Assign the SCORM package to your course page and publish
+4. Add a **SCORM Lesson Page** as a child of the Course Page and assign the SCORM package to it
+5. Publish — enrolled learners can access the lesson from the course page
 
 **SCORM package requirements:**
 
@@ -136,11 +138,11 @@ WAGTAIL_LMS_H5P_ADMIN_CLASS = "wagtail_lms.admin.H5PActivityAdmin"
 
 ### H5P Lessons
 
-H5P activities are composed into long-scroll **Lesson Pages** alongside rich text. A lesson is always a child of a Course Page; enrollment in the course is required to access its lessons.
+H5P activities are composed into long-scroll **H5P Lesson Pages** alongside rich text. A lesson is always a child of a Course Page; enrollment in the course is required to access its lessons.
 
 1. Upload an **H5P Activity** snippet via **LMS → H5P Activities** in the Wagtail admin
 2. Create a **Course Page** (no SCORM package required for H5P-only courses)
-3. Add a **Lesson Page** as a child of the Course Page
+3. Add an **H5P Lesson Page** as a child of the Course Page
 4. In the lesson body, add **H5P Activity** blocks (and/or rich text blocks) to compose the lesson
 5. Publish — enrolled learners can access the lesson; xAPI statements are recorded automatically
 
@@ -163,7 +165,7 @@ The package includes minimal, functional styling that works out of the box. To m
 
 - **Quick:** Override the CSS classes in your own stylesheet
 - **Full control:** Override the templates in your project (standard Django approach)
-- **Examples:** See [Template Customization Guide](https://github.com/dr-rompecabezas/wagtail-lms/blob/main/docs/template_customization.md) for Bootstrap, Tailwind CSS, and Bulma examples
+- **Examples:** See [Template Customization](https://wagtail-lms.readthedocs.io/en/latest/template_customization/) for Bootstrap, Tailwind CSS, and Bulma examples
 
 For API-first projects, the templates are optional and can be ignored entirely.
 
@@ -173,50 +175,17 @@ An example project is available in `example_project/` for local development and 
 
 ### Running Tests
 
-The project includes a comprehensive test suite. See [current coverage](https://app.codecov.io/gh/dr-rompecabezas/wagtail-lms).
-
 ```bash
-# Install testing dependencies (pytest, pytest-django, pytest-cov)
 uv sync --extra testing
-
-# Run all tests
 PYTHONPATH=. uv run pytest
-
-# Run with coverage report
 PYTHONPATH=. uv run pytest --cov=src/wagtail_lms --cov-report=term-missing
-
-# Run specific test file
-PYTHONPATH=. uv run pytest tests/test_models.py -v
 ```
 
-### Database Considerations
+See the [Testing Guide](https://wagtail-lms.readthedocs.io/en/latest/testing/) for full details, including writing new tests and CI configuration.
 
-**SQLite**: The package includes retry logic with exponential backoff to handle database lock errors during concurrent SCORM API operations. For development with the example project:
+### Database
 
-```python
-# example_project/settings.py
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": "db.sqlite3",
-        "OPTIONS": {
-            "timeout": 20,  # Increased timeout for SCORM operations
-        },
-    }
-}
-```
-
-**Production**: For production deployments, PostgreSQL is recommended for better concurrency handling:
-
-```python
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": "wagtail_lms",
-        # ... other PostgreSQL settings
-    }
-}
-```
+SQLite works for development (the package includes retry logic for concurrent SCORM operations). PostgreSQL is recommended for production. See the [example project README](https://github.com/dr-rompecabezas/wagtail-lms/blob/main/example_project/README.md) for configuration examples.
 
 ## Acknowledgments
 
