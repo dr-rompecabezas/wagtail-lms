@@ -8,7 +8,7 @@
 |--------|-----|-------------|
 | `POST` | `/lms/scorm-api/{attempt_id}/` | SCORM runtime API communication |
 | `GET` | `/lms/scorm-content/{path}` | Secure SCORM asset serving |
-| `GET` | `/lms/player/{course_id}/` | SCORM player view |
+| `GET` | `/lms/scorm-lesson/{lesson_id}/play/` | SCORM player view |
 | `POST` | `/lms/enroll/{course_id}/` | Enroll the current user in a course |
 
 ### H5P
@@ -132,9 +132,11 @@ This endpoint powers H5P resume/progress state and is wired via
 
 | Model | Purpose |
 |-------|---------|
-| `CoursePage` | Wagtail Page representing a course; can hold a SCORM package |
-| `LessonPage` | Child of `CoursePage`; StreamField body of rich text + H5P activities |
+| `CoursePage` | Wagtail Page representing a course; parent of lesson pages |
+| `H5PLessonPage` | Child of `CoursePage`; StreamField body of rich text + H5P activities |
+| `SCORMLessonPage` | Child of `CoursePage`; delivers a single SCORM package in an iframe player |
 | `CourseEnrollment` | Tracks a user's enrollment in a course |
+| `H5PLessonCompletion` | Records when a user completes all H5P activities in an `H5PLessonPage` |
 
 ---
 
@@ -145,7 +147,7 @@ This endpoint powers H5P resume/progress state and is wired via
 | `WAGTAIL_LMS_SCORM_PACKAGE_VIEWSET_CLASS` | `"wagtail_lms.viewsets.SCORMPackageViewSet"` | Replace the SCORM package Wagtail admin viewset |
 | `WAGTAIL_LMS_H5P_ACTIVITY_VIEWSET_CLASS` | `"wagtail_lms.viewsets.H5PActivityViewSet"` | Replace the H5P activity Wagtail admin viewset |
 | `WAGTAIL_LMS_H5P_SNIPPET_VIEWSET_CLASS` | `"wagtail_lms.viewsets.H5PActivitySnippetViewSet"` | Replace the H5P snippet viewset used for chooser/admin snippet URLs |
-| `WAGTAIL_LMS_CHECK_LESSON_ACCESS` | `"wagtail_lms.access.default_lesson_access_check"` | Dotted-path callable used by `LessonPage.serve()` |
+| `WAGTAIL_LMS_CHECK_LESSON_ACCESS` | `"wagtail_lms.access.default_lesson_access_check"` | Dotted-path callable used by `H5PLessonPage.serve()` |
 | `WAGTAIL_LMS_REGISTER_DJANGO_ADMIN` | `True` | Enable/disable wagtail-lms Django admin registration |
 | `WAGTAIL_LMS_SCORM_ADMIN_CLASS` | `"wagtail_lms.admin.SCORMPackageAdmin"` | Dotted-path Django `ModelAdmin` for `SCORMPackage` |
 | `WAGTAIL_LMS_H5P_ADMIN_CLASS` | `"wagtail_lms.admin.H5PActivityAdmin"` | Dotted-path Django `ModelAdmin` for `H5PActivity` |
@@ -163,25 +165,33 @@ Return `True` to allow access, `False` to redirect learners to the parent course
 
 ## Subclassing CoursePage
 
-If your project subclasses `CoursePage`, you **must** include `"wagtail_lms.LessonPage"`
-in your subclass's `subpage_types` for H5P lessons to be available:
+If your project subclasses `CoursePage`, include both lesson page types in your
+subclass's `subpage_types` so editors can add H5P and SCORM lessons:
 
 ```python
 class ExtendedCoursePage(CoursePage):
-    subpage_types = ["wagtail_lms.LessonPage"]
+    subpage_types = [
+        "wagtail_lms.H5PLessonPage",
+        "wagtail_lms.SCORMLessonPage",
+    ]
     # ... your extra fields
 ```
 
-`LessonPage.parent_page_types` is intentionally unrestricted (`None`), so no child-side patching is required.
+Both `H5PLessonPage.parent_page_types` and `SCORMLessonPage.parent_page_types` are
+intentionally unrestricted (`None`), so no child-side patching is required.
 
 If you previously set `subpage_types = []` to prevent child pages entirely, update it
-before using H5P lessons. Wagtail will silently hide the "Add child page" option for
-`LessonPage` if it is absent — editors will see no error, the option simply won't appear.
+before using either lesson type. Wagtail will silently hide the "Add child page" option
+for any type absent from `subpage_types` — editors will see no error, the option simply
+won't appear.
 
-A Django system check (`wagtail_lms.W001`) will warn at startup if a `CoursePage`
-subclass has `subpage_types` defined without `"wagtail_lms.LessonPage"`:
+Two Django system checks warn at startup when a `CoursePage` subclass has `subpage_types`
+defined that omits one of the lesson types:
 
 ```
 wagtail_lms.W001: ExtendedCoursePage subclasses CoursePage but its subpage_types does
-not include 'wagtail_lms.LessonPage'. H5P lessons cannot be added to this page type.
+not include 'wagtail_lms.H5PLessonPage'. H5P lessons cannot be added to this page type.
+
+wagtail_lms.W002: ExtendedCoursePage subclasses CoursePage but its subpage_types does
+not include 'wagtail_lms.SCORMLessonPage'. SCORM lessons cannot be added to this page type.
 ```

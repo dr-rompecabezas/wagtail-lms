@@ -114,9 +114,18 @@ TEMPLATES = [{
 
 ## Template Reference
 
+### Available Templates
+
+| Template | Page model | Notes |
+|----------|------------|-------|
+| `course_page.html` | `CoursePage` | Lists H5P lessons, SCORM lessons, enrollment CTA |
+| `h5p_lesson_page.html` | `H5PLessonPage` | Long-scroll H5P activity page |
+| `scorm_lesson_page.html` | `SCORMLessonPage` | Launch button + SCORM player link |
+| `scorm_player.html` | — | Full-page iframe SCORM player |
+
 ### H5P Lesson Integration Notes
 
-If you customize `lesson_page.html`, keep the H5P scripts in this order:
+If you customize `h5p_lesson_page.html`, keep the H5P scripts in this order:
 
 1. `main.bundle.js` (with `id="h5p-standalone-script"` and its data attributes)
 2. `h5p-lesson.js`
@@ -180,23 +189,42 @@ Do not include `frame.bundle.js` as a standalone `<script>` tag. It is loaded by
                 </div>
             {% endif %}
 
-            {% if page.scorm_package %}
-                <div class="card mb-4">
-                    <div class="card-body">
-                        <h3 class="card-title">Course Content</h3>
-                        <p><strong>Package:</strong> {{ page.scorm_package.title }}</p>
-                    </div>
+            {% if lesson_pages %}
+                <div class="mb-4">
+                    <h3>Lessons</h3>
+                    <ol class="list-group list-group-numbered">
+                        {% for lesson in lesson_pages %}
+                            <li class="list-group-item{% if lesson.pk in completed_lesson_ids %} list-group-item-success{% endif %}">
+                                <a href="{% pageurl lesson %}">{{ lesson.title }}</a>
+                                {% if lesson.pk in completed_lesson_ids %}<span class="badge bg-success ms-2">&#10003;</span>{% endif %}
+                            </li>
+                        {% endfor %}
+                    </ol>
                 </div>
+            {% endif %}
 
+            {% if scorm_lesson_pages %}
+                <div class="mb-4">
+                    <h3>SCORM Lessons</h3>
+                    <ol class="list-group list-group-numbered">
+                        {% for lesson in scorm_lesson_pages %}
+                            <li class="list-group-item">
+                                <a href="{% pageurl lesson %}">{{ lesson.title }}</a>
+                            </li>
+                        {% endfor %}
+                    </ol>
+                </div>
+            {% endif %}
+
+            {% if lesson_pages or scorm_lesson_pages %}
                 {% if user.is_authenticated %}
                     {% if enrollment %}
                         <div class="alert alert-info">
                             <strong>Enrolled:</strong> {{ enrollment.enrolled_at|date:"M d, Y" }}
+                            {% if enrollment.completed_at %}
+                                <br><strong>Completed:</strong> {{ enrollment.completed_at|date:"M d, Y" }}
+                            {% endif %}
                         </div>
-                        <a href="{% url 'wagtail_lms:scorm_player' page.id %}"
-                           class="btn btn-primary btn-lg">
-                            Start Course
-                        </a>
                     {% else %}
                         <a href="{% url 'wagtail_lms:enroll_course' page.id %}"
                            class="btn btn-success btn-lg">
@@ -208,6 +236,10 @@ Do not include `frame.bundle.js` as a standalone `<script>` tag. It is loaded by
                         Please login to enroll in this course.
                     </div>
                 {% endif %}
+            {% else %}
+                <div class="alert alert-warning">
+                    This course doesn't have any content assigned yet.
+                </div>
             {% endif %}
         </div>
 
@@ -215,12 +247,14 @@ Do not include `frame.bundle.js` as a standalone `<script>` tag. It is loaded by
             <div class="card">
                 <div class="card-body">
                     <h4>Course Information</h4>
-                    {% if page.scorm_package %}
-                        <ul class="list-unstyled">
-                            <li><strong>Type:</strong> SCORM {{ page.scorm_package.version }}</li>
-                            <li><strong>Added:</strong> {{ page.scorm_package.created_at|date:"M d, Y" }}</li>
-                        </ul>
-                    {% endif %}
+                    <ul class="list-unstyled">
+                        {% if lesson_pages %}
+                            <li><strong>Lessons:</strong> {{ lesson_pages|length }}</li>
+                        {% endif %}
+                        {% if scorm_lesson_pages %}
+                            <li><strong>SCORM Lessons:</strong> {{ scorm_lesson_pages|length }}</li>
+                        {% endif %}
+                    </ul>
                 </div>
             </div>
         </div>
@@ -248,21 +282,42 @@ Do not include `frame.bundle.js` as a standalone `<script>` tag. It is loaded by
                 </div>
             {% endif %}
 
-            {% if page.scorm_package %}
-                <div class="bg-gray-50 p-6 rounded-lg mb-6">
-                    <h3 class="text-xl font-semibold mb-2">Course Content</h3>
-                    <p><strong>Package:</strong> {{ page.scorm_package.title }}</p>
+            {% if lesson_pages %}
+                <div class="mb-6">
+                    <h3 class="text-xl font-semibold mb-2">Lessons</h3>
+                    <ol class="space-y-2">
+                        {% for lesson in lesson_pages %}
+                            <li class="{% if lesson.pk in completed_lesson_ids %}text-green-700{% endif %}">
+                                <a href="{% pageurl lesson %}" class="hover:underline">{{ lesson.title }}</a>
+                                {% if lesson.pk in completed_lesson_ids %}<span class="ml-2">&#10003;</span>{% endif %}
+                            </li>
+                        {% endfor %}
+                    </ol>
                 </div>
+            {% endif %}
 
+            {% if scorm_lesson_pages %}
+                <div class="mb-6">
+                    <h3 class="text-xl font-semibold mb-2">SCORM Lessons</h3>
+                    <ol class="space-y-2">
+                        {% for lesson in scorm_lesson_pages %}
+                            <li>
+                                <a href="{% pageurl lesson %}" class="hover:underline">{{ lesson.title }}</a>
+                            </li>
+                        {% endfor %}
+                    </ol>
+                </div>
+            {% endif %}
+
+            {% if lesson_pages or scorm_lesson_pages %}
                 {% if user.is_authenticated %}
                     {% if enrollment %}
                         <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4">
                             <strong>Enrolled:</strong> {{ enrollment.enrolled_at|date:"M d, Y" }}
+                            {% if enrollment.completed_at %}
+                                <br><strong>Completed:</strong> {{ enrollment.completed_at|date:"M d, Y" }}
+                            {% endif %}
                         </div>
-                        <a href="{% url 'wagtail_lms:scorm_player' page.id %}"
-                           class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg">
-                            Start Course
-                        </a>
                     {% else %}
                         <a href="{% url 'wagtail_lms:enroll_course' page.id %}"
                            class="inline-block bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg">
@@ -274,18 +329,24 @@ Do not include `frame.bundle.js` as a standalone `<script>` tag. It is loaded by
                         Please login to enroll in this course.
                     </div>
                 {% endif %}
+            {% else %}
+                <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+                    This course doesn't have any content assigned yet.
+                </div>
             {% endif %}
         </main>
 
         <aside>
             <div class="bg-gray-50 p-6 rounded-lg">
                 <h4 class="text-lg font-semibold mb-4">Course Information</h4>
-                {% if page.scorm_package %}
-                    <ul class="space-y-2">
-                        <li><strong>Type:</strong> SCORM {{ page.scorm_package.version }}</li>
-                        <li><strong>Added:</strong> {{ page.scorm_package.created_at|date:"M d, Y" }}</li>
-                    </ul>
-                {% endif %}
+                <ul class="space-y-2">
+                    {% if lesson_pages %}
+                        <li><strong>Lessons:</strong> {{ lesson_pages|length }}</li>
+                    {% endif %}
+                    {% if scorm_lesson_pages %}
+                        <li><strong>SCORM Lessons:</strong> {{ scorm_lesson_pages|length }}</li>
+                    {% endif %}
+                </ul>
             </div>
         </aside>
     </div>
@@ -313,21 +374,40 @@ Do not include `frame.bundle.js` as a standalone `<script>` tag. It is loaded by
                     </div>
                 {% endif %}
 
-                {% if page.scorm_package %}
+                {% if lesson_pages %}
                     <div class="box mb-5">
-                        <h3 class="title is-4">Course Content</h3>
-                        <p><strong>Package:</strong> {{ page.scorm_package.title }}</p>
+                        <h3 class="title is-4">Lessons</h3>
+                        <ol>
+                            {% for lesson in lesson_pages %}
+                                <li class="{% if lesson.pk in completed_lesson_ids %}has-text-success{% endif %}">
+                                    <a href="{% pageurl lesson %}">{{ lesson.title }}</a>
+                                    {% if lesson.pk in completed_lesson_ids %}<span class="ml-2">&#10003;</span>{% endif %}
+                                </li>
+                            {% endfor %}
+                        </ol>
                     </div>
+                {% endif %}
 
+                {% if scorm_lesson_pages %}
+                    <div class="box mb-5">
+                        <h3 class="title is-4">SCORM Lessons</h3>
+                        <ol>
+                            {% for lesson in scorm_lesson_pages %}
+                                <li><a href="{% pageurl lesson %}">{{ lesson.title }}</a></li>
+                            {% endfor %}
+                        </ol>
+                    </div>
+                {% endif %}
+
+                {% if lesson_pages or scorm_lesson_pages %}
                     {% if user.is_authenticated %}
                         {% if enrollment %}
                             <div class="notification is-info">
                                 <strong>Enrolled:</strong> {{ enrollment.enrolled_at|date:"M d, Y" }}
+                                {% if enrollment.completed_at %}
+                                    <br><strong>Completed:</strong> {{ enrollment.completed_at|date:"M d, Y" }}
+                                {% endif %}
                             </div>
-                            <a href="{% url 'wagtail_lms:scorm_player' page.id %}"
-                               class="button is-primary is-large">
-                                Start Course
-                            </a>
                         {% else %}
                             <a href="{% url 'wagtail_lms:enroll_course' page.id %}"
                                class="button is-success is-large">
@@ -339,20 +419,26 @@ Do not include `frame.bundle.js` as a standalone `<script>` tag. It is loaded by
                             Please login to enroll in this course.
                         </div>
                     {% endif %}
+                {% else %}
+                    <div class="notification is-warning">
+                        This course doesn't have any content assigned yet.
+                    </div>
                 {% endif %}
             </div>
 
             <div class="column">
                 <div class="box">
                     <h4 class="title is-5">Course Information</h4>
-                    {% if page.scorm_package %}
-                        <div class="content">
-                            <ul>
-                                <li><strong>Type:</strong> SCORM {{ page.scorm_package.version }}</li>
-                                <li><strong>Added:</strong> {{ page.scorm_package.created_at|date:"M d, Y" }}</li>
-                            </ul>
-                        </div>
-                    {% endif %}
+                    <div class="content">
+                        <ul>
+                            {% if lesson_pages %}
+                                <li><strong>Lessons:</strong> {{ lesson_pages|length }}</li>
+                            {% endif %}
+                            {% if scorm_lesson_pages %}
+                                <li><strong>SCORM Lessons:</strong> {{ scorm_lesson_pages|length }}</li>
+                            {% endif %}
+                        </ul>
+                    </div>
                 </div>
             </div>
         </div>

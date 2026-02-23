@@ -2,16 +2,25 @@
 
 This document outlines the planned development path for Wagtail LMS.
 
-## Current Status: v0.9.0 (Alpha)
+## Current Status: v0.10.1
 
-The current release includes **full H5P support, xAPI tracking, long-scroll lesson pages, and all prior SCORM infrastructure**.
+The current release includes **full H5P and SCORM lesson page support, xAPI tracking, downstream extensibility, and all prior SCORM infrastructure**.
+
+**Completed in v0.10.x:**
+
+✅ **Downstream Integration Extension Points**
+
+- `WAGTAIL_LMS_SCORM_PACKAGE_VIEWSET_CLASS`, `WAGTAIL_LMS_H5P_ACTIVITY_VIEWSET_CLASS`, `WAGTAIL_LMS_H5P_SNIPPET_VIEWSET_CLASS` — swap admin viewsets without monkey-patching
+- `WAGTAIL_LMS_CHECK_LESSON_ACCESS` — pluggable enrollment gate callable for `H5PLessonPage.serve()`
+- `WAGTAIL_LMS_REGISTER_DJANGO_ADMIN`, `WAGTAIL_LMS_SCORM_ADMIN_CLASS`, `WAGTAIL_LMS_H5P_ADMIN_CLASS` — control Django admin registration
+- `H5PLessonPage.parent_page_types = None` — CoursePage subclasses can host lessons without patching
 
 **Completed in v0.9.0:**
 
 ✅ **H5P Activity Support**
 
 - `H5PActivity` Wagtail snippet — upload `.h5p` packages, auto-extract, parse metadata
-- `LessonPage` — long-scroll layout with StreamField body (RichText + H5PActivityBlock)
+- `H5PLessonPage` — long-scroll layout with StreamField body (RichText + H5PActivityBlock)
 - `H5PAttempt`, `H5PXAPIStatement`, `H5PContentUserData` — progress, audit log, resume state
 - xAPI ingestion endpoint with verb → attempt field mapping
 - H5P resume/progress state endpoint (H5P content-user-data protocol)
@@ -20,9 +29,9 @@ The current release includes **full H5P support, xAPI tracking, long-scroll less
 
 ✅ **Lesson and Course Completion Logic**
 
-- Lesson completes when all H5P activities in it reach `completion_status="completed"`
-- Course completes when all lessons containing H5P activities are complete
-- Informational lessons (no H5P blocks) do not gate completion
+- H5P lesson completes when all H5P activities in it reach `completion_status="completed"`
+- SCORM lesson completes when `SCORMAttempt.completion_status` is `"completed"` or `"passed"`
+- Course completes when all H5P and SCORM lessons are done; informational lessons do not gate completion
 
 **Previously completed:**
 
@@ -46,20 +55,17 @@ Selected combinations tested in CI — see the [CI matrix](https://github.com/dr
 
 ---
 
-## Version 0.10.0 — Downstream Integration
+## Version 0.11.0 — SCORMLessonPage + Model Renames (in progress)
 
-**Goal:** Remove integration friction for projects that build on top of wagtail-lms
+**Goal:** Clean separation of SCORM and H5P content at the lesson level
 
-This release addresses extensibility gaps discovered while integrating the package downstream (see [#73](https://github.com/dr-rompecabezas/wagtail-lms/issues/73), [#64](https://github.com/dr-rompecabezas/wagtail-lms/issues/64), [#63](https://github.com/dr-rompecabezas/wagtail-lms/issues/63), [#61](https://github.com/dr-rompecabezas/wagtail-lms/issues/61)). No new end-user features — the focus is on making the package easier to extend without monkey-patching.
-
-### Extensibility Fixes
-
-- [x] Set `LessonPage.parent_page_types = None` so `CoursePage` subclasses can host lesson pages without requiring downstream patches ([#73](https://github.com/dr-rompecabezas/wagtail-lms/issues/73))
-- [x] Fix `H5PActivity` snippet registration to remove the duplicate Wagtail admin entry that bypasses custom upload flows ([#73](https://github.com/dr-rompecabezas/wagtail-lms/issues/73))
-- [x] Add `WAGTAIL_LMS_SCORM_PACKAGE_VIEWSET_CLASS` and `WAGTAIL_LMS_H5P_ACTIVITY_VIEWSET_CLASS` settings so downstream projects can substitute their own upload viewsets ([#73](https://github.com/dr-rompecabezas/wagtail-lms/issues/73))
-- [x] Add `WAGTAIL_LMS_CHECK_LESSON_ACCESS` setting — a dotted-path callable for customising the enrollment gate in `LessonPage.serve()` ([#64](https://github.com/dr-rompecabezas/wagtail-lms/issues/64))
-- [x] Add `WAGTAIL_LMS_REGISTER_DJANGO_ADMIN` setting to opt out of automatic Django admin registration ([#63](https://github.com/dr-rompecabezas/wagtail-lms/issues/63))
-- [x] Allow downstream projects to swap `SCORMPackage`/`H5PActivity` Django admin classes without calling `unregister()` ([#61](https://github.com/dr-rompecabezas/wagtail-lms/issues/61))
+- [x] Introduce `SCORMLessonPage` — a dedicated Wagtail Page child of `CoursePage` for SCORM delivery
+- [x] Rename `LessonPage` → `H5PLessonPage` and `LessonCompletion` → `H5PLessonCompletion`
+- [x] Remove `CoursePage.scorm_package` FK — SCORM packages now belong to `SCORMLessonPage`
+- [x] SCORM player URL changed from `player/<course_id>/` to `scorm-lesson/<lesson_id>/play/`
+- [x] Course completion now checks both H5P lesson completions and SCORM attempt statuses
+- [x] Data migration creates a `SCORMLessonPage` child for existing courses that had a `scorm_package`
+- [x] System check `W002` added to warn when a `CoursePage` subclass omits `SCORMLessonPage` from `subpage_types`
 
 ### Testing
 
@@ -67,7 +73,7 @@ This release addresses extensibility gaps discovered while integrating the packa
 
 ---
 
-## Version 0.11.0 — Q3 2026
+## Version 0.12.0 — Q3 2026
 
 **Goal:** Enhanced Wagtail integration and developer experience
 
@@ -89,7 +95,7 @@ This release addresses extensibility gaps discovered while integrating the packa
 
 ---
 
-## Version 0.12.0 — Q4 2026
+## Version 0.13.0 — Q4 2026
 
 **Goal:** Enhanced LMS features and reporting
 

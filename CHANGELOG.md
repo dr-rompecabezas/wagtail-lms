@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Breaking Changes
+
+- **`SCORMLessonPage` introduced; `CoursePage.scorm_package` removed** ([#82](https://github.com/dr-rompecabezas/wagtail-lms/pull/82))
+  - SCORM delivery now lives at the lesson level: `SCORMLessonPage` is a Wagtail Page that is a direct child of `CoursePage` and holds a `scorm_package` FK and an `intro` rich-text field
+  - `CoursePage.scorm_package` FK removed; the SCORM package chooser no longer appears in the course editor
+  - A data migration automatically creates a `SCORMLessonPage` child for every existing `CoursePage` that had a `scorm_package` value
+  - SCORM player URL changed: `/lms/player/<course_id>/` → `/lms/scorm-lesson/<lesson_id>/play/`; update any hard-coded URL reversals to `reverse("wagtail_lms:scorm_player", args=[scorm_lesson_page.id])`
+  - `CourseEnrollment.get_progress()` removed; query `SCORMAttempt` directly per lesson
+
+- **`LessonPage` renamed to `H5PLessonPage`; `LessonCompletion` renamed to `H5PLessonCompletion`**
+  - DB tables, content types, and all internal references updated via `RenameModel` migrations
+  - Update any downstream references to these model classes and their string labels (e.g. `"wagtail_lms.LessonPage"` → `"wagtail_lms.H5PLessonPage"`)
+  - `WAGTAIL_LMS_CHECK_LESSON_ACCESS` callable is now invoked by `H5PLessonPage.serve()` (interface unchanged)
+
+### Added
+
+- **`SCORMLessonPage`** — new Wagtail Page delivering a single SCORM package; renders a launch button linking to the SCORM player; access gated to enrolled users (Wagtail editors bypass)
+- **System check `wagtail_lms.W002`** — warns at startup when a `CoursePage` subclass defines `subpage_types` without `"wagtail_lms.SCORMLessonPage"`
+- **Mixed-mode course completion** — `CourseEnrollment.completed_at` is now set when *all* lessons in a course are done, regardless of type: `H5PLessonPage` requires an `H5PLessonCompletion` record; `SCORMLessonPage` requires a `SCORMAttempt` with `completion_status` of `"completed"` or `"passed"`
+
+### Migration notes
+
+1. Run `python manage.py migrate wagtail_lms` — migrations 0004 and 0005 apply automatically
+2. Update `subpage_types` on any `CoursePage` subclasses to include `"wagtail_lms.H5PLessonPage"` and `"wagtail_lms.SCORMLessonPage"`
+3. Update any template URL tags that referenced the old SCORM player URL (`wagtail_lms:scorm_player` now takes a `lesson_id`)
+4. Remove references to `CoursePage.scorm_package` and `CourseEnrollment.get_progress()`
+
+---
+
 ## [0.10.1] - 2026-02-22
 
 ### Fixed
