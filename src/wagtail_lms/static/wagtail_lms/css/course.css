@@ -81,6 +81,69 @@
     color: #155724;
 }
 
+/* Lesson page layout */
+.lms-lesson {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 1.5rem 1rem 4rem;
+}
+
+.lms-lesson__header {
+    margin-bottom: 2rem;
+}
+
+.lms-lesson__nav {
+    margin-bottom: 1rem;
+}
+
+.lms-lesson__title {
+    font-size: 2rem;
+    margin: 0;
+}
+
+.lms-lesson__intro {
+    font-size: 1.1rem;
+    color: #555;
+    margin-bottom: 2rem;
+}
+
+.lms-lesson__body {
+    /* body wrapper — no fixed styles needed */
+}
+
+.lms-lesson__block {
+    margin-bottom: 2.5rem;
+}
+
+.lms-lesson__content {
+    margin: 1.5rem 0;
+}
+
+/* H5P activity block */
+.lms-h5p-activity {
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.lms-h5p-activity__placeholder {
+    padding: 2rem;
+    text-align: center;
+    background: #f9f9f9;
+    color: #888;
+}
+
+.lms-h5p-activity__title {
+    font-weight: 600;
+    margin: 0 0 0.5rem;
+    color: #333;
+}
+
+.lms-h5p-activity__loading {
+    margin: 0;
+    font-size: 0.9rem;
+}
+
 /* Buttons */
 .lms-button {
     display: inline-block;
@@ -102,6 +165,16 @@
 
 .lms-button--primary:hover {
     background-color: #0056b3;
+    color: white;
+}
+
+.lms-button--secondary {
+    background-color: #6c757d;
+    color: white;
+}
+
+.lms-button--secondary:hover {
+    background-color: #545b62;
     color: white;
 }
 

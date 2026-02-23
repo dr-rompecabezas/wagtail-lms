@@ -684,6 +684,33 @@ class CoursePage(Page):
         else:
             context["completed_lesson_ids"] = set()
 
+        # Per-lesson completion set for SCORM lessons
+        if request.user.is_authenticated and self.pk and context["scorm_lesson_pages"]:
+            lesson_pkg_pairs = list(
+                SCORMLessonPage.objects.child_of(self)
+                .live()
+                .exclude(scorm_package=None)
+                .values_list("id", "scorm_package_id")
+            )
+            if lesson_pkg_pairs:
+                pkg_ids = [pkg_id for _, pkg_id in lesson_pkg_pairs]
+                completed_pkg_ids = set(
+                    SCORMAttempt.objects.filter(
+                        user=request.user,
+                        scorm_package_id__in=pkg_ids,
+                        completion_status__in=("completed", "passed"),
+                    ).values_list("scorm_package_id", flat=True)
+                )
+                context["completed_scorm_lesson_ids"] = {
+                    page_id
+                    for page_id, pkg_id in lesson_pkg_pairs
+                    if pkg_id in completed_pkg_ids
+                }
+            else:
+                context["completed_scorm_lesson_ids"] = set()
+        else:
+            context["completed_scorm_lesson_ids"] = set()
+
         return context
 
 
@@ -761,6 +788,16 @@ class H5PLessonPage(Page):
     def has_h5p_activity_blocks(self):
         return any(block.block_type == "h5p_activity" for block in self.body)
 
+    def get_context(self, request):
+        context = super().get_context(request)
+        if request.user.is_authenticated and self.pk:
+            context["lesson_completion"] = H5PLessonCompletion.objects.filter(
+                user=request.user, lesson=self
+            ).first()
+        else:
+            context["lesson_completion"] = None
+        return context
+
     def serve(self, request):
         return _lesson_serve(self, request)
 
@@ -786,6 +823,16 @@ class SCORMLessonPage(Page):
 
     class Meta(Page.Meta):
         verbose_name = "SCORM lesson page"
+
+    def get_context(self, request):
+        context = super().get_context(request)
+        if request.user.is_authenticated and self.scorm_package_id:
+            context["attempt"] = SCORMAttempt.objects.filter(
+                user=request.user, scorm_package_id=self.scorm_package_id
+            ).first()
+        else:
+            context["attempt"] = None
+        return context
 
     content_panels = [
         *Page.content_panels,

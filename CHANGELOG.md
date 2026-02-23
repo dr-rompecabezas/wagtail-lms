@@ -26,10 +26,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`SCORMLessonPage`** — new Wagtail Page delivering a single SCORM package; renders a launch button linking to the SCORM player; access gated to enrolled users (Wagtail editors bypass)
 - **System check `wagtail_lms.W002`** — warns at startup when a `CoursePage` subclass defines `subpage_types` without `"wagtail_lms.SCORMLessonPage"`
 - **Mixed-mode course completion** — `CourseEnrollment.completed_at` is now set when *all* lessons in a course are done, regardless of type: `H5PLessonPage` requires an `H5PLessonCompletion` record; `SCORMLessonPage` requires a `SCORMAttempt` with `completion_status` of `"completed"` or `"passed"`
+- **Completion state visible in default templates** — the bundled templates now surface per-lesson and course-level completion state:
+  - `course_page.html`: SCORM lesson list items show a checkmark when the user has a completed/passed attempt (mirrors existing H5P lesson checkmarks)
+  - `scorm_lesson_page.html`: displays the current attempt's `completion_status` and `success_status` above the launch button; includes a back-link to the parent course
+  - `h5p_lesson_page.html`: shows a "Lesson completed" banner when an `H5PLessonCompletion` record exists for the user
+- **Lesson page layout styles moved to `course.css`** — `.lms-lesson` and related classes (`__header`, `__nav`, `__title`, `__intro`, `__block`, `__content`, `.lms-h5p-activity`) are now defined in the shared stylesheet rather than inline in `h5p_lesson_page.html`; `lms-button--secondary` added to complete the button palette
 
 ### Fixed
 
 - **SCORM player enrollment gate now consistent with H5P lesson access** — Wagtail editors (users with `wagtailadmin.access_admin`) can access the SCORM player without being enrolled in the course, matching the existing editor bypass in `H5PLessonPage.serve()`
+- **LMS admin menu items hidden for all users** — `ReadOnlyPermissionPolicy` blocked `add`/`change`/`delete` unconditionally (including for superusers), causing Wagtail's menu-visibility check to hide SCORM Attempts, H5P Attempts, and H5P Lesson Completions from the sidebar. Fixed by overriding `user_has_any_permission` to redirect to the `view` permission check instead.
+- **`H5PLessonPage` and `SCORMLessonPage` displayed with incorrect casing** — Wagtail title-cases class names when no `verbose_name` is set, producing "H5p lesson page" and "Scorm lesson page" in the page type chooser. Explicit `verbose_name` values added to both models.
 
 ### Migration notes
 

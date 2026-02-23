@@ -27,7 +27,7 @@
 
             {% if lesson_pages %}
                 <div class="lms-course__info">
-                    <h3>Lessons</h3>
+                    <h3>H5P Lessons</h3>
                     <ol class="lms-lesson-list">
                         {% for lesson in lesson_pages %}
                             <li class="lms-lesson-list__item{% if lesson.pk in completed_lesson_ids %} lms-lesson-list__item--completed{% endif %}">
@@ -44,8 +44,9 @@
                     <h3>SCORM Lessons</h3>
                     <ol class="lms-lesson-list">
                         {% for lesson in scorm_lesson_pages %}
-                            <li class="lms-lesson-list__item">
+                            <li class="lms-lesson-list__item{% if lesson.pk in completed_scorm_lesson_ids %} lms-lesson-list__item--completed{% endif %}">
                                 <a href="{% pageurl lesson %}" class="lms-lesson-list__link">{{ lesson.title }}</a>
+                                {% if lesson.pk in completed_scorm_lesson_ids %}<span class="lms-lesson-list__checkmark" aria-label="Completed">&#10003;</span>{% endif %}
                             </li>
                         {% endfor %}
                     </ol>
@@ -89,7 +90,7 @@
                 <h4>Course Information</h4>
                 <ul class="lms-info-list">
                     {% if lesson_pages %}
-                        <li><strong>Lessons:</strong> {{ lesson_pages|length }}</li>
+                        <li><strong>H5P Lessons:</strong> {{ lesson_pages|length }}</li>
                     {% endif %}
                     {% if scorm_lesson_pages %}
                         <li><strong>SCORM Lessons:</strong> {{ scorm_lesson_pages|length }}</li>

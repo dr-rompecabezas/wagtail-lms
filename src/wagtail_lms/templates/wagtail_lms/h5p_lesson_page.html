@@ -29,6 +29,12 @@
     <h1 class="lms-lesson__title">{{ page.title }}</h1>
   </header>
 
+  {% if lesson_completion %}
+    <div class="lms-notice lms-notice--success">
+        &#10003; Lesson completed {{ lesson_completion.completed_at|date:"M d, Y" }}
+    </div>
+  {% endif %}
+
   <article class="lms-lesson__body">
 
     {% if page.intro %}
@@ -63,66 +69,4 @@
   <script src="{% static 'wagtail_lms/js/h5p-lesson.js' %}"></script>
 {% endif %}
 
-<style>
-/* -----------------------------------------------------------------------
-   Lesson page layout — minimal, override in your own stylesheet.
-   ----------------------------------------------------------------------- */
-.lms-lesson {
-  max-width: 860px;
-  margin: 0 auto;
-  padding: 1.5rem 1rem 4rem;
-}
-
-.lms-lesson__header {
-  margin-bottom: 2rem;
-}
-
-.lms-lesson__nav {
-  margin-bottom: 1rem;
-}
-
-.lms-lesson__title {
-  font-size: 2rem;
-  margin: 0;
-}
-
-.lms-lesson__intro {
-  font-size: 1.1rem;
-  color: #555;
-  margin-bottom: 2rem;
-}
-
-.lms-lesson__block {
-  margin-bottom: 2.5rem;
-}
-
-/* H5P activity block */
-.lms-h5p-activity {
-  border: 1px solid #e0e0e0;
-  border-radius: 6px;
-  overflow: hidden;
-}
-
-.lms-h5p-activity__placeholder {
-  padding: 2rem;
-  text-align: center;
-  background: #f9f9f9;
-  color: #888;
-}
-
-.lms-h5p-activity__title {
-  font-weight: 600;
-  margin: 0 0 0.5rem;
-  color: #333;
-}
-
-.lms-h5p-activity__loading {
-  margin: 0;
-  font-size: 0.9rem;
-}
-
-.lms-h5p-activity__player {
-  /* Player div — h5p-standalone sizes itself; no fixed height needed */
-}
-</style>
 {% endblock %}
