@@ -18,15 +18,16 @@
             <ol>
                 <li>Create a superuser: <code>python example_project/manage.py createsuperuser</code></li>
                 <li>Login to <a href="/admin/">Wagtail Admin</a></li>
-                <li>Upload a SCORM package via <a href="/admin/scormpackage/new/">Wagtail Admin</a></li>
-                <li>Create a Course Page and assign the SCORM package</li>
-                <li>Test the course as a student!</li>
+                <li>Upload a SCORM package via <strong>LMS → SCORM Packages</strong> in the sidebar</li>
+                <li>Create a <strong>Course Page</strong> under the home page</li>
+                <li>Add a <strong>SCORM Lesson Page</strong> child, selecting the uploaded package</li>
+                <li>Enroll in the course and test the player as a student!</li>
             </ol>
 
             <h3>Quick Links</h3>
             <ul>
                 <li><a href="/admin/">Wagtail Admin</a> - Manage pages and content</li>
-                <li><a href="/admin/scormpackage/">SCORM Packages</a> - Manage SCORM packages</li>
+                <li><a href="/django-admin/">Django Admin</a> - Manage models directly</li>
             </ul>
         </div>
     {% endif %}
