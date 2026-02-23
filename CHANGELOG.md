@@ -27,12 +27,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **System check `wagtail_lms.W002`** — warns at startup when a `CoursePage` subclass defines `subpage_types` without `"wagtail_lms.SCORMLessonPage"`
 - **Mixed-mode course completion** — `CourseEnrollment.completed_at` is now set when *all* lessons in a course are done, regardless of type: `H5PLessonPage` requires an `H5PLessonCompletion` record; `SCORMLessonPage` requires a `SCORMAttempt` with `completion_status` of `"completed"` or `"passed"`
 
+### Fixed
+
+- **SCORM player enrollment gate now consistent with H5P lesson access** — Wagtail editors (users with `wagtailadmin.access_admin`) can access the SCORM player without being enrolled in the course, matching the existing editor bypass in `H5PLessonPage.serve()`
+
 ### Migration notes
 
-1. Run `python manage.py migrate wagtail_lms` — migrations 0004 and 0005 apply automatically
-2. Update `subpage_types` on any `CoursePage` subclasses to include `"wagtail_lms.H5PLessonPage"` and `"wagtail_lms.SCORMLessonPage"`
-3. Update any template URL tags that referenced the old SCORM player URL (`wagtail_lms:scorm_player` now takes a `lesson_id`)
-4. Remove references to `CoursePage.scorm_package` and `CourseEnrollment.get_progress()`
+1. Run `python manage.py migrate wagtail_lms` — migrations 0004–0006 apply automatically:
+   - 0004: creates `SCORMLessonPage`, migrates existing `CoursePage.scorm_package` data, removes the field
+   - 0005: renames `LessonPage` → `H5PLessonPage` and `LessonCompletion` → `H5PLessonCompletion`
+   - 0006: removes any stale `lessonpage` / `lessoncompletion` ContentType rows left behind by the rename (see note below)
+2. **Run `python manage.py fixtree` after migrating** — if a `CoursePage` previously had a `scorm_package` and the data migration in 0004 incremented the parent's `numchild` counter but the child page did not persist (can occur with SQLite under certain transaction conditions), the page tree will have an inconsistent `numchild`. `fixtree` detects and corrects this automatically; it is a no-op if the tree is already consistent.
+3. Update `subpage_types` on any `CoursePage` subclasses to include `"wagtail_lms.H5PLessonPage"` and `"wagtail_lms.SCORMLessonPage"`
+4. Update any template URL tags that referenced the old SCORM player URL (`wagtail_lms:scorm_player` now takes a `lesson_id`)
+5. Remove references to `CoursePage.scorm_package` and `CourseEnrollment.get_progress()`
+
+> **Note on stale ContentTypes (migration 0006):** Django's `RenameModel` migration updates the `django_content_type` row for the renamed model in-place. On some database/cache combinations an orphan row for the old model name (`lessonpage`, `lessoncompletion`) can survive alongside the new one. When present, this orphan causes an `AttributeError: 'NoneType' object has no attribute '_inc_path'` crash whenever Wagtail tries to add a child page under a `CoursePage` whose existing children include a page with the stale ContentType. Migration 0006 deletes these orphan rows unconditionally; it is safe to run even when the orphans were never created.
 
 ---
 
