@@ -32,12 +32,24 @@ def _import_viewset_class(dotted_path, setting_name):
 
 
 class ReadOnlyPermissionPolicy(ModelPermissionPolicy):
-    """Permission policy that only allows view access."""
+    """Permission policy that only allows view access.
+
+    ``user_has_any_permission`` is overridden so that Wagtail's menu-visibility
+    check (which tests for add/change/delete) falls back to testing ``view``
+    instead.  Without this, the menu items for read-only viewsets would be
+    hidden even from superusers, because the base check only asks about write
+    actions.
+    """
 
     def user_has_permission(self, user, action):
         if action in ("add", "change", "delete"):
             return False
         return super().user_has_permission(user, action)
+
+    def user_has_any_permission(self, user, actions):
+        # Redirect any permission check to 'view' so that users who can view
+        # the model (including superusers) see the menu item.
+        return super().user_has_permission(user, "view")
 
 
 class EditOnlyPermissionPolicy(ModelPermissionPolicy):

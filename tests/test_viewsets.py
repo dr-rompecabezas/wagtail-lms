@@ -6,7 +6,10 @@ from wagtail import hooks
 from wagtail_lms.models import SCORMAttempt
 from wagtail_lms.viewsets import (
     CourseEnrollmentViewSet,
+    H5PAttemptViewSet,
+    H5PLessonCompletionViewSet,
     LMSViewSetGroup,
+    ReadOnlyPermissionPolicy,
     SCORMAttemptViewSet,
     SCORMPackageViewSet,
 )
@@ -102,3 +105,41 @@ class TestSCORMAttemptAdmin:
         response = client.get("/admin/scormattempt/")
         content = response.content.decode()
         assert "/admin/scormattempt/new/" not in content
+
+
+@pytest.mark.django_db
+class TestReadOnlyPermissionPolicyMenuVisibility:
+    """ReadOnlyPermissionPolicy must not hide menu items for users who can view.
+
+    Wagtail's menu-visibility check calls user_has_any_permission with
+    ['add', 'change', 'delete'].  Without the user_has_any_permission override,
+    the policy returns False for all three actions (even for superusers), and
+    Wagtail hides the menu item entirely.  Regression test for the bug where
+    SCORM Attempts, H5P Attempts, and H5P Lesson Completions were invisible in
+    the Wagtail admin sidebar.
+    """
+
+    def _superuser_sees_menu_item(self, viewset_class, superuser):
+        policy = viewset_class.permission_policy
+        return policy.user_has_any_permission(superuser, ["add", "change", "delete"])
+
+    def test_scorm_attempts_visible_to_superuser(self, superuser):
+        assert self._superuser_sees_menu_item(SCORMAttemptViewSet, superuser)
+
+    def test_h5p_attempts_visible_to_superuser(self, superuser):
+        assert self._superuser_sees_menu_item(H5PAttemptViewSet, superuser)
+
+    def test_h5p_lesson_completions_visible_to_superuser(self, superuser):
+        assert self._superuser_sees_menu_item(H5PLessonCompletionViewSet, superuser)
+
+    def test_add_still_blocked_for_superuser(self, superuser):
+        policy = ReadOnlyPermissionPolicy(SCORMAttempt)
+        assert not policy.user_has_permission(superuser, "add")
+
+    def test_change_still_blocked_for_superuser(self, superuser):
+        policy = ReadOnlyPermissionPolicy(SCORMAttempt)
+        assert not policy.user_has_permission(superuser, "change")
+
+    def test_delete_still_blocked_for_superuser(self, superuser):
+        policy = ReadOnlyPermissionPolicy(SCORMAttempt)
+        assert not policy.user_has_permission(superuser, "delete")
