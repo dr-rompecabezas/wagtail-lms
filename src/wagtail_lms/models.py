@@ -228,7 +228,7 @@ class H5PActivity(models.Model):
     """Reusable H5P interactive activity, managed as a Wagtail snippet.
 
     Authors upload a .h5p file here. The package is extracted on save and
-    the activity can then be embedded in any LessonPage via H5PActivityBlock.
+    the activity can then be embedded in any H5PLessonPage via H5PActivityBlock.
     """
 
     title = models.CharField(max_length=255)
@@ -629,31 +629,23 @@ class H5PActivityBlock(StructBlock):
 class CoursePage(Page):
     """Wagtail page for courses.
 
-    Can contain SCORM content (via scorm_package) or H5P-powered lessons
-    (as LessonPage children). These are two distinct delivery modes.
+    Can contain H5P-powered lessons (as H5PLessonPage children) or
+    SCORM lessons (as SCORMLessonPage children), or both.
     """
 
-    subpage_types = ["wagtail_lms.LessonPage"]
+    subpage_types = ["wagtail_lms.H5PLessonPage", "wagtail_lms.SCORMLessonPage"]
 
     description = RichTextField(blank=True)
-    scorm_package = models.ForeignKey(
-        SCORMPackage,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        help_text="Select a SCORM package for this course",
-    )
 
     content_panels = [
         *Page.content_panels,
         FieldPanel("description"),
-        FieldPanel("scorm_package"),
     ]
 
     def get_context(self, request):
         context = super().get_context(request)
 
-        # Add enrollment and progress data if user is authenticated
+        # Add enrollment data if user is authenticated
         # Only query if page is saved (has a pk) to avoid preview errors
         if request.user.is_authenticated and self.pk:
             try:
@@ -661,26 +653,30 @@ class CoursePage(Page):
                     user=request.user, course=self
                 )
                 context["enrollment"] = enrollment
-                context["progress"] = enrollment.get_progress()
             except CourseEnrollment.DoesNotExist:
                 context["enrollment"] = None
-                context["progress"] = None
         else:
             # In preview mode or not authenticated
             context["enrollment"] = None
-            context["progress"] = None
 
-        # Live LessonPage children, ordered by page tree position
+        # Live H5PLessonPage children, ordered by page tree position
         context["lesson_pages"] = (
-            self.get_children().live().type(LessonPage).order_by("path")
+            self.get_children().live().type(H5PLessonPage).order_by("path")
             if self.pk
             else self.__class__.objects.none()
         )
 
-        # Per-lesson completion set for H5P courses (empty for SCORM / preview)
+        # Live SCORMLessonPage children, ordered by page tree position
+        context["scorm_lesson_pages"] = (
+            self.get_children().live().type(SCORMLessonPage).order_by("path")
+            if self.pk
+            else self.__class__.objects.none()
+        )
+
+        # Per-lesson completion set for H5P lessons (empty for SCORM / preview)
         if request.user.is_authenticated and self.pk and context["lesson_pages"]:
             context["completed_lesson_ids"] = set(
-                LessonCompletion.objects.filter(
+                H5PLessonCompletion.objects.filter(
                     user=request.user,
                     lesson_id__in=context["lesson_pages"].values_list("pk", flat=True),
                 ).values_list("lesson_id", flat=True)
@@ -688,10 +684,79 @@ class CoursePage(Page):
         else:
             context["completed_lesson_ids"] = set()
 
+        # Per-lesson completion set for SCORM lessons
+        if request.user.is_authenticated and self.pk and context["scorm_lesson_pages"]:
+            lesson_pkg_pairs = list(
+                SCORMLessonPage.objects.child_of(self)
+                .live()
+                .exclude(scorm_package=None)
+                .values_list("id", "scorm_package_id")
+            )
+            if lesson_pkg_pairs:
+                pkg_ids = [pkg_id for _, pkg_id in lesson_pkg_pairs]
+                completed_pkg_ids = set(
+                    SCORMAttempt.objects.filter(
+                        user=request.user,
+                        scorm_package_id__in=pkg_ids,
+                        completion_status__in=("completed", "passed"),
+                    ).values_list("scorm_package_id", flat=True)
+                )
+                context["completed_scorm_lesson_ids"] = {
+                    page_id
+                    for page_id, pkg_id in lesson_pkg_pairs
+                    if pkg_id in completed_pkg_ids
+                }
+            else:
+                context["completed_scorm_lesson_ids"] = set()
+        else:
+            context["completed_scorm_lesson_ids"] = set()
+
         return context
 
 
-class LessonPage(Page):
+def _lesson_serve(self, request):
+    """Shared access gate for H5PLessonPage and SCORMLessonPage.
+
+    Wagtail admin users can always access lessons for editing/preview.
+    Regular users must be enrolled in the parent CoursePage.
+    """
+    if not request.user.is_authenticated:
+        return redirect_to_login(request.get_full_path())
+
+    # Wagtail editors can access without enrollment
+    if request.user.has_perm("wagtailadmin.access_admin"):
+        return Page.serve(self, request)
+
+    # Preserve the default enrollment-check fast path so enrolled users
+    # avoid an unnecessary .specific downcast query.
+    parent_page = self.get_parent()
+    check_path = conf.WAGTAIL_LMS_CHECK_LESSON_ACCESS
+    if check_path == _DEFAULT_LESSON_ACCESS_CHECK_PATH:
+        has_access = CourseEnrollment.objects.filter(
+            user=request.user,
+            course__page_ptr_id=parent_page.pk,
+        ).exists()
+        if not has_access:
+            messages.error(
+                request,
+                "You must be enrolled in this course to access this lesson.",
+            )
+            return redirect(parent_page.specific.url)
+        return Page.serve(self, request)
+
+    course_page = parent_page.specific
+    check_access = _get_lesson_access_check(check_path)
+    if not check_access(request, self, course_page):
+        messages.error(
+            request,
+            "You must be enrolled in this course to access this lesson.",
+        )
+        return redirect(course_page.url)
+
+    return Page.serve(self, request)
+
+
+class H5PLessonPage(Page):
     """A long-scroll lesson page, child of CoursePage.
 
     Composes rich text and H5P activities into a single scrollable page.
@@ -716,50 +781,67 @@ class LessonPage(Page):
         FieldPanel("body"),
     ]
 
+    class Meta(Page.Meta):
+        verbose_name = "H5P lesson page"
+
     @property
     def has_h5p_activity_blocks(self):
         return any(block.block_type == "h5p_activity" for block in self.body)
 
+    def get_context(self, request):
+        context = super().get_context(request)
+        if request.user.is_authenticated and self.pk:
+            context["lesson_completion"] = H5PLessonCompletion.objects.filter(
+                user=request.user, lesson=self
+            ).first()
+        else:
+            context["lesson_completion"] = None
+        return context
+
     def serve(self, request):
-        """Gate lesson access to authenticated, enrolled users.
+        return _lesson_serve(self, request)
 
-        Wagtail admin users can always access lessons for editing/preview.
-        Regular users must be enrolled in the parent CoursePage.
-        """
-        if not request.user.is_authenticated:
-            return redirect_to_login(request.get_full_path())
 
-        # Wagtail editors can access without enrollment
-        if request.user.has_perm("wagtailadmin.access_admin"):
-            return super().serve(request)
+class SCORMLessonPage(Page):
+    """A SCORM lesson page, child of CoursePage.
 
-        # Preserve the default enrollment-check fast path so enrolled users
-        # avoid an unnecessary .specific downcast query.
-        parent_page = self.get_parent()
-        check_path = conf.WAGTAIL_LMS_CHECK_LESSON_ACCESS
-        if check_path == _DEFAULT_LESSON_ACCESS_CHECK_PATH:
-            has_access = CourseEnrollment.objects.filter(
-                user=request.user,
-                course__page_ptr_id=parent_page.pk,
-            ).exists()
-            if not has_access:
-                messages.error(
-                    request,
-                    "You must be enrolled in this course to access this lesson.",
-                )
-                return redirect(parent_page.specific.url)
-            return super().serve(request)
+    Links to a SCORMPackage and provides a launch button for the SCORM player.
+    Access is gated to users enrolled in the parent CoursePage.
+    """
 
-        course_page = parent_page.specific
-        check_access = _get_lesson_access_check(check_path)
-        if not check_access(request, self, course_page):
-            messages.error(
-                request,
-                "You must be enrolled in this course to access this lesson.",
-            )
-            return redirect(course_page.url)
+    parent_page_types = None
+    subpage_types = []
 
-        return super().serve(request)
+    intro = RichTextField(blank=True)
+    scorm_package = models.ForeignKey(
+        SCORMPackage,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text="Select a SCORM package for this lesson",
+    )
+
+    class Meta(Page.Meta):
+        verbose_name = "SCORM lesson page"
+
+    def get_context(self, request):
+        context = super().get_context(request)
+        if request.user.is_authenticated and self.scorm_package_id:
+            context["attempt"] = SCORMAttempt.objects.filter(
+                user=request.user, scorm_package_id=self.scorm_package_id
+            ).first()
+        else:
+            context["attempt"] = None
+        return context
+
+    content_panels = [
+        *Page.content_panels,
+        FieldPanel("intro"),
+        FieldPanel("scorm_package"),
+    ]
+
+    def serve(self, request):
+        return _lesson_serve(self, request)
 
 
 class CourseEnrollment(models.Model):
@@ -785,32 +867,18 @@ class CourseEnrollment(models.Model):
     def __str__(self):
         return f"{self.user.username} - {self.course.title}"
 
-    def get_progress(self):
-        """Get user's progress in this course (SCORM courses only)."""
-        if not self.course.scorm_package:
-            return None
 
-        try:
-            attempt = SCORMAttempt.objects.filter(
-                user=self.user, scorm_package=self.course.scorm_package
-            ).latest("started_at")
-        except SCORMAttempt.DoesNotExist:
-            return None
-        else:
-            return attempt
-
-
-class LessonCompletion(models.Model):
+class H5PLessonCompletion(models.Model):
     """Track per-lesson completion for H5P-powered lessons.
 
-    Created when all H5P activities in a LessonPage have been completed by the
+    Created when all H5P activities in an H5PLessonPage have been completed by the
     user. Acts as the middle layer between CourseEnrollment and H5PAttempt,
     enabling course completion to be determined by a simple all-lessons-complete
     query rather than iterating StreamField blocks on every xAPI event.
     """
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    lesson = models.ForeignKey(LessonPage, on_delete=models.CASCADE)
+    lesson = models.ForeignKey(H5PLessonPage, on_delete=models.CASCADE)
     completed_at = models.DateTimeField(auto_now_add=True)
 
     panels = [
@@ -821,8 +889,8 @@ class LessonCompletion(models.Model):
 
     class Meta:
         unique_together = ("user", "lesson")
-        verbose_name = "Lesson Completion"
-        verbose_name_plural = "Lesson Completions"
+        verbose_name = "H5P Lesson Completion"
+        verbose_name_plural = "H5P Lesson Completions"
 
     def __str__(self):
         return f"{self.user.username} - {self.lesson.title}"

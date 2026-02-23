@@ -22,6 +22,15 @@ repos:
         args: [--fix, --exit-non-zero-on-fix]
       - id: ruff-format
 
+  - repo: local
+    hooks:
+      - id: mkdocs-build-strict
+        name: Build docs (mkdocs --strict)
+        entry: 'uv run --with ".[docs]" mkdocs build --strict'
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+
 ci:
   autofix_commit_msg: '[pre-commit.ci] auto fixes from pre-commit.com hooks'
   autofix_prs: true

@@ -5,6 +5,54 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0] - 2026-02-23
+
+### Breaking Changes
+
+- **`SCORMLessonPage` introduced; `CoursePage.scorm_package` removed** ([#82](https://github.com/dr-rompecabezas/wagtail-lms/pull/82))
+  - SCORM delivery now lives at the lesson level: `SCORMLessonPage` is a Wagtail Page that is a direct child of `CoursePage` and holds a `scorm_package` FK and an `intro` rich-text field
+  - `CoursePage.scorm_package` FK removed; the SCORM package chooser no longer appears in the course editor
+  - A data migration automatically creates a `SCORMLessonPage` child for every existing `CoursePage` that had a `scorm_package` value
+  - SCORM player URL changed: `/lms/player/<course_id>/` → `/lms/scorm-lesson/<lesson_id>/play/`; update any hard-coded URL reversals to `reverse("wagtail_lms:scorm_player", args=[scorm_lesson_page.id])`
+  - `CourseEnrollment.get_progress()` removed; query `SCORMAttempt` directly per lesson
+
+- **`LessonPage` renamed to `H5PLessonPage`; `LessonCompletion` renamed to `H5PLessonCompletion`**
+  - DB tables, content types, and all internal references updated via `RenameModel` migrations
+  - Update any downstream references to these model classes and their string labels (e.g. `"wagtail_lms.LessonPage"` → `"wagtail_lms.H5PLessonPage"`)
+  - `WAGTAIL_LMS_CHECK_LESSON_ACCESS` callable is now invoked by `H5PLessonPage.serve()` (interface unchanged)
+
+### Added
+
+- **`SCORMLessonPage`** — new Wagtail Page delivering a single SCORM package; renders a launch button linking to the SCORM player; access gated to enrolled users (Wagtail editors bypass)
+- **System check `wagtail_lms.W002`** — warns at startup when a `CoursePage` subclass defines `subpage_types` without `"wagtail_lms.SCORMLessonPage"`
+- **Mixed-mode course completion** — `CourseEnrollment.completed_at` is now set when *all* lessons in a course are done, regardless of type: `H5PLessonPage` requires an `H5PLessonCompletion` record; `SCORMLessonPage` requires a `SCORMAttempt` with `completion_status` of `"completed"` or `"passed"`
+- **Completion state visible in default templates** — the bundled templates now surface per-lesson and course-level completion state:
+  - `course_page.html`: SCORM lesson list items show a checkmark when the user has a completed/passed attempt (mirrors existing H5P lesson checkmarks)
+  - `scorm_lesson_page.html`: displays the current attempt's `completion_status` and `success_status` above the launch button; includes a back-link to the parent course
+  - `h5p_lesson_page.html`: shows a "Lesson completed" banner when an `H5PLessonCompletion` record exists for the user
+- **Lesson page layout styles moved to `course.css`** — `.lms-lesson` and related classes (`__header`, `__nav`, `__title`, `__intro`, `__block`, `__content`, `.lms-h5p-activity`) are now defined in the shared stylesheet rather than inline in `h5p_lesson_page.html`; `lms-button--secondary` added to complete the button palette
+
+### Fixed
+
+- **SCORM player enrollment gate now consistent with H5P lesson access** — Wagtail editors (users with `wagtailadmin.access_admin`) can access the SCORM player without being enrolled in the course, matching the existing editor bypass in `H5PLessonPage.serve()`
+- **LMS admin menu items hidden for all users** — `ReadOnlyPermissionPolicy` blocked `add`/`change`/`delete` unconditionally (including for superusers), causing Wagtail's menu-visibility check to hide SCORM Attempts, H5P Attempts, and H5P Lesson Completions from the sidebar. Fixed by overriding `user_has_any_permission` to redirect to the `view` permission check instead.
+- **`H5PLessonPage` and `SCORMLessonPage` displayed with incorrect casing** — Wagtail title-cases class names when no `verbose_name` is set, producing "H5p lesson page" and "Scorm lesson page" in the page type chooser. Explicit `verbose_name` values added to both models.
+
+### Migration notes
+
+1. Run `python manage.py migrate wagtail_lms` — migrations 0004–0006 apply automatically:
+   - 0004: creates `SCORMLessonPage`, migrates existing `CoursePage.scorm_package` data, removes the field
+   - 0005: renames `LessonPage` → `H5PLessonPage` and `LessonCompletion` → `H5PLessonCompletion`
+   - 0006: removes any stale `lessonpage` / `lessoncompletion` ContentType rows left behind by the rename (see note below)
+2. **Run `python manage.py fixtree` after migrating** — if a `CoursePage` previously had a `scorm_package` and the data migration in 0004 incremented the parent's `numchild` counter but the child page did not persist (can occur with SQLite under certain transaction conditions), the page tree will have an inconsistent `numchild`. `fixtree` detects and corrects this automatically; it is a no-op if the tree is already consistent.
+3. Update `subpage_types` on any `CoursePage` subclasses to include `"wagtail_lms.H5PLessonPage"` and `"wagtail_lms.SCORMLessonPage"`
+4. Update any template URL tags that referenced the old SCORM player URL (`wagtail_lms:scorm_player` now takes a `lesson_id`)
+5. Remove references to `CoursePage.scorm_package` and `CourseEnrollment.get_progress()`
+
+> **Note on stale ContentTypes (migration 0006):** Django's `RenameModel` migration updates the `django_content_type` row for the renamed model in-place. On some database/cache combinations an orphan row for the old model name (`lessonpage`, `lessoncompletion`) can survive alongside the new one. When present, this orphan causes an `AttributeError: 'NoneType' object has no attribute '_inc_path'` crash whenever Wagtail tries to add a child page under a `CoursePage` whose existing children include a page with the stale ContentType. Migration 0006 deletes these orphan rows unconditionally; it is safe to run even when the orphans were never created.
+
+---
+
 ## [0.10.1] - 2026-02-22
 
 ### Fixed

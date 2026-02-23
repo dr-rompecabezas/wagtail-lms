@@ -9,7 +9,7 @@ from .models import (
     CourseEnrollment,
     H5PActivity,
     H5PAttempt,
-    LessonCompletion,
+    H5PLessonCompletion,
     SCORMAttempt,
     SCORMPackage,
 )
@@ -32,12 +32,24 @@ def _import_viewset_class(dotted_path, setting_name):
 
 
 class ReadOnlyPermissionPolicy(ModelPermissionPolicy):
-    """Permission policy that only allows view access."""
+    """Permission policy that only allows view access.
+
+    ``user_has_any_permission`` is overridden so that Wagtail's menu-visibility
+    check (which tests for add/change/delete) falls back to testing ``view``
+    instead.  Without this, the menu items for read-only viewsets would be
+    hidden even from superusers, because the base check only asks about write
+    actions.
+    """
 
     def user_has_permission(self, user, action):
         if action in ("add", "change", "delete"):
             return False
         return super().user_has_permission(user, action)
+
+    def user_has_any_permission(self, user, actions):
+        # Redirect any permission check to 'view' so that users who can view
+        # the model (including superusers) see the menu item.
+        return super().user_has_permission(user, "view")
 
 
 class EditOnlyPermissionPolicy(ModelPermissionPolicy):
@@ -148,17 +160,17 @@ class H5PAttemptViewSet(ModelViewSet):
     permission_policy = ReadOnlyPermissionPolicy(H5PAttempt)
 
 
-class LessonCompletionViewSet(ModelViewSet):
-    model = LessonCompletion
+class H5PLessonCompletionViewSet(ModelViewSet):
+    model = H5PLessonCompletion
     icon = "tick-inverse"
     add_to_admin_menu = False
-    menu_label = "Lesson Completions"
+    menu_label = "H5P Lesson Completions"
     menu_icon = "tick-inverse"
     index_view_class = ViewPermissionIndexView
     list_display = ["user", "lesson", "completed_at"]
     list_filter = ["completed_at"]
     search_fields = ["user__username", "lesson__title"]
-    permission_policy = ReadOnlyPermissionPolicy(LessonCompletion)
+    permission_policy = ReadOnlyPermissionPolicy(H5PLessonCompletion)
 
 
 class LMSViewSetGroup(ModelViewSetGroup):
@@ -179,5 +191,5 @@ class LMSViewSetGroup(ModelViewSetGroup):
             CourseEnrollmentViewSet,
             SCORMAttemptViewSet,
             H5PAttemptViewSet,
-            LessonCompletionViewSet,
+            H5PLessonCompletionViewSet,
         )

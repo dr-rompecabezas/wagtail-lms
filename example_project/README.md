@@ -61,7 +61,7 @@ The home page will now be visible at `http://localhost:8000/`
 - **Home**: <http://localhost:8000/>
 - **Wagtail Admin**: <http://localhost:8000/admin/>
 - **Django Admin**: <http://localhost:8000/django-admin/>
-- **SCORM Packages**: <http://localhost:8000/lms/scorm-packages/>
+- **LMS Admin (SCORM/H5P)**: <http://localhost:8000/admin/> → LMS section in sidebar
 
 ## Using Wagtail LMS
 
@@ -87,22 +87,32 @@ The package will be automatically extracted and parsed.
 5. Fill in the course details:
    - Title (required)
    - Description (optional)
-   - Select the SCORM package you uploaded
 6. Click **Publish**
+
+#### Add a SCORM Lesson to the Course
+
+1. Navigate to the Course page in the Wagtail page tree
+2. Click **Add child page** → **SCORM Lesson Page**
+3. Fill in:
+   - **Title** (required)
+   - **Intro** — optional introductory rich text
+   - **SCORM Package** — select the package you uploaded
+4. Click **Publish**
 
 #### Test the Course
 
 1. Visit the course page URL (visible in the Wagtail admin)
 2. Click **Enroll in Course** (you need to be logged in)
-3. Click **Start Course** to launch the SCORM player
-4. The SCORM content will load in an iframe with full API support
+3. Click the SCORM lesson link to open the lesson page
+4. Click **Launch SCORM Content** to open the player
+5. The SCORM content will load in an iframe with full API support
 
 ---
 
 ### H5P Lessons
 
 H5P activities are reusable snippets that can be embedded inside a
-long-scroll **LessonPage** alongside rich text, images, and other blocks.
+long-scroll **H5P Lesson Page** alongside rich text, images, and other blocks.
 A course can have multiple lessons; each lesson can contain multiple H5P
 activities. Learner progress is tracked via xAPI statements.
 
@@ -139,7 +149,7 @@ activities. Learner progress is tracked via xAPI statements.
 #### 3. Create a Lesson under the Course
 
 1. Navigate to the Course page in the Wagtail page tree
-2. Click **Add child page** → **Lesson Page**
+2. Click **Add child page** → **H5P Lesson Page**
 3. Fill in:
    - **Title** (required)
    - **Intro** — optional introductory rich text shown above the body
@@ -311,9 +321,9 @@ Common causes:
 - The `h5p-standalone` vendor bundles must be present under
   `src/wagtail_lms/static/wagtail_lms/vendor/h5p-standalone/`
 
-### LessonPage "Add child page" Not Appearing
+### "Add child page" Option Not Appearing
 
-- The **Lesson Page** option only appears under a **Course Page**
+- **H5P Lesson Page** and **SCORM Lesson Page** options only appear under a **Course Page**
 - Confirm the Course Page is published before adding lessons
 
 ### Files Appearing in Project Root

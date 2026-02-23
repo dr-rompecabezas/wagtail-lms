@@ -31,6 +31,26 @@ jobs:
         run: |
           uv run pre-commit run --all-files
 
+  docs:
+    name: Docs build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Build docs
+        run: |
+          uv run --with ".[docs]" mkdocs build --strict
+
   test:
     name: Test Py${{ matrix.python-version }}/Dj${{ matrix.django-version }}/Wt${{ matrix.wagtail-version }}
     runs-on: ubuntu-latest

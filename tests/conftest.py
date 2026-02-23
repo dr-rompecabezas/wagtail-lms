@@ -185,17 +185,31 @@ def home_page(root_page):
 
 
 @pytest.fixture
-def course_page(home_page, scorm_package):
-    """Create a test course page."""
+def course_page(home_page):
+    """Create a test course page (no SCORM package — use scorm_lesson_page for SCORM)."""
     course = CoursePage(
         title="Test Course",
         slug="test-course",
         description="<p>Test course description</p>",
-        scorm_package=scorm_package,
     )
     home_page.add_child(instance=course)
     course.save_revision().publish()
     return course
+
+
+@pytest.fixture
+def scorm_lesson_page(course_page, scorm_package):
+    """Create a SCORMLessonPage child of course_page with a SCORM package."""
+    from wagtail_lms.models import SCORMLessonPage
+
+    lesson = SCORMLessonPage(
+        title="SCORM Lesson",
+        slug="scorm-lesson",
+        scorm_package=scorm_package,
+    )
+    course_page.add_child(instance=lesson)
+    lesson.save_revision().publish()
+    return lesson
 
 
 @pytest.fixture

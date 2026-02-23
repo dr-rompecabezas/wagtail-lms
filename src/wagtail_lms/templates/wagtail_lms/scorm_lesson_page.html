@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% load wagtailcore_tags %}
+
+{% block content %}
+<div class="lms-lesson">
+
+    <header class="lms-lesson__header">
+        <nav class="lms-lesson__nav">
+            {% with course=page.get_parent.specific %}
+                <a href="{{ course.url }}" class="lms-button lms-button--secondary">
+                    &larr; {{ course.title }}
+                </a>
+            {% endwith %}
+        </nav>
+        <h1 class="lms-lesson__title">{{ page.title }}</h1>
+    </header>
+
+    {% if page.intro %}
+        <div class="lms-lesson__intro">
+            {{ page.intro|richtext }}
+        </div>
+    {% endif %}
+
+    {% if attempt %}
+        <div class="lms-notice lms-notice--info">
+            <strong>Status:</strong> {{ attempt.completion_status }}
+            {% if attempt.success_status != "unknown" %}
+                &middot; {{ attempt.success_status }}
+            {% endif %}
+        </div>
+    {% endif %}
+
+    {% if page.scorm_package %}
+        <div class="lms-lesson__content">
+            <p><strong>Package:</strong> {{ page.scorm_package.title }}</p>
+            {% if page.scorm_package.description %}
+                <p>{{ page.scorm_package.description }}</p>
+            {% endif %}
+            <a href="{% url 'wagtail_lms:scorm_player' page.id %}" class="lms-button lms-button--primary">
+                Launch SCORM Content
+            </a>
+        </div>
+    {% else %}
+        <div class="lms-notice lms-notice--warning lms-lesson__content">
+            No SCORM content has been assigned to this lesson yet.
+        </div>
+    {% endif %}
+
+</div>
+{% endblock %}

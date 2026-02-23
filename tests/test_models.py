@@ -4,6 +4,7 @@ import io
 import os
 
 import pytest
+from django.contrib.auth.models import AnonymousUser
 from django.core.files.storage import default_storage
 from django.db import IntegrityError
 
@@ -88,7 +89,6 @@ class TestCoursePage:
     def test_course_page_creation(self, course_page):
         """Test basic course page creation."""
         assert course_page.title == "Test Course"
-        assert course_page.scorm_package is not None
 
     def test_course_page_get_context_authenticated(self, course_page, user, rf):
         """Test get_context with authenticated user."""
@@ -98,10 +98,8 @@ class TestCoursePage:
         context = course_page.get_context(request)
 
         assert "enrollment" in context
-        assert "progress" in context
         # User not enrolled yet, should be None
         assert context["enrollment"] is None
-        assert context["progress"] is None
 
     def test_course_page_get_context_with_enrollment(self, course_page, user, rf):
         """Test get_context with enrolled user."""
@@ -114,7 +112,6 @@ class TestCoursePage:
         context = course_page.get_context(request)
 
         assert context["enrollment"] == enrollment
-        assert context["progress"] is None  # No SCORM attempt yet
 
     def test_course_page_get_context_unauthenticated(self, course_page, rf):
         """Test get_context with anonymous user."""
@@ -126,16 +123,14 @@ class TestCoursePage:
         context = course_page.get_context(request)
 
         assert context["enrollment"] is None
-        assert context["progress"] is None
 
-    def test_course_page_preview_no_pk(self, home_page, scorm_package, rf):
+    def test_course_page_preview_no_pk(self, home_page, rf):
         """Test get_context for unsaved page (preview mode)."""
         from django.contrib.auth.models import AnonymousUser
 
         # Create unsaved page (no pk)
         course = CoursePage(
             title="Unsaved Course",
-            scorm_package=scorm_package,
         )
         # Don't add to tree, keep pk as None
 
@@ -145,13 +140,12 @@ class TestCoursePage:
         # Should not raise error even without pk
         context = course.get_context(request)
         assert context["enrollment"] is None
-        assert context["progress"] is None
 
     def test_get_context_includes_lesson_pages(self, course_page, user, rf):
-        """lesson_pages in context contains live LessonPage children."""
-        from wagtail_lms.models import LessonPage
+        """lesson_pages in context contains live H5PLessonPage children."""
+        from wagtail_lms.models import H5PLessonPage
 
-        lesson = LessonPage(title="Lesson One", slug="lesson-one", intro="")
+        lesson = H5PLessonPage(title="Lesson One", slug="lesson-one", intro="")
         course_page.add_child(instance=lesson)
         lesson.save_revision().publish()
 
@@ -163,10 +157,10 @@ class TestCoursePage:
         assert lesson.pk in [p.pk for p in context["lesson_pages"]]
 
     def test_get_context_excludes_draft_lesson_pages(self, course_page, user, rf):
-        """Draft LessonPage children are not included in lesson_pages."""
-        from wagtail_lms.models import LessonPage
+        """Draft H5PLessonPage children are not included in lesson_pages."""
+        from wagtail_lms.models import H5PLessonPage
 
-        draft = LessonPage(
+        draft = H5PLessonPage(
             title="Draft Lesson", slug="draft-lesson", intro="", live=False
         )
         course_page.add_child(instance=draft)
@@ -177,13 +171,11 @@ class TestCoursePage:
 
         assert draft.pk not in [p.pk for p in context["lesson_pages"]]
 
-    def test_get_context_lesson_pages_empty_in_preview(
-        self, home_page, scorm_package, rf
-    ):
+    def test_get_context_lesson_pages_empty_in_preview(self, home_page, rf):
         """lesson_pages is empty (not an error) when the page has no pk."""
         from django.contrib.auth.models import AnonymousUser
 
-        course = CoursePage(title="Preview Course", scorm_package=scorm_package)
+        course = CoursePage(title="Preview Course")
         request = rf.get("/")
         request.user = AnonymousUser()
 
@@ -216,37 +208,6 @@ class TestCourseEnrollment:
         with pytest.raises(IntegrityError):
             with transaction.atomic():
                 CourseEnrollment.objects.create(user=user, course=course_page)
-
-    def test_enrollment_get_progress_no_attempt(self, user, course_page):
-        """Test get_progress with no SCORM attempt."""
-        enrollment = CourseEnrollment.objects.create(user=user, course=course_page)
-        progress = enrollment.get_progress()
-        assert progress is None
-
-    def test_enrollment_get_progress_with_attempt(
-        self, user, course_page, scorm_package
-    ):
-        """Test get_progress with SCORM attempt."""
-        enrollment = CourseEnrollment.objects.create(user=user, course=course_page)
-        attempt = SCORMAttempt.objects.create(
-            user=user,
-            scorm_package=scorm_package,
-            completion_status="incomplete",
-        )
-        progress = enrollment.get_progress()
-        assert progress == attempt
-
-    def test_enrollment_get_progress_no_package(self, user, home_page):
-        """Test get_progress when course has no SCORM package."""
-        course = CoursePage(
-            title="Course Without Package",
-            slug="no-package",
-        )
-        home_page.add_child(instance=course)
-
-        enrollment = CourseEnrollment.objects.create(user=user, course=course)
-        progress = enrollment.get_progress()
-        assert progress is None
 
 
 @pytest.mark.django_db
@@ -456,3 +417,31 @@ class TestSCORMPackageStorageBackend:
 
         assert package.launch_url == "index.html"
         assert package.manifest_data["title"] == "Test SCORM Course"
+
+
+@pytest.mark.django_db
+class TestSCORMLessonPageGetContext:
+    """Tests for SCORMLessonPage.get_context()."""
+
+    def test_context_contains_existing_attempt(
+        self, rf, user, scorm_lesson_page, scorm_package
+    ):
+        attempt = SCORMAttempt.objects.create(user=user, scorm_package=scorm_package)
+        request = rf.get("/")
+        request.user = user
+        context = scorm_lesson_page.get_context(request)
+        assert context["attempt"] == attempt
+
+    def test_context_attempt_is_none_when_no_attempt_exists(
+        self, rf, user, scorm_lesson_page
+    ):
+        request = rf.get("/")
+        request.user = user
+        context = scorm_lesson_page.get_context(request)
+        assert context["attempt"] is None
+
+    def test_context_attempt_is_none_for_anonymous_user(self, rf, scorm_lesson_page):
+        request = rf.get("/")
+        request.user = AnonymousUser()
+        context = scorm_lesson_page.get_context(request)
+        assert context["attempt"] is None

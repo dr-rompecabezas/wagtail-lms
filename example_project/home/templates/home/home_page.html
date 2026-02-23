@@ -18,15 +18,20 @@
             <ol>
                 <li>Create a superuser: <code>python example_project/manage.py createsuperuser</code></li>
                 <li>Login to <a href="/admin/">Wagtail Admin</a></li>
-                <li>Upload a SCORM package via <a href="/admin/scormpackage/new/">Wagtail Admin</a></li>
-                <li>Create a Course Page and assign the SCORM package</li>
-                <li>Test the course as a student!</li>
+                <li>Create a <strong>Course Page</strong> under the home page</li>
+                <li>Add lesson children to the course:
+                    <ul>
+                        <li><strong>H5P Lesson Page</strong> — upload an H5P activity via <strong>LMS → H5P Activities</strong> first, then add it to the lesson body</li>
+                        <li><strong>SCORM Lesson Page</strong> — upload a SCORM package via <strong>LMS → SCORM Packages</strong> first, then assign it to the lesson</li>
+                    </ul>
+                </li>
+                <li>Enroll in the course as a student and test completion tracking</li>
             </ol>
 
             <h3>Quick Links</h3>
             <ul>
-                <li><a href="/admin/">Wagtail Admin</a> - Manage pages and content</li>
-                <li><a href="/admin/scormpackage/">SCORM Packages</a> - Manage SCORM packages</li>
+                <li><a href="/admin/">Wagtail Admin</a> — manage pages, SCORM packages, H5P activities, enrollments, and attempts</li>
+                <li><a href="/django-admin/">Django Admin</a> — manage models directly</li>
             </ul>
         </div>
     {% endif %}

@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{#
+  Wagtail LMS Lesson Page Template
+
+  STYLING: This template uses CSS classes from 'wagtail_lms/css/course.css'.
+  Include the stylesheet in your base template's <head> section:
+
+    {% load static wagtailcore_tags %}
+    <link rel="stylesheet" href="{% static 'wagtail_lms/css/course.css' %}">
+
+  Alternatively, override this template with your own (Bootstrap, Tailwind, etc.).
+  See docs: https://github.com/dr-rompecabezas/wagtail-lms/blob/main/docs/template_customization.md
+#}
+{% load static wagtailcore_tags %}
+
+{% block title %}{{ page.title }}{% endblock %}
+
+{% block content %}
+<div class="lms-lesson">
+
+  <header class="lms-lesson__header">
+    <nav class="lms-lesson__nav">
+      {% with course=page.get_parent.specific %}
+        <a href="{{ course.url }}" class="lms-button lms-button--secondary">
+          &larr; {{ course.title }}
+        </a>
+      {% endwith %}
+    </nav>
+    <h1 class="lms-lesson__title">{{ page.title }}</h1>
+  </header>
+
+  {% if lesson_completion %}
+    <div class="lms-notice lms-notice--success">
+        &#10003; Lesson completed {{ lesson_completion.completed_at|date:"M d, Y" }}
+    </div>
+  {% endif %}
+
+  <article class="lms-lesson__body">
+
+    {% if page.intro %}
+      <div class="lms-lesson__intro">
+        {{ page.intro|richtext }}
+      </div>
+    {% endif %}
+
+    {% for block in page.body %}
+      <div class="lms-lesson__block lms-lesson__block--{{ block.block_type }}">
+        {% include_block block %}
+      </div>
+    {% endfor %}
+
+  </article>
+
+</div>
+
+{% if page.has_h5p_activity_blocks %}
+  {# CSRF token for h5p-lesson.js xAPI fetch calls #}
+  {% csrf_token %}
+
+  {# h5p-standalone player — loaded once, shared by all activities on the page #}
+  <script
+    src="{% static 'wagtail_lms/vendor/h5p-standalone/main.bundle.js' %}"
+    data-frame-js="{% static 'wagtail_lms/vendor/h5p-standalone/frame.bundle.js' %}"
+    data-frame-css="{% static 'wagtail_lms/vendor/h5p-standalone/styles/h5p.css' %}"
+    data-h5p-css="{% static 'wagtail_lms/vendor/h5p-standalone/styles/h5p.css' %}"
+    data-user-name="{{ request.user.get_username }}"
+    id="h5p-standalone-script">
+  </script>
+  <script src="{% static 'wagtail_lms/js/h5p-lesson.js' %}"></script>
+{% endif %}
+
+{% endblock %}
