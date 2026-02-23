@@ -754,6 +754,9 @@ class H5PLessonPage(Page):
         FieldPanel("body"),
     ]
 
+    class Meta(Page.Meta):
+        verbose_name = "H5P lesson page"
+
     @property
     def has_h5p_activity_blocks(self):
         return any(block.block_type == "h5p_activity" for block in self.body)
@@ -780,6 +783,9 @@ class SCORMLessonPage(Page):
         blank=True,
         help_text="Select a SCORM package for this lesson",
     )
+
+    class Meta(Page.Meta):
+        verbose_name = "SCORM lesson page"
 
     content_panels = [
         *Page.content_panels,
