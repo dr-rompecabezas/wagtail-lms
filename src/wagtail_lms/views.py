@@ -239,11 +239,16 @@ def scorm_player_view(request, lesson_id):
         )
         return redirect(lesson.url)
 
-    if conf.WAGTAIL_LMS_AUTO_ENROLL:
-        CourseEnrollment.objects.get_or_create(user=request.user, course=course)
-    elif not CourseEnrollment.objects.filter(user=request.user, course=course).exists():
-        messages.error(request, "You must be enrolled in this course to access it.")
-        return redirect(course.url if hasattr(course, "url") else "/")
+    # Wagtail editors bypass the enrollment gate (mirrors _lesson_serve behaviour)
+    is_editor = request.user.has_perm("wagtailadmin.access_admin")
+    if not is_editor:
+        if conf.WAGTAIL_LMS_AUTO_ENROLL:
+            CourseEnrollment.objects.get_or_create(user=request.user, course=course)
+        elif not CourseEnrollment.objects.filter(
+            user=request.user, course=course
+        ).exists():
+            messages.error(request, "You must be enrolled in this course to access it.")
+            return redirect(course.url if hasattr(course, "url") else "/")
 
     # Get or create SCORM attempt
     attempt, _ = SCORMAttempt.objects.get_or_create(

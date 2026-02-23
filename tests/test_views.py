@@ -118,6 +118,24 @@ class TestSCORMPlayerView:
         response = client.get(url)
         assert response.status_code == 200
 
+    def test_scorm_player_wagtail_editor_bypasses_enrollment(
+        self, client, user, scorm_lesson_page
+    ):
+        """Wagtail editors can access the SCORM player without being enrolled,
+        consistent with _lesson_serve behaviour for H5PLessonPage."""
+        from django.contrib.auth.models import Permission
+
+        user.user_permissions.add(
+            Permission.objects.get(
+                content_type__app_label="wagtailadmin", codename="access_admin"
+            )
+        )
+        client.force_login(user)
+        url = reverse("wagtail_lms:scorm_player", args=[scorm_lesson_page.id])
+        response = client.get(url)
+        assert response.status_code == 200
+        assert not CourseEnrollment.objects.filter(user=user).exists()
+
 
 @pytest.mark.django_db
 class TestEnrollmentView:
