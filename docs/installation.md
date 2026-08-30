@@ -22,12 +22,10 @@ Add `wagtail_lms` to your `INSTALLED_APPS`:
 
 ```python
 INSTALLED_APPS = [
-    'home',
-    'search',
-
-    'wagtail_lms',  # Add this
-
-    'wagtail.contrib.forms',
+    "home",
+    "search",
+    "wagtail_lms",  # Add this
+    "wagtail.contrib.forms",
     # ... other Wagtail apps
 ]
 ```
@@ -53,7 +51,7 @@ from django.urls import path, include
 
 urlpatterns = [
     # ...
-    path('lms/', include('wagtail_lms.urls')),
+    path("lms/", include("wagtail_lms.urls")),
     # ...
 ]
 ```
@@ -75,8 +73,8 @@ python manage.py collectstatic --noinput
 Ensure your media settings are configured:
 
 ```python
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+MEDIA_URL = "/media/"
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 ```
 
 In development, add to `urls.py`:
