@@ -3,7 +3,12 @@
 import pytest
 from wagtail import hooks
 
-from wagtail_lms.models import SCORMAttempt
+from wagtail_lms.models import (
+    CourseEnrollment,
+    H5PAttempt,
+    H5PLessonCompletion,
+    SCORMAttempt,
+)
 from wagtail_lms.viewsets import (
     CourseEnrollmentViewSet,
     H5PAttemptViewSet,
@@ -31,6 +36,24 @@ class TestViewSetRegistration:
         assert SCORMPackageViewSet in item_classes
         assert CourseEnrollmentViewSet in item_classes
         assert SCORMAttemptViewSet in item_classes
+
+    def test_custom_permission_policies_are_registered_when_supported(self):
+        """Wagtail 8+ must not infer policies from the viewset attributes."""
+        try:
+            from wagtail.permissions import policy_registry
+        except ImportError:
+            pytest.skip("Wagtail versions before 8 have no policy registry")
+
+        for model, viewset in (
+            (CourseEnrollment, CourseEnrollmentViewSet),
+            (SCORMAttempt, SCORMAttemptViewSet),
+            (H5PAttempt, H5PAttemptViewSet),
+            (H5PLessonCompletion, H5PLessonCompletionViewSet),
+        ):
+            assert (
+                policy_registry.get_by_type(model, fallback=False)
+                is viewset.permission_policy
+            )
 
 
 @pytest.mark.django_db

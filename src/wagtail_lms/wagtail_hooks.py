@@ -2,12 +2,33 @@ from django.templatetags.static import static
 from django.utils.html import format_html
 from django.utils.module_loading import import_string
 from wagtail import hooks
+
+# Wagtail 8 moved custom ModelViewSet permission policies to a global
+# registry.  The registration API is not available in Wagtail 6 or 7, which
+# this package continues to support.
+try:
+    from wagtail.permissions import register_permission_policy
+except ImportError:
+    register_permission_policy = None
+
 from wagtail.snippets.models import register_snippet
 from wagtail.snippets.views.snippets import SnippetViewSet
 
 from . import conf
-from .models import H5PActivity
-from .viewsets import LMSViewSetGroup
+from .models import (
+    CourseEnrollment,
+    H5PActivity,
+    H5PAttempt,
+    H5PLessonCompletion,
+    SCORMAttempt,
+)
+from .viewsets import (
+    CourseEnrollmentViewSet,
+    H5PAttemptViewSet,
+    H5PLessonCompletionViewSet,
+    LMSViewSetGroup,
+    SCORMAttemptViewSet,
+)
 
 
 def _import_snippet_viewset_class(dotted_path, setting_name):
@@ -24,6 +45,25 @@ def _import_snippet_viewset_class(dotted_path, setting_name):
             f"got '{dotted_path}'"
         )
     return viewset_class
+
+
+def _register_custom_permission_policies():
+    """Register built-in custom policies on Wagtail versions that support it."""
+    if register_permission_policy is None:
+        return
+
+    for model, viewset in (
+        (CourseEnrollment, CourseEnrollmentViewSet),
+        (SCORMAttempt, SCORMAttemptViewSet),
+        (H5PAttempt, H5PAttemptViewSet),
+        (H5PLessonCompletion, H5PLessonCompletionViewSet),
+    ):
+        # Match Wagtail's legacy ModelViewSet behaviour: policies registered
+        # for concrete models must not be inherited by their subclasses.
+        register_permission_policy(model, viewset.permission_policy, exact_class=True)
+
+
+_register_custom_permission_policies()
 
 
 register_snippet(
