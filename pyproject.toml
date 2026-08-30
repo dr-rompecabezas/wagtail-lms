@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "wagtail_lms"
-version = "0.11.0"
+version = "0.11.1"
 description = "A Learning Management System extension for Wagtail with SCORM 1.2/2004 and H5P support"
 readme = "README.md"
 authors = [
@@ -20,9 +20,11 @@ classifiers = [
     "Framework :: Django :: 5.1",
     "Framework :: Django :: 5.2",
     "Framework :: Django :: 6.0",
+    "Framework :: Django :: 6.1",
     "Framework :: Wagtail",
     "Framework :: Wagtail :: 6",
     "Framework :: Wagtail :: 7",
+    "Framework :: Wagtail :: 8",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",

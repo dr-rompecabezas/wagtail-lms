@@ -82,6 +82,7 @@ The test suite includes comprehensive fixtures in `tests/conftest.py`:
 import pytest
 from wagtail_lms.models import SCORMPackage
 
+
 @pytest.mark.django_db
 class TestYourModel:
     def test_something(self, scorm_package):
@@ -95,11 +96,12 @@ class TestYourModel:
 import pytest
 from django.urls import reverse
 
+
 @pytest.mark.django_db
 class TestYourView:
     def test_view_requires_login(self, client, course_page):
         """Test that view requires authentication."""
-        url = reverse('wagtail_lms:your_view', args=[course_page.id])
+        url = reverse("wagtail_lms:your_view", args=[course_page.id])
         response = client.get(url)
         assert response.status_code == 302  # Redirect to login
 ```
@@ -110,6 +112,7 @@ class TestYourView:
 import json
 import pytest
 from django.urls import reverse
+
 
 @pytest.mark.django_db
 class TestYourWorkflow:

@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.1] - 2026-08-30
+
+### Fixed
+
+- **Wagtail 8 permission-policy deprecation warnings** — Registered the custom policies for `CourseEnrollment`, `SCORMAttempt`, `H5PAttempt`, and `H5PLessonCompletion` with Wagtail's global permission-policy registry. The registration is a no-op on Wagtail 6 and 7, preserving compatibility with all supported Wagtail versions.
+
+### Changed
+
+- **CI compatibility matrix updated** — replaced unsupported Python/framework combinations with officially supported ones; added coverage for Wagtail 7.4 LTS on Python 3.14 / Django 5.2 and Wagtail 8.0 on Python 3.14 / Django 6.1.
+- **Supported-version metadata and README updated** — added Django 6.1 and Wagtail 8 to PyPI classifiers and documented current supported versions.
+
 ## [0.11.0] - 2026-02-23
 
 ### Breaking Changes

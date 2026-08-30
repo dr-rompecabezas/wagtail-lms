@@ -104,10 +104,12 @@ your-project/
 
 ```python
 # settings.py
-TEMPLATES = [{
-    'DIRS': [BASE_DIR / 'templates'],  # Your templates override package templates
-    # ...
-}]
+TEMPLATES = [
+    {
+        "DIRS": [BASE_DIR / "templates"],  # Your templates override package templates
+        # ...
+    }
+]
 ```
 
 **Step 3:** Copy and modify the default templates (see examples below).

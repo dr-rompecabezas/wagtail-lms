@@ -155,8 +155,7 @@ This endpoint powers H5P resume/progress state and is wired via
 `WAGTAIL_LMS_CHECK_LESSON_ACCESS` callable signature:
 
 ```python
-def check_access(request, lesson_page, course_page) -> bool:
-    ...
+def check_access(request, lesson_page, course_page) -> bool: ...
 ```
 
 Return `True` to allow access, `False` to redirect learners to the parent course page with an error message.
