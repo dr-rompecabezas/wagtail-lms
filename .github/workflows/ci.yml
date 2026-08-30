@@ -78,8 +78,8 @@ jobs:
             django-version: '6.0'
             wagtail-version: '7.2'
 
-          # Python 3.13 — cross-compatibility: new Python with old frameworks
-          - python-version: '3.13'
+          # Python 3.12 — latest supported Python for minimum frameworks
+          - python-version: '3.12'
             django-version: '4.2'
             wagtail-version: '6.0'
 
@@ -91,12 +91,12 @@ jobs:
           # Python 3.14 — stable frameworks
           - python-version: '3.14'
             django-version: '5.2'
-            wagtail-version: '7.1'
+            wagtail-version: '7.4'
 
           # Python 3.14 — bleeding edge
           - python-version: '3.14'
-            django-version: '6.0'
-            wagtail-version: '7.3'
+            django-version: '6.1'
+            wagtail-version: '8.0'
 
     steps:
       - uses: actions/checkout@v7

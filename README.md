@@ -17,8 +17,8 @@ A Learning Management System extension for Wagtail CMS with SCORM 1.2/2004 and H
 **Supported versions:**
 
 - **Python:** 3.11, 3.12, 3.13, 3.14
-- **Django:** 4.2 (LTS), 5.0, 5.1, 5.2 (LTS), 6.0
-- **Wagtail:** 6.0, 6.2, 6.3, 7.1, 7.2, 7.3
+- **Django:** 4.2 (LTS), 5.0, 5.1, 5.2 (LTS), 6.0, 6.1
+- **Wagtail:** 6.0, 6.2, 6.3, 7.1, 7.2, 7.4 (LTS), 8.0
 
 Selected combinations are tested in CI. See our [compatibility matrix](https://github.com/dr-rompecabezas/wagtail-lms/blob/main/.github/workflows/ci.yml) for specific version combinations.
 
@@ -48,7 +48,7 @@ pip install wagtail-lms
     ```python
     INSTALLED_APPS = [
         # ...
-        'wagtail_lms',
+        "wagtail_lms",
         # ...
     ]
     ```
@@ -60,7 +60,7 @@ pip install wagtail-lms
 
     urlpatterns = [
         # ...
-        path('lms/', include('wagtail_lms.urls')),
+        path("lms/", include("wagtail_lms.urls")),
         # ...
     ]
     ```
@@ -82,15 +82,15 @@ pip install wagtail-lms
 Optional settings in your Django settings:
 
 ```python
-WAGTAIL_LMS_AUTO_ENROLL = False                    # Auto-enroll on course visit
+WAGTAIL_LMS_AUTO_ENROLL = False  # Auto-enroll on course visit
 
 # SCORM
-WAGTAIL_LMS_SCORM_UPLOAD_PATH = 'scorm_packages/'  # Upload directory
-WAGTAIL_LMS_SCORM_CONTENT_PATH = 'scorm_content/'  # Extracted content
+WAGTAIL_LMS_SCORM_UPLOAD_PATH = "scorm_packages/"  # Upload directory
+WAGTAIL_LMS_SCORM_CONTENT_PATH = "scorm_content/"  # Extracted content
 
 # H5P
-WAGTAIL_LMS_H5P_UPLOAD_PATH = 'h5p_packages/'      # Upload directory
-WAGTAIL_LMS_H5P_CONTENT_PATH = 'h5p_content/'      # Extracted content
+WAGTAIL_LMS_H5P_UPLOAD_PATH = "h5p_packages/"  # Upload directory
+WAGTAIL_LMS_H5P_CONTENT_PATH = "h5p_content/"  # Extracted content
 
 # Cache-Control rules for served assets (exact MIME, wildcard, and default)
 WAGTAIL_LMS_CACHE_CONTROL = {

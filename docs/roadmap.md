@@ -2,9 +2,16 @@
 
 This document outlines the planned development path for Wagtail LMS.
 
-## Current Status: v0.11.0
+## Current Status: v0.11.1
 
-The current release includes **full H5P and SCORM lesson page support, xAPI tracking, downstream extensibility, and all prior SCORM infrastructure**.
+The current release includes **full H5P and SCORM lesson page support, xAPI tracking, downstream extensibility, Wagtail 8 compatibility, and all prior SCORM infrastructure**.
+
+**Completed in v0.11.1:**
+
+✅ **Wagtail 8 Compatibility**
+
+- Registered custom `ModelViewSet` permission policies with Wagtail's global permission-policy registry, removing Wagtail 8 deprecation warnings while preserving Wagtail 6 and 7 compatibility
+- CI now tests Wagtail 7.4 LTS on Python 3.14 / Django 5.2 and Wagtail 8.0 on Python 3.14 / Django 6.1
 
 **Completed in v0.11.0:**
 
@@ -60,8 +67,8 @@ The current release includes **full H5P and SCORM lesson page support, xAPI trac
 **Supported versions:**
 
 - **Python:** 3.11, 3.12, 3.13, 3.14
-- **Django:** 4.2 (LTS), 5.0, 5.1, 5.2 (LTS), 6.0
-- **Wagtail:** 6.0, 6.2, 6.3, 7.1, 7.2, 7.3
+- **Django:** 4.2 (LTS), 5.0, 5.1, 5.2 (LTS), 6.0, 6.1
+- **Wagtail:** 6.0, 6.2, 6.3, 7.1, 7.2, 7.4 (LTS), 8.0
 
 Selected combinations tested in CI — see the [CI matrix](https://github.com/dr-rompecabezas/wagtail-lms/blob/main/.github/workflows/ci.yml) for details.
 
